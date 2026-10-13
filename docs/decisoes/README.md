@@ -6,6 +6,7 @@ Cada decisão relevante de arquitetura vira um arquivo `NNNN-titulo-curto.md`. U
 | Nº | Título | Status |
 |---|---|---|
 | 0001 | [Escolha da stack](0001-escolha-da-stack.md) | Aceito |
+| 0002 | [Build compatível com o servidor da Hostinger](0002-build-na-hostinger.md) | Aceito |
 
 ## Pendentes (a escrever)
 - Storage de arquivos (anexos e mídias): R2 vs. Hostinger Object Storage (antes da F1)
