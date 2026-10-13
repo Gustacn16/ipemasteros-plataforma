@@ -1,0 +1,167 @@
+// Modelo de dados do IPEMaster OS.
+// Convenções: docs/03-modelo-de-dados.md. Toda mudança aqui vira migration
+// (`npm run db:migrate -- --name <descricao>`). Nunca editar migration aplicada.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// ─── Core ────────────────────────────────────────────────────────────────────
+
+enum Papel {
+  admin
+  gestor
+  colaborador
+  professor
+  aluno
+}
+
+/// Usuário com acesso ao sistema. Desativar (ativo = false) em vez de excluir.
+/// Campos `email`, `emailVerificado`, `imagem` e as relações são usados pelo Better Auth.
+model Usuario {
+  id              String    @id @default(cuid())
+  nome            String    @db.VarChar(150)
+  email           String    @unique @db.VarChar(191)
+  emailVerificado Boolean   @default(false) @map("email_verificado")
+  imagem          String?   @db.VarChar(500)
+  papel           Papel     @default(colaborador)
+  ativo           Boolean   @default(true)
+  ultimoAcessoEm  DateTime? @map("ultimo_acesso_em")
+  criadoEm        DateTime  @default(now()) @map("criado_em")
+  atualizadoEm    DateTime  @updatedAt @map("atualizado_em")
+
+  sessoes           Sessao[]
+  contas            Conta[]
+  convitesEnviados  Convite[]       @relation("ConvitesEnviados")
+  logsAuditoria     LogAuditoria[]
+
+  @@map("usuarios")
+}
+
+/// Sessão de login (gerenciada pelo Better Auth).
+model Sessao {
+  id           String   @id
+  usuarioId    String   @map("usuario_id")
+  token        String   @unique @db.VarChar(191)
+  expiresAt    DateTime @map("expira_em")
+  ipAddress    String?  @map("ip") @db.VarChar(64)
+  userAgent    String?  @map("user_agent") @db.VarChar(500)
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@map("sessoes")
+}
+
+/// Credencial de login (senha) ou conta externa (gerenciada pelo Better Auth).
+model Conta {
+  id                    String    @id @default(cuid())
+  usuarioId             String    @map("usuario_id")
+  accountId             String    @map("conta_id") @db.VarChar(191)
+  providerId            String    @map("provedor_id") @db.VarChar(50)
+  accessToken           String?   @map("access_token") @db.Text
+  refreshToken          String?   @map("refresh_token") @db.Text
+  idToken               String?   @map("id_token") @db.Text
+  accessTokenExpiresAt  DateTime? @map("access_token_expira_em")
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expira_em")
+  scope                 String?   @db.Text
+  password              String?   @map("senha_hash") @db.Text
+  criadoEm              DateTime  @default(now()) @map("criado_em")
+  atualizadoEm          DateTime  @updatedAt @map("atualizado_em")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@map("contas")
+}
+
+/// Tokens de verificação (ex.: redefinição de senha), gerenciados pelo Better Auth.
+model Verificacao {
+  id           String   @id
+  identifier   String   @map("identificador") @db.VarChar(191)
+  value        String   @map("valor") @db.Text
+  expiresAt    DateTime @map("expira_em")
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  @@index([identifier])
+  @@map("verificacoes")
+}
+
+/// Convite de acesso. Só o hash do token é guardado; o token vai no link do e-mail.
+model Convite {
+  id             String    @id @default(cuid())
+  email          String    @db.VarChar(191)
+  nome           String    @db.VarChar(150)
+  papel          Papel
+  tokenHash      String    @unique @map("token_hash") @db.Char(64)
+  expiraEm       DateTime  @map("expira_em")
+  aceitoEm       DateTime? @map("aceito_em")
+  revogadoEm     DateTime? @map("revogado_em")
+  convidadoPorId String    @map("convidado_por_id")
+  criadoEm       DateTime  @default(now()) @map("criado_em")
+
+  convidadoPor Usuario @relation("ConvitesEnviados", fields: [convidadoPorId], references: [id])
+
+  @@index([email])
+  @@map("convites")
+}
+
+/// Registro de auditoria. Somente inserção: nunca editar nem apagar pela aplicação.
+model LogAuditoria {
+  id         String   @id @default(cuid())
+  usuarioId  String?  @map("usuario_id")
+  acao       String   @db.VarChar(100)
+  entidade   String   @db.VarChar(50)
+  entidadeId String?  @map("entidade_id") @db.VarChar(191)
+  diff       Json?
+  ip         String?  @db.VarChar(64)
+  userAgent  String?  @map("user_agent") @db.VarChar(500)
+  criadoEm   DateTime @default(now()) @map("criado_em")
+
+  usuario Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([usuarioId, criadoEm])
+  @@index([entidade, entidadeId])
+  @@index([acao, criadoEm])
+  @@map("logs_auditoria")
+}
+
+enum TipoSolicitacaoTitular {
+  acesso
+  correcao
+  anonimizacao
+  portabilidade
+}
+
+enum StatusSolicitacaoTitular {
+  aberta
+  em_atendimento
+  concluida
+  recusada
+}
+
+/// Pedido de titular de dados (LGPD art. 18). Tela de atendimento vem depois da F0.
+model SolicitacaoTitular {
+  id            String                   @id @default(cuid())
+  tipo          TipoSolicitacaoTitular
+  titularTipo   String                   @map("titular_tipo") @db.VarChar(30)
+  titularId     String?                  @map("titular_id") @db.VarChar(191)
+  titularNome   String                   @map("titular_nome") @db.VarChar(150)
+  titularEmail  String                   @map("titular_email") @db.VarChar(191)
+  status        StatusSolicitacaoTitular @default(aberta)
+  prazoEm       DateTime                 @map("prazo_em")
+  atendidoPorId String?                  @map("atendido_por_id")
+  observacoes   String?                  @db.Text
+  criadoEm      DateTime                 @default(now()) @map("criado_em")
+  atualizadoEm  DateTime                 @updatedAt @map("atualizado_em")
+
+  @@map("solicitacoes_titular")
+}

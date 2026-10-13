@@ -84,7 +84,8 @@ Os jobs precisam ser **idempotentes**: rodar duas vezes não pode duplicar dados
 | Produção | `main` | `plataformaipemaster.com.br` | `ipemaster_prod` |
 
 - São dois sites Node.js na Hostinger Cloud, cada um ligado a uma branch do repositório GitHub, com deploy automático no push.
-- Comando de build na Hostinger: `npm run build` (= `next build --webpack`, ver ADR 0002). Quando o Prisma entrar (F0), passa a ser `prisma migrate deploy && next build --webpack`, e as migrations rodam antes de cada deploy.
+- Comando de build na Hostinger: `npm run build` = `prisma generate && prisma migrate deploy && next build --webpack` (ver ADR 0002). As migrations pendentes são aplicadas antes de cada deploy; se falharem, o deploy falha e a versão anterior continua no ar.
+- Na Hostinger o banco fica no mesmo servidor do site: no `DATABASE_URL` dos sites use o host indicado no hPanel para conexões locais (normalmente `localhost`). O host remoto (`srvXXXX.hstgr.io`) é só para o desenvolvimento local.
 - Fluxo: feature branch → PR para `teste` → validação em homologação → PR `teste` → `main`.
 - O banco de homologação **nunca** usa cópia de dados reais de alunos. Usa o seed.
 

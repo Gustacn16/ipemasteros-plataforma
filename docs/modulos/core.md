@@ -29,6 +29,27 @@ Base comum a todos os módulos: identidade, acesso, papéis, auditoria e conform
 5. Mudança de papel tem efeito imediato: as sessões são invalidadas.
 6. Ao convidar um professor, o sistema vincula o usuário a um `Professor` existente pelo e-mail, ou cria um.
 7. Toda ação listada em "Auditoria" (04-seguranca) chama `registrarAuditoria()` dentro da mesma transação.
+8. **Primeiro acesso:** `/primeiro-acesso` cria o primeiro admin. A página só existe enquanto o banco não tem nenhum usuário e exige o `TOKEN_PRIMEIRO_ACESSO` do servidor. Depois do primeiro usuário, ela responde 404.
+9. Ninguém altera o próprio papel nem desativa a própria conta. Isso evita se trancar fora do sistema.
+10. Um novo convite para o mesmo e-mail revoga o convite pendente anterior.
+11. Na auditoria, o gestor vê só as ações feitas por ele mesmo. O admin vê tudo.
+
+> As regras 4 (tokens Google) e 6 (vínculo com `Professor`) passam a valer quando os módulos Agenda (F3) e Acadêmico (F2) existirem.
+
+## Situação da implementação (F0)
+**Feito:**
+- Login por e-mail e senha, convite com link de 72h, primeiro acesso.
+- Recuperação de senha (link de 1h).
+- Papéis com checagem no servidor.
+- Telas `/admin/usuarios` e `/admin/auditoria`.
+- Auditoria de login, logout, convites, papel e ativação.
+- Limite de tentativas: 5 logins por minuto por IP.
+
+**Pendente:**
+- Bloqueio **por conta** após 5 tentativas falhas. Hoje o limite é só por IP.
+- 2FA para admin e gestor.
+- Verificação contra senhas vazadas.
+- Telas `/perfil`, `/admin/lgpd`, `/admin/integracoes` e `/admin/saude`.
 
 ## Permissões
 Ver a matriz em `04-seguranca-permissoes.md`. O helper central fica em `src/lib/permissoes.ts`.
