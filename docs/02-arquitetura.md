@@ -80,8 +80,8 @@ Os jobs precisam ser **idempotentes**: rodar duas vezes não pode duplicar dados
 | Ambiente | Branch | Endereço | Banco |
 |---|---|---|---|
 | Local | qualquer | `localhost:3000` | MySQL local (Docker) |
-| Homologação | `teste` | `teste.<dominio>` | `ipemaster_teste` |
-| Produção | `main` | `app.<dominio>` (a definir) | `ipemaster_prod` |
+| Homologação | `teste` | `teste.plataformaipemaster.com.br` | `ipemaster_teste` |
+| Produção | `main` | `plataformaipemaster.com.br` | `ipemaster_prod` |
 
 - São dois sites Node.js na Hostinger Cloud, cada um ligado a uma branch do repositório GitHub, com deploy automático no push.
 - Comando de build: `prisma migrate deploy && next build`. As migrations rodam antes de cada deploy.
