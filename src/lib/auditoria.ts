@@ -19,7 +19,11 @@ export type AcaoAuditoria =
   | "espaco.excluido"
   | "espaco.membros_alterados"
   | "conteudo.aprovado"
-  | "conteudo.publicacao_registrada";
+  | "conteudo.publicacao_registrada"
+  | "agenda.evento_criado"
+  | "agenda.evento_editado"
+  | "agenda.evento_excluido"
+  | "agenda.tipo_alterado";
 
 type DadosAuditoria = {
   usuarioId: string | null;

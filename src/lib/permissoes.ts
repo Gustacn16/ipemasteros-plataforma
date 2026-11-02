@@ -26,7 +26,12 @@ export type Permissao =
   | "tarefas:ver_relatorio_equipe"
   | "conteudo:usar"
   | "conteudo:aprovar"
-  | "conteudo:gerenciar_canais";
+  | "conteudo:gerenciar_canais"
+  | "agenda:usar"
+  | "agenda:ver_institucional"
+  | "agenda:ver_institucional_professor"
+  | "agenda:editar_institucional"
+  | "agenda:gerenciar_tipos";
 
 // Colaborador e professor têm regras por registro (membro do espaço, tarefas
 // atribuídas) em src/modulos/tarefas/servicos/acesso.ts.
@@ -40,6 +45,14 @@ const TAREFAS_GESTAO: readonly Permissao[] = [
 
 const CONTEUDO_GESTAO: readonly Permissao[] = ["conteudo:usar", "conteudo:aprovar", "conteudo:gerenciar_canais"];
 
+const AGENDA_GESTAO: readonly Permissao[] = [
+  "agenda:usar",
+  "agenda:ver_institucional",
+  "agenda:ver_institucional_professor",
+  "agenda:editar_institucional",
+  "agenda:gerenciar_tipos",
+];
+
 const PERMISSOES_POR_PAPEL: Record<Papel, readonly Permissao[]> = {
   admin: [
     "core:ver_usuarios",
@@ -49,10 +62,25 @@ const PERMISSOES_POR_PAPEL: Record<Papel, readonly Permissao[]> = {
     "core:ver_auditoria",
     ...TAREFAS_GESTAO,
     ...CONTEUDO_GESTAO,
+    ...AGENDA_GESTAO,
   ],
-  gestor: ["core:ver_usuarios", "core:convidar_usuario", "core:ver_auditoria", ...TAREFAS_GESTAO, ...CONTEUDO_GESTAO],
-  colaborador: ["tarefas:gerenciar_listas", "tarefas:usar", "conteudo:usar"],
-  professor: ["tarefas:usar"],
+  gestor: [
+    "core:ver_usuarios",
+    "core:convidar_usuario",
+    "core:ver_auditoria",
+    ...TAREFAS_GESTAO,
+    ...CONTEUDO_GESTAO,
+    ...AGENDA_GESTAO,
+  ],
+  colaborador: [
+    "tarefas:gerenciar_listas",
+    "tarefas:usar",
+    "conteudo:usar",
+    "agenda:usar",
+    "agenda:ver_institucional",
+    "agenda:editar_institucional",
+  ],
+  professor: ["tarefas:usar", "agenda:usar", "agenda:ver_institucional_professor"],
   aluno: [],
 };
 

@@ -89,3 +89,39 @@ describe("permissões de Conteúdo", () => {
     expect(temPermissao("aluno", "conteudo:usar")).toBe(false);
   });
 });
+
+describe("agenda", () => {
+  const TODAS = [
+    "agenda:usar",
+    "agenda:ver_institucional",
+    "agenda:ver_institucional_professor",
+    "agenda:editar_institucional",
+    "agenda:gerenciar_tipos",
+  ] as const;
+
+  it("admin e gestor têm as cinco permissões", () => {
+    for (const papel of ["admin", "gestor"] as const) {
+      for (const p of TODAS) expect(temPermissao(papel, p)).toBe(true);
+    }
+  });
+
+  it("colaborador usa, vê e edita o institucional, mas não gerencia tipos", () => {
+    expect(temPermissao("colaborador", "agenda:usar")).toBe(true);
+    expect(temPermissao("colaborador", "agenda:ver_institucional")).toBe(true);
+    expect(temPermissao("colaborador", "agenda:editar_institucional")).toBe(true);
+    expect(temPermissao("colaborador", "agenda:ver_institucional_professor")).toBe(false);
+    expect(temPermissao("colaborador", "agenda:gerenciar_tipos")).toBe(false);
+  });
+
+  it("professor só usa e vê o institucional de professor", () => {
+    expect(temPermissao("professor", "agenda:usar")).toBe(true);
+    expect(temPermissao("professor", "agenda:ver_institucional_professor")).toBe(true);
+    expect(temPermissao("professor", "agenda:ver_institucional")).toBe(false);
+    expect(temPermissao("professor", "agenda:editar_institucional")).toBe(false);
+    expect(temPermissao("professor", "agenda:gerenciar_tipos")).toBe(false);
+  });
+
+  it("aluno não tem nenhuma", () => {
+    for (const p of TODAS) expect(temPermissao("aluno", p)).toBe(false);
+  });
+});
