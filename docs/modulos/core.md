@@ -16,6 +16,11 @@ Base comum a todos os módulos: identidade, acesso, papéis, auditoria e conform
 ## Telas
 - `/login`, `/recuperar-senha`, `/convite/[token]` (dados básicos, foto e senha)
 - `/completar-cadastro`: etapa obrigatória para quem ainda não tem dados básicos e foto
+- `/inicio`: saudação pelo apelido, data de hoje e atalho "Minhas tarefas" com o número de abertas. Mostra dois blocos dos próximos 7 dias:
+  - **Suas tarefas:** atrasadas, de hoje e dos próximos 7 dias, só as atribuídas à pessoa e ainda abertas.
+  - **Próximos eventos:** eventos da Agenda agrupados por dia. Um evento de vários dias que já começou aparece em "Hoje".
+
+  Cada bloco só aparece para quem tem a permissão do módulo.
 - `/perfil`: dados pessoais, senha, 2FA, conexões (atalho para a Agenda)
 - `/admin/usuarios`: lista, convidar, mudar papel, desativar
 - `/admin/auditoria`: busca por usuário, entidade, ação e período

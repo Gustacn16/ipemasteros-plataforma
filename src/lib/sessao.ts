@@ -10,6 +10,8 @@ import { prisma } from "@/lib/prisma";
 export type UsuarioAtual = {
   id: string;
   nome: string;
+  /** Como a pessoa prefere ser chamada, se informou. */
+  apelido: string | null;
   email: string;
   papel: Papel;
   /** URL da foto de perfil (rota protegida), se houver. */
@@ -28,13 +30,14 @@ export const obterUsuarioAtual = cache(async (): Promise<UsuarioAtual | null> =>
 
   const usuario = await prisma.usuario.findUnique({
     where: { id: sessao.user.id },
-    select: { id: true, nome: true, email: true, papel: true, ativo: true, imagem: true, perfilCompletoEm: true },
+    select: { id: true, nome: true, apelido: true, email: true, papel: true, ativo: true, imagem: true, perfilCompletoEm: true },
   });
   if (!usuario?.ativo) return null;
 
   return {
     id: usuario.id,
     nome: usuario.nome,
+    apelido: usuario.apelido,
     email: usuario.email,
     papel: usuario.papel,
     imagem: usuario.imagem,
