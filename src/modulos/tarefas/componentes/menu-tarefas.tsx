@@ -92,6 +92,7 @@ function Conteudo(props: Props) {
     <nav aria-label="Tarefas" className="grid gap-4">
       <div className="grid gap-0.5">
         <ItemLink href="/tarefas/minhas">Minhas tarefas</ItemLink>
+        <ItemLink href="/tarefas/relatorio">Relatório</ItemLink>
       </div>
       {props.espacos && <ArvoreEspacos {...props} espacos={props.espacos} />}
     </nav>

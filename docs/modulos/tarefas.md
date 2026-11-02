@@ -35,6 +35,7 @@ Especificação da F1a: `docs/superpowers/specs/2026-11-02-f1a-tarefas-design.md
   - A escolha Lista/Quadro fica salva no cookie `tarefas_visao` (por navegador, vale para todas as listas).
   - **Calendário:** por data de entrega.
 - **Minhas tarefas** (`/tarefas/minhas`): tudo atribuído a mim, agrupado em "Atrasadas", "Hoje", "Próximos 7 dias" e "Sem data".
+- **Relatório** (`/tarefas/relatorio`): no topo, os números do próprio usuário (abertas, atrasadas agora, entregues no período e % no prazo); embaixo, uma tabela por pessoa com as mesmas colunas. Admin e gestor (`tarefas:ver_relatorio_equipe`) veem a equipe toda (usuários ativos com tarefa no filtro); os demais veem só a própria linha. Filtros na URL: período (`periodo=semana|mes|mes_passado|intervalo`, com `de` e `ate` no intervalo livre; padrão este mês; semana de segunda a domingo) e espaço (`espaco`, padrão todos os visíveis). Clicar numa pessoa (`?pessoa=id`) lista as tarefas dela que entraram na conta, com o selo "No prazo", "Atrasada" ou "Sem data".
 - **Detalhe da tarefa** (painel lateral ou modal): descrição, subtarefas, checklist, responsáveis, datas, prioridade, etiquetas, anexos, comentários e histórico.
 - **Configurações do espaço/lista:** membros, status e etiquetas.
 
@@ -51,6 +52,14 @@ Especificação da F1a: `docs/superpowers/specs/2026-11-02-f1a-tarefas-design.md
 10. Toda alteração de status, responsável, datas ou prioridade gera uma linha em `HistoricoTarefa`.
 11. Arrastar para reordenar usa ordenação fracionária (`ordem` decimal) para evitar reescrever a lista inteira.
 
+## Relatório: como é calculado
+- **Abertas:** tarefas sem `concluidaEm`, contadas agora (o período não vale para elas). **Atrasadas agora:** abertas com entrega anterior a hoje.
+- **Entregues:** `concluidaEm` dentro do período (do primeiro dia à meia-noite até o fim do último dia, em São Paulo).
+- **No prazo:** entregues com `concluidaEm` ≤ 23:59:59.999 do dia da entrega em São Paulo (UTC−3 fixo).
+- **% no prazo:** no prazo ÷ entregues com data, arredondado. "—" se não houver entregue com data. Verde ≥ 80%, amarelo 60–79%, vermelho < 60%.
+- Tarefa com vários responsáveis conta para cada um; subtarefa conta como tarefa; tarefas, listas e espaços excluídos ficam de fora.
+- Regras em `src/modulos/tarefas/regras/relatorio.ts` (testes em `relatorio.test.ts`); consulta em `servicos/relatorio.ts`.
+
 ## Integrações
 - **Agenda:** tarefas com data podem ser enviadas ao Google Calendar do responsável (opção do usuário).
 - **Acadêmico/Conteúdo:** uma tarefa pode ser vinculada a uma turma ou publicação e aparece na tela delas.
@@ -61,7 +70,9 @@ Tarefas recorrentes, controle de tempo (time tracking), automações ("quando X 
 ## Situação da implementação
 **F1a bloco 1 (feito):** espaços com membros, listas, status configuráveis, tarefas e subtarefas, responsáveis, datas, prioridade, visualização Lista com filtros, painel de detalhe e Minhas tarefas.
 
-**Próximos:** bloco 2 (Quadro Kanban, checklist, etiquetas, histórico, ordem fracionária) e bloco 3 (relatório por pessoa e 2FA). Pastas, comentários, anexos, calendário e texto formatado ficam para a F1c.
+**F1a bloco 3 (em andamento):** relatório por pessoa (feito). Falta o 2FA.
+
+**Próximos:** bloco 2 (Quadro Kanban, checklist, etiquetas, histórico, ordem fracionária) e o restante do bloco 3 (2FA). Pastas, comentários, anexos, calendário e texto formatado ficam para a F1c.
 
 ## Dúvidas em aberto
 - As notificações por e-mail são necessárias ou bastam as notificações no sistema?
