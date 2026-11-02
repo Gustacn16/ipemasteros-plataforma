@@ -13,7 +13,10 @@ export type AcaoAuditoria =
   | "usuario.convite_aceito"
   | "usuario.papel_alterado"
   | "usuario.desativado"
-  | "usuario.reativado";
+  | "usuario.reativado"
+  | "espaco.criado"
+  | "espaco.excluido"
+  | "espaco.membros_alterados";
 
 type DadosAuditoria = {
   usuarioId: string | null;

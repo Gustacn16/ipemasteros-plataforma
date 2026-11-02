@@ -45,3 +45,27 @@ describe("quem pode convidar quem", () => {
     for (const papel of PAPEIS) expect(podeConvidar(papel, "aluno")).toBe(false);
   });
 });
+
+describe("permissões de Tarefas", () => {
+  it("admin e gestor gerenciam espaços, veem todos e veem o relatório da equipe", () => {
+    for (const papel of ["admin", "gestor"] as const) {
+      expect(temPermissao(papel, "tarefas:gerenciar_espacos")).toBe(true);
+      expect(temPermissao(papel, "tarefas:ver_todos_espacos")).toBe(true);
+      expect(temPermissao(papel, "tarefas:ver_relatorio_equipe")).toBe(true);
+    }
+  });
+
+  it("colaborador gerencia listas e usa tarefas, mas não cria espaços nem vê todos", () => {
+    expect(temPermissao("colaborador", "tarefas:gerenciar_listas")).toBe(true);
+    expect(temPermissao("colaborador", "tarefas:usar")).toBe(true);
+    expect(temPermissao("colaborador", "tarefas:gerenciar_espacos")).toBe(false);
+    expect(temPermissao("colaborador", "tarefas:ver_todos_espacos")).toBe(false);
+    expect(temPermissao("colaborador", "tarefas:ver_relatorio_equipe")).toBe(false);
+  });
+
+  it("professor só usa tarefas; aluno não tem acesso", () => {
+    expect(temPermissao("professor", "tarefas:usar")).toBe(true);
+    expect(temPermissao("professor", "tarefas:gerenciar_listas")).toBe(false);
+    expect(temPermissao("aluno", "tarefas:usar")).toBe(false);
+  });
+});
