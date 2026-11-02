@@ -70,6 +70,19 @@ export const esquemaLote = z
   });
 export type DadosLote = z.infer<typeof esquemaLote>;
 
+/**
+ * Erros por caminho completo ("periodos.1"), para mostrar o erro na linha certa
+ * do lote. `z.flattenError` guardaria só o primeiro nível ("periodos").
+ */
+export function errosPorCaminho(erro: z.ZodError): Record<string, string[]> {
+  const erros: Record<string, string[]> = {};
+  for (const issue of erro.issues) {
+    const chave = issue.path.map(String).join(".");
+    (erros[chave] ??= []).push(issue.message);
+  }
+  return erros;
+}
+
 export const esquemaTipo = z.object({
   nome: z.string().trim().min(1, "Informe o nome").max(40, "Nome longo demais"),
   cor: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Cor inválida"),

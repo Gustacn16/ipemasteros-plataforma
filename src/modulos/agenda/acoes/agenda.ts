@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { tratarErroAcao, type EstadoAcao } from "@/lib/acoes";
 import { exigirPermissao } from "@/lib/sessao";
-import { esquemaEditarEvento, esquemaEvento, esquemaLote, esquemaTipo } from "../esquemas/agenda";
+import { errosPorCaminho, esquemaEditarEvento, esquemaEvento, esquemaLote, esquemaTipo } from "../esquemas/agenda";
 import { criarEvento, criarLote, editarEvento, excluirEvento } from "../servicos/eventos";
 import { criarTipo, definirAtivo, editarTipo, moverTipo } from "../servicos/tipos";
 
@@ -33,6 +33,8 @@ export async function criarLoteAcao(dados: unknown): Promise<EstadoAcao<{ quanti
     revalidarAgenda();
     return { ok: true, mensagem: `${quantidade} datas lançadas.`, dados: { quantidade } };
   } catch (erro) {
+    // O erro de cada período volta como "periodos.<i>", para aparecer na linha.
+    if (erro instanceof z.ZodError) return { ok: false, erros: errosPorCaminho(erro) };
     return tratarErroAcao(erro);
   }
 }

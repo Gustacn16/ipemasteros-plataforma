@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { esquemaEvento, esquemaLote, esquemaTipo, esquemaPeriodo, filtroDoCookie } from "./agenda";
+import { errosPorCaminho, esquemaEvento, esquemaLote, esquemaTipo, esquemaPeriodo, filtroDoCookie } from "./agenda";
 
 const base = { tipoId: "t1", titulo: "Aula", visivelProfessores: false };
 
@@ -70,5 +70,14 @@ describe("filtroDoCookie", () => {
   it("preserva tipos", () => {
     const f = filtroDoCookie(JSON.stringify({ visao: "semana", tipos: ["a", "b"], tarefas: false, desligadas: ["x"] }));
     expect(f).toEqual({ visao: "semana", tipos: ["a", "b"], tarefas: false, desligadas: ["x"] });
+  });
+});
+
+describe("errosPorCaminho", () => {
+  it("guarda o índice do período repetido", () => {
+    const d = { dataInicio: "2026-11-07", dataFim: "2026-11-08" };
+    const r = esquemaLote.safeParse({ ...base, horaInicio: null, horaFim: null, numerar: true, periodos: [d, d] });
+    expect(r.success).toBe(false);
+    expect(errosPorCaminho(r.error!)).toEqual({ "periodos.1": ["Esta data já está no lote."] });
   });
 });
