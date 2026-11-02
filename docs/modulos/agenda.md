@@ -42,6 +42,7 @@ Especificação: `docs/superpowers/specs/2026-11-02-agenda-design.md`.
 3. **Lote:** cria de 1 a 30 eventos com o mesmo tipo, título-base, turma, local, horário e visibilidade. Cada período tem início e fim (o padrão é sábado e domingo). Com "numerar títulos", o título vira "<título> — 1", "— 2" e assim por diante, na ordem das datas. Todos recebem o mesmo `loteId`, mas depois de criados são independentes: editar um não muda os outros.
 4. **Tipos de evento:** só quem tem `agenda:gerenciar_tipos` cria, renomeia, troca a cor, reordena e desativa. Não existe exclusão, só desativação. Tipo inativo some do formulário, mas os eventos dele continuam visíveis. O nome do tipo não pode se repetir. Toda alteração vai para a auditoria (`agenda.tipo_alterado`).
 5. **Camada de tarefas:** mostra as tarefas abertas com data de entrega em que a pessoa é responsável, com as mesmas regras de visibilidade do módulo Tarefas. Clicar abre a tarefa na lista dela. As concluídas não aparecem.
+   Para professores o item da tarefa abre `/tarefas/minhas` (e não a lista da tarefa), porque professores não navegam pelos espaços.
 6. **Agenda pessoal (entrega 2):**
    - Só a própria pessoa lê, edita ou remove (nem o admin).
    - Só são aceitos links `https` de Google Calendar e Outlook, para impedir que o servidor seja usado para acessar endereços internos.

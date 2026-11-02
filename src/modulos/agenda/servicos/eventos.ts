@@ -45,11 +45,15 @@ export async function listarEventos(
   ator: UsuarioAtual,
   filtro: { de: string; ate: string; tipos?: string[]; turma?: string },
 ): Promise<EventoAgenda[]> {
+  // Ids salvos que não são mais tipos ativos são ignorados; eventos de tipos inativos nunca somem do filtro.
+  const ativos = filtro.tipos?.length
+    ? (await prisma.tipoEvento.findMany({ where: { ativo: true, id: { in: filtro.tipos } }, select: { id: true } })).map((t) => t.id)
+    : [];
   const where: Prisma.EventoInstitucionalWhereInput = {
     AND: [filtroEventosVisiveis(ator.papel)],
     dataInicio: { lte: dia(filtro.ate) },
     dataFim: { gte: dia(filtro.de) },
-    ...(filtro.tipos?.length ? { tipoId: { in: filtro.tipos } } : {}),
+    ...(ativos.length ? { OR: [{ tipoId: { in: ativos } }, { tipo: { ativo: false } }] } : {}),
     ...(filtro.turma ? { turma: filtro.turma } : {}),
   };
   const linhas = await prisma.eventoInstitucional.findMany({

@@ -99,9 +99,9 @@ describe("agenda", () => {
     "agenda:gerenciar_tipos",
   ] as const;
 
-  it("admin e gestor têm as cinco permissões", () => {
+  it("admin e gestor têm tudo, menos a visão restrita de professor", () => {
     for (const papel of ["admin", "gestor"] as const) {
-      for (const p of TODAS) expect(temPermissao(papel, p)).toBe(true);
+      for (const p of TODAS) expect(temPermissao(papel, p)).toBe(p !== "agenda:ver_institucional_professor");
     }
   });
 

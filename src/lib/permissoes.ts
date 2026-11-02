@@ -48,7 +48,6 @@ const CONTEUDO_GESTAO: readonly Permissao[] = ["conteudo:usar", "conteudo:aprova
 const AGENDA_GESTAO: readonly Permissao[] = [
   "agenda:usar",
   "agenda:ver_institucional",
-  "agenda:ver_institucional_professor",
   "agenda:editar_institucional",
   "agenda:gerenciar_tipos",
 ];
