@@ -17,6 +17,16 @@ const nextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: cabecalhosSeguranca }];
   },
+  // Turbopack (next dev) não precisa de ajuste para o worker; o objeto vazio só avisa ao
+  // Next 16 que a config de webpack abaixo é intencional (sem ele, o Turbopack recusa).
+  turbopack: {},
+  webpack(config, { isServer }) {
+    // Workers do servidor (worker_threads, ex.: leitura do iCal da Agenda): o chunk do
+    // worker fica ao lado dos outros em .next/server/chunks. Sem isto o webpack usaria o
+    // publicPath "/_next/" (o padrão "" cai nele) e procuraria o arquivo em file:///_next/...
+    if (isServer) config.output.workerPublicPath = "./";
+    return config;
+  },
 };
 
 export default nextConfig;

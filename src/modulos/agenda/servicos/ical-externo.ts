@@ -1,151 +1,27 @@
 import "server-only";
 import { createHash } from "node:crypto";
-import ICAL from "ical.js";
 import { ErroNegocio } from "@/lib/erros";
 import { validarUrlIcal } from "@/modulos/agenda/regras/url-ical";
+import { interpretarIcalIsolado } from "./ical-em-worker";
+import { NAO_E_AGENDA, type EventoExterno } from "./ical-interpretar";
 
 /**
- * Leitura das agendas pessoais por link iCal (spec, regra 6).
+ * Leitura das agendas pessoais por link iCal (spec, regra 6): busca, limites e cache.
+ * A interpretação fica em ical-interpretar.ts e roda num worker (ical-em-worker.ts).
  * Nada daqui vai para log nem para o banco: nem a URL, nem o corpo, nem os eventos.
  */
 
-export type EventoExterno = {
-  uid: string;
-  titulo: string;
-  inicio: Date;
-  fim: Date;
-  diaInteiro: boolean;
-  local: string | null;
-};
+export {
+  interpretarIcal,
+  MAX_OCORRENCIAS,
+  type EventoExterno,
+} from "./ical-interpretar";
+export { interpretarIcalIsolado } from "./ical-em-worker";
 
-export const MAX_OCORRENCIAS = 2000;
-/** Passos do iterador de recorrência por agenda (protege contra RRULE antigas e densas). */
-const MAX_PASSOS = 100_000;
 const MAX_BYTES = 5 * 1024 * 1024;
 const TIMEOUT_MS = 8000;
 const MAX_REDIRECTS = 2;
 const CACHE_MS = 10 * 60 * 1000;
-const HORA_MS = 3_600_000;
-const DIA_MS = 86_400_000;
-
-const NAO_E_AGENDA = "Este endereço não é de uma agenda.";
-
-// ---------------------------------------------------------------------------
-// Interpretação (pura)
-
-/** Meia-noite de São Paulo (UTC−3 fixo) do dia "AAAA-MM-DD". */
-function meiaNoiteSp(dia: string): number {
-  const ms = Date.parse(`${dia}T00:00:00Z`);
-  if (Number.isNaN(ms)) throw new Error("Dia inválido.");
-  return ms + 3 * HORA_MS;
-}
-
-/** Instante UTC de um ICAL.Time. Datas e horas sem fuso são lidas como São Paulo. */
-function paraData(t: ICAL.Time): Date {
-  if (t.isDate) return new Date(Date.UTC(t.year, t.month - 1, t.day) + 3 * HORA_MS);
-  if (!t.zone || t.zone === ICAL.Timezone.localTimezone) {
-    return new Date(Date.UTC(t.year, t.month - 1, t.day, t.hour, t.minute, t.second) + 3 * HORA_MS);
-  }
-  return new Date(t.toUnixTime() * 1000);
-}
-
-function cancelado(ev: ICAL.Event): boolean {
-  return String(ev.component.getFirstPropertyValue("status") ?? "").toUpperCase() === "CANCELLED";
-}
-
-function textoOuNulo(valor: unknown): string | null {
-  const s = typeof valor === "string" ? valor.trim() : "";
-  return s === "" ? null : s;
-}
-
-/**
- * Eventos do texto iCal que tocam o intervalo [de, ate] (dias "AAAA-MM-DD", inclusivos,
- * em São Paulo), com RRULE/EXDATE/RECURRENCE-ID expandidos. No máximo 2.000 ocorrências.
- * Dia inteiro: `inicio` é meia-noite de São Paulo e `fim` é exclusivo (como `instanteFim`).
- */
-export function interpretarIcal(texto: string, de: string, ate: string): EventoExterno[] {
-  const inicioIntervalo = meiaNoiteSp(de);
-  const fimIntervalo = meiaNoiteSp(ate) + DIA_MS;
-
-  let raiz: ICAL.Component;
-  try {
-    raiz = new ICAL.Component(ICAL.parse(texto));
-  } catch {
-    throw new ErroNegocio(NAO_E_AGENDA);
-  }
-  if (raiz.name !== "vcalendar") throw new ErroNegocio(NAO_E_AGENDA);
-
-  // Séries e ocorrências avulsas; exceções (RECURRENCE-ID) ligadas à série do mesmo UID.
-  const principais: ICAL.Event[] = [];
-  const porUid = new Map<string, ICAL.Event>();
-  const excecoes: ICAL.Component[] = [];
-  for (const comp of raiz.getAllSubcomponents("vevent")) {
-    try {
-      if (comp.hasProperty("recurrence-id")) {
-        excecoes.push(comp);
-        continue;
-      }
-      const ev = new ICAL.Event(comp);
-      principais.push(ev);
-      if (ev.uid && !porUid.has(ev.uid)) porUid.set(ev.uid, ev);
-    } catch {
-      // evento malformado: ignora só ele
-    }
-  }
-  for (const comp of excecoes) {
-    try {
-      const uid = String(comp.getFirstPropertyValue("uid") ?? "");
-      const serie = porUid.get(uid);
-      if (serie && serie.isRecurring()) serie.relateException(comp);
-      else principais.push(new ICAL.Event(comp));
-    } catch {
-      // idem
-    }
-  }
-
-  const saida: EventoExterno[] = [];
-  let passos = 0;
-
-  const emitir = (ev: ICAL.Event, inicioT: ICAL.Time, fimT: ICAL.Time): void => {
-    if (cancelado(ev)) return;
-    const inicio = paraData(inicioT);
-    let fim = paraData(fimT);
-    if (fim < inicio) fim = inicio;
-    const toca = inicio.getTime() < fimIntervalo && (fim.getTime() > inicioIntervalo || inicio.getTime() >= inicioIntervalo);
-    if (!toca) return;
-    saida.push({
-      uid: ev.uid || "",
-      titulo: textoOuNulo(ev.summary) ?? "(sem título)",
-      inicio,
-      fim,
-      diaInteiro: inicioT.isDate,
-      local: textoOuNulo(ev.location),
-    });
-  };
-
-  externo: for (const ev of principais) {
-    try {
-      if (!ev.startDate) continue;
-      if (!ev.isRecurring()) {
-        emitir(ev, ev.startDate, ev.endDate);
-        if (saida.length >= MAX_OCORRENCIAS) break;
-        continue;
-      }
-      const iterador = ev.iterator();
-      for (let ocorrencia = iterador.next(); ocorrencia; ocorrencia = iterador.next()) {
-        if (++passos > MAX_PASSOS) break externo;
-        if (paraData(ocorrencia).getTime() >= fimIntervalo) break;
-        const detalhe = ev.getOccurrenceDetails(ocorrencia);
-        emitir(detalhe.item, detalhe.startDate, detalhe.endDate);
-        if (saida.length >= MAX_OCORRENCIAS) break externo;
-      }
-    } catch {
-      // RRULE ou data malformada: ignora só esta série
-    }
-  }
-
-  return saida.sort((a, b) => a.inicio.getTime() - b.inicio.getTime() || a.uid.localeCompare(b.uid));
-}
 
 // ---------------------------------------------------------------------------
 // Busca na rede
@@ -265,5 +141,5 @@ export async function lerAgendaExterna(id: string, url: string, de: string, ate:
     );
     entrada = nova;
   }
-  return interpretarIcal(await entrada.texto, de, ate);
+  return interpretarIcalIsolado(await entrada.texto, de, ate);
 }

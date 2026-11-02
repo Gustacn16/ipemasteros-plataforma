@@ -2,9 +2,16 @@ import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
+// Sem bundler o worker real não roda no Vitest: aqui a interpretação é feita no próprio processo.
+// O worker tem testes próprios (ical-em-worker.test.ts) e foi conferido no build.
+vi.mock("./ical-em-worker", async () => {
+  const { interpretarIcal } = await vi.importActual<typeof import("./ical-interpretar")>("./ical-interpretar");
+  return { interpretarIcalIsolado: async (t: string, de: string, ate: string) => interpretarIcal(t, de, ate) };
+});
 
 import { ErroNegocio } from "@/lib/erros";
 import { buscarIcal, esquecerAgendaExterna, interpretarIcal, lerAgendaExterna } from "./ical-externo";
+import { processarPedido, regraImpossivel } from "./ical-interpretar";
 
 const fixture = (nome: string) => readFileSync(new URL(`./__fixtures__/${nome}`, import.meta.url), "utf8");
 const iso = (d: Date) => d.toISOString();
@@ -118,8 +125,103 @@ describe("interpretarIcal", () => {
     expect(iso(e.fim)).toBe("2026-11-10T12:00:00.000Z");
   });
 
+  it("pula RRULE impossíveis (30/02 diária e mensal, 31/04, dia 0, BYWEEKNO diário) e mantém o resto", () => {
+    const comeco = performance.now();
+    const eventos = interpretarIcal(fixture("impossivel.ics"), "2026-01-01", "2027-12-31");
+    expect(performance.now() - comeco).toBeLessThan(1000);
+    // Da série impossível fica só a ocorrência do próprio DTSTART.
+    expect(eventos.map((e) => [e.uid, iso(e.inicio)])).toEqual([
+      ["anual-31-abr@ficticio.test", "2026-01-01T12:00:00.000Z"],
+      ["dia-zero@ficticio.test", "2026-01-01T12:00:00.000Z"],
+      ["diario-30-fev@ficticio.test", "2026-01-01T12:00:00.000Z"],
+      ["mensal-30-fev@ficticio.test", "2026-01-01T12:00:00.000Z"],
+      ["semana-30-jan@ficticio.test", "2026-01-01T12:00:00.000Z"],
+      ["mensal-31@ficticio.test", "2026-10-31T12:00:00.000Z"],
+      ["normal@ficticio.test", "2026-11-10T12:00:00.000Z"],
+      ["mensal-31@ficticio.test", "2026-12-31T12:00:00.000Z"],
+      ["mensal-31@ficticio.test", "2027-01-31T12:00:00.000Z"],
+    ]);
+  });
+
+  it("regraImpossivel reconhece combinações que nunca acontecem", () => {
+    expect(regraImpossivel({ BYMONTH: [2], BYMONTHDAY: [30] })).toBe(true);
+    expect(regraImpossivel({ BYMONTH: [2], BYMONTHDAY: [-30] })).toBe(true);
+    expect(regraImpossivel({ BYMONTH: [4, 6, 9, 11], BYMONTHDAY: [31] })).toBe(true);
+    expect(regraImpossivel({ BYMONTHDAY: [32] })).toBe(true);
+    expect(regraImpossivel({ BYMONTHDAY: [0] })).toBe(true);
+    expect(regraImpossivel({ BYMONTH: [13] })).toBe(true);
+    expect(regraImpossivel({ BYYEARDAY: [367, -367, 0] })).toBe(true);
+    expect(regraImpossivel({ BYMONTH: [2], BYMONTHDAY: [29] })).toBe(false);
+    expect(regraImpossivel({ BYMONTH: [2, 3], BYMONTHDAY: [30] })).toBe(false);
+    expect(regraImpossivel({ BYMONTH: [4], BYMONTHDAY: [30, 31] })).toBe(false);
+    expect(regraImpossivel({ BYMONTHDAY: [31] })).toBe(false);
+    expect(regraImpossivel({ BYYEARDAY: [366, -1] })).toBe(false);
+    expect(regraImpossivel({})).toBe(false);
+    expect(regraImpossivel({ BYMONTH: [1], BYWEEKNO: [30] }, "DAILY")).toBe(true);
+    expect(regraImpossivel({ BYWEEKNO: [30] }, "YEARLY")).toBe(false);
+  });
+
+  it("valor fora da faixa no RRULE (BYYEARDAY=400) o ical.js recusa já na leitura", () => {
+    const texto = calendario(
+      "BEGIN:VEVENT",
+      "UID:y@ficticio.test",
+      "DTSTART:20260101T120000Z",
+      "RRULE:FREQ=YEARLY;BYYEARDAY=400",
+      "END:VEVENT",
+    );
+    expect(() => interpretarIcal(texto, "2026-01-01", "2026-12-31")).toThrow(ErroNegocio);
+  });
+
+  it("série que estoura o orçamento de passos é pulada sozinha", () => {
+    const antiga = [
+      "BEGIN:VEVENT",
+      "UID:antiga@ficticio.test",
+      "DTSTART:17000101T120000Z",
+      "DTEND:17000101T130000Z",
+      "RRULE:FREQ=DAILY",
+      "SUMMARY:Diária desde 1700",
+      "END:VEVENT",
+    ].join("\r\n");
+    const depois = [
+      "BEGIN:VEVENT",
+      "UID:depois@ficticio.test",
+      "DTSTART:20261110T120000Z",
+      "DTEND:20261110T130000Z",
+      "RRULE:FREQ=WEEKLY;COUNT=2",
+      "SUMMARY:Semanal",
+      "END:VEVENT",
+    ].join("\r\n");
+    const eventos = interpretarIcal(calendario(antiga, depois, diario("d7")), "2026-11-10", "2026-11-17");
+    expect(eventos.filter((e) => e.uid === "antiga@ficticio.test")).toEqual([]);
+    expect(eventos.filter((e) => e.uid === "depois@ficticio.test").map((e) => iso(e.inicio))).toEqual([
+      "2026-11-10T12:00:00.000Z",
+      "2026-11-17T12:00:00.000Z",
+    ]);
+    expect(eventos.filter((e) => e.uid === "d7")).toHaveLength(8);
+  });
+
   it("texto que não é iCal → ErroNegocio", () => {
     expect(() => interpretarIcal("<html></html>", "2026-11-01", "2026-11-30")).toThrow(ErroNegocio);
+  });
+});
+
+describe("processarPedido (corpo do worker)", () => {
+  it("responde ok com os eventos", () => {
+    const r = processarPedido({ texto: fixture("fuso-ny.ics"), de: "2026-11-01", ate: "2026-11-30" });
+    expect(r.ok && r.eventos.map((e) => e.uid)).toEqual(["call-ny@ficticio.test"]);
+  });
+  it("erro de negócio vira mensagem", () => {
+    expect(processarPedido({ texto: "<html>", de: "2026-11-01", ate: "2026-11-30" })).toEqual({
+      ok: false,
+      mensagem: "Este endereço não é de uma agenda.",
+    });
+  });
+  it("pedido malformado ou erro inesperado vira mensagem genérica", () => {
+    expect(processarPedido(null)).toEqual({ ok: false, mensagem: "Não consegui interpretar esta agenda." });
+    expect(processarPedido({ texto: "BEGIN:VCALENDAR", de: "lixo", ate: "2026-11-30" })).toEqual({
+      ok: false,
+      mensagem: "Não consegui interpretar esta agenda.",
+    });
   });
 });
 
