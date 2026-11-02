@@ -82,4 +82,6 @@ OAuth do Google (criar eventos no Google, aulas na agenda do professor), eventos
 
 **Entrega 2, integração com o Google por iCal (feita, aguardando validação na homologação):** agendas pessoais por link iCal (cifra, validação de endereço, leitura em worker e cache), camada pessoal no calendário, assinatura `.ics`, as seções "Minhas agendas" e "Levar para o Google" em `/agenda/configuracoes` e a ADR 0005.
 
+**Carga inicial das aulas (migration `20261104030000_agenda_aulas_2026_2027`):** 127 eventos do tipo "Aulas da pós" e "Formatura", visíveis para professores, tirados dos calendários enviados pela coordenação: Transplante Capilar Turma 3 e Cíclica (2026), Turma 4 (2026/2–2027/1), Turma 5 (2027) e Psiquiatria Clínica (out/2026–out/2027). Cada turma é um lote (`lote_tc_t3`, `lote_tc_t4`, `lote_tc_t5`, `lote_psq`). Depois da carga, as datas se editam normalmente na Agenda. A escala da equipe (logística) não entrou.
+
 **Depois (fora da v1):** OAuth do Google, para criar eventos no Google e levar tarefas e aulas para a agenda de cada pessoa.
