@@ -28,10 +28,14 @@ const esquemaNovaAgenda = esquemaDadosAgenda.extend({
 });
 const esquemaEditarAgenda = esquemaDadosAgenda.extend({ agendaId: esquemaId });
 
-/** Endereço público do ambiente: BETTER_AUTH_URL, ou o host da requisição. */
+/**
+ * Endereço público do ambiente. Em produção vem só de BETTER_AUTH_URL: cabeçalhos da requisição
+ * podem ser forjados e o link carrega um segredo. Fora de produção, cai no host da requisição.
+ */
 async function origemDoApp(): Promise<string> {
   const configurada = process.env.BETTER_AUTH_URL?.trim();
   if (configurada) return configurada.replace(/\/+$/, "");
+  if (process.env.NODE_ENV === "production") throw new ErroNegocio("Endereço do sistema não configurado.");
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host");
   if (!host) throw new ErroNegocio("Não consegui montar o endereço do link.");

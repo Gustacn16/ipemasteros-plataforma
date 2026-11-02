@@ -1,5 +1,6 @@
 import "server-only";
 import { createHash, randomBytes } from "node:crypto";
+import { registrarAuditoria } from "@/lib/auditoria";
 import { prisma } from "@/lib/prisma";
 import type { UsuarioAtual } from "@/lib/sessao";
 import { exigir } from "./acesso";
@@ -26,10 +27,17 @@ export async function gerarLinkAssinatura(ator: UsuarioAtual, origem: string): P
   exigir(ator, "agenda:usar");
   const token = randomBytes(32).toString("base64url");
   const tokenHash = hashDoToken(token);
-  await prisma.assinaturaAgenda.upsert({
-    where: { usuarioId: ator.id },
-    create: { usuarioId: ator.id, tokenHash },
-    update: { tokenHash, criadoEm: new Date() },
+  await prisma.$transaction(async (tx) => {
+    await tx.assinaturaAgenda.upsert({
+      where: { usuarioId: ator.id },
+      create: { usuarioId: ator.id, tokenHash },
+      update: { tokenHash, criadoEm: new Date() },
+    });
+    // Nunca registrar o token nem o hash.
+    await registrarAuditoria(
+      { usuarioId: ator.id, acao: "agenda.assinatura_gerada", entidade: "AssinaturaAgenda", entidadeId: ator.id },
+      tx,
+    );
   });
   return `${origem.replace(/\/+$/, "")}/api/agenda/assinatura/${token}.ics`;
 }

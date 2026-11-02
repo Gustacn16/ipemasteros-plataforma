@@ -23,7 +23,8 @@ export type AcaoAuditoria =
   | "agenda.evento_criado"
   | "agenda.evento_editado"
   | "agenda.evento_excluido"
-  | "agenda.tipo_alterado";
+  | "agenda.tipo_alterado"
+  | "agenda.assinatura_gerada";
 
 type DadosAuditoria = {
   usuarioId: string | null;

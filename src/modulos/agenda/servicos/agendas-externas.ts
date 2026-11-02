@@ -130,11 +130,11 @@ export async function eventosDasMinhasAgendas(
         const lidos = await lerAgendaExterna(a.id, decifrar(a.urlCifrada), de, ate);
         const agora = new Date();
         const velho = !a.ultimoSucessoEm || agora.getTime() - a.ultimoSucessoEm.getTime() > REGRAVAR_SUCESSO_MS;
-        if (a.ultimoErro !== null || velho) await gravarEstado(a.id, { ultimoSucessoEm: agora, ultimoErro: null });
+        if (a.ultimoErro !== null || velho) await gravarEstado(ator.id, a.id, { ultimoSucessoEm: agora, ultimoErro: null });
         return { erro: null, eventos: lidos.map((e) => ({ ...e, agendaId: a.id })) };
       } catch (e) {
         const erro = mensagemDeErro(e);
-        if (a.ultimoErro !== erro) await gravarEstado(a.id, { ultimoErro: erro });
+        if (a.ultimoErro !== erro) await gravarEstado(ator.id, a.id, { ultimoErro: erro });
         return { erro, eventos: [] as EventoDeAgenda[] };
       }
     }),
@@ -147,6 +147,10 @@ export async function eventosDasMinhasAgendas(
 }
 
 /** Falha ao gravar o estado não impede de mostrar a agenda. Nada vai para o log. */
-async function gravarEstado(id: string, data: { ultimoSucessoEm?: Date; ultimoErro: string | null }): Promise<void> {
-  await prisma.agendaExterna.update({ where: { id }, data }).catch(() => {});
+async function gravarEstado(
+  usuarioId: string,
+  id: string,
+  data: { ultimoSucessoEm?: Date; ultimoErro: string | null },
+): Promise<void> {
+  await prisma.agendaExterna.updateMany({ where: { id, usuarioId }, data }).catch(() => {});
 }
