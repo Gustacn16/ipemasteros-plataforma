@@ -1,11 +1,11 @@
 "use client";
 
 import {
+  BriefcaseBusinessIcon,
   CalendarIcon,
   ClapperboardIcon,
   GraduationCapIcon,
   HouseIcon,
-  LayoutDashboardIcon,
   ListChecksIcon,
   LogOutIcon,
   ShieldCheckIcon,
@@ -23,7 +23,7 @@ const ICONES = {
   conteudo: <ClapperboardIcon />,
   agenda: <CalendarIcon />,
   academico: <GraduationCapIcon />,
-  dashboard: <LayoutDashboardIcon />,
+  comercial: <BriefcaseBusinessIcon />,
   usuarios: <UsersIcon />,
   auditoria: <ShieldCheckIcon />,
 };

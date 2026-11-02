@@ -11,7 +11,10 @@ export async function salvarCanalAcao(_: EstadoAcao, formData: FormData): Promis
     const ator = await exigirPermissao("comercial:gerenciar_produtos");
     const id = formData.get("id");
     const dados = esquemaCanal.parse(dadosDoFormulario(formData));
-    await salvarCanal(ator, { ...dados, id: typeof id === "string" && id ? id : undefined });
+    await salvarCanal(ator, {
+      ...dados,
+      id: typeof id === "string" && id ? id : undefined,
+    });
     revalidatePath("/comercial", "layout");
     return { ok: true, mensagem: "Canal salvo." };
   } catch (erro) {
@@ -24,7 +27,10 @@ export async function definirAtivoCanalAcao(id: string, ativo: boolean): Promise
     const ator = await exigirPermissao("comercial:gerenciar_produtos");
     await definirAtivoCanal(ator, id, ativo);
     revalidatePath("/comercial", "layout");
-    return { ok: true, mensagem: ativo ? "Canal ativado." : "Canal desativado." };
+    return {
+      ok: true,
+      mensagem: ativo ? "Canal ativado." : "Canal desativado.",
+    };
   } catch (erro) {
     return tratarErroAcao(erro);
   }

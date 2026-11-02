@@ -4,7 +4,6 @@ import { MenuNavegacao, type ItemMenu } from "./menu-navegacao";
 
 const MODULOS_FUTUROS: ItemMenu[] = [
   { href: "/academico", rotulo: "Acadêmico", icone: "academico", emBreve: true },
-  { href: "/dashboard", rotulo: "Dashboard", icone: "dashboard", emBreve: true },
 ];
 
 export default async function LayoutApp({ children }: { children: React.ReactNode }) {
@@ -14,6 +13,7 @@ export default async function LayoutApp({ children }: { children: React.ReactNod
     ...(temPermissao(usuario.papel, "tarefas:usar") ? [{ href: "/tarefas", rotulo: "Tarefas", icone: "tarefas" } as const] : []),
     ...(temPermissao(usuario.papel, "conteudo:usar") ? [{ href: "/conteudo", rotulo: "Conteúdo", icone: "conteudo" } as const] : []),
     ...(temPermissao(usuario.papel, "agenda:usar") ? [{ href: "/agenda", rotulo: "Agenda", icone: "agenda" } as const] : []),
+    ...(temPermissao(usuario.papel, "comercial:ver") ? [{ href: "/comercial", rotulo: "Comercial", icone: "comercial" } as const] : []),
     ...MODULOS_FUTUROS,
   ];
 

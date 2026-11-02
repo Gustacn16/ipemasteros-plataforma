@@ -55,7 +55,10 @@ export async function definirAtivoProdutoAcao(id: string, ativo: boolean): Promi
     const ator = await exigirPermissao("comercial:gerenciar_produtos");
     await definirAtivoProduto(ator, id, ativo);
     revalidarComercial();
-    return { ok: true, mensagem: ativo ? "Produto ativado." : "Produto desativado." };
+    return {
+      ok: true,
+      mensagem: ativo ? "Produto ativado." : "Produto desativado.",
+    };
   } catch (erro) {
     return tratarErroAcao(erro);
   }
@@ -76,8 +79,14 @@ export async function salvarOfertaAcao(_: EstadoAcao, formData: FormData): Promi
   try {
     const ator = await exigirPermissao("comercial:gerenciar_produtos");
     // Caixas marcadas repetem o nome do campo; dadosDoFormulario guardaria só a última.
-    const dados = esquemaOferta.parse({ ...dadosDoFormulario(formData), formasPagamento: formData.getAll("formasPagamento") });
-    await salvarOferta(ator, produtoIdDe(formData), { ...dados, id: idDe(formData) });
+    const dados = esquemaOferta.parse({
+      ...dadosDoFormulario(formData),
+      formasPagamento: formData.getAll("formasPagamento"),
+    });
+    await salvarOferta(ator, produtoIdDe(formData), {
+      ...dados,
+      id: idDe(formData),
+    });
     revalidarComercial();
     return { ok: true, mensagem: "Oferta salva." };
   } catch (erro) {
@@ -100,7 +109,10 @@ export async function salvarLinkAcao(_: EstadoAcao, formData: FormData): Promise
   try {
     const ator = await exigirPermissao("comercial:gerenciar_produtos");
     const dados = esquemaLink.parse(dadosDoFormulario(formData));
-    await salvarLink(ator, produtoIdDe(formData), { ...dados, id: idDe(formData) });
+    await salvarLink(ator, produtoIdDe(formData), {
+      ...dados,
+      id: idDe(formData),
+    });
     revalidarComercial();
     return { ok: true, mensagem: "Link salvo." };
   } catch (erro) {

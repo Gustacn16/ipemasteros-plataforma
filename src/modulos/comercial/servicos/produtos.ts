@@ -15,14 +15,21 @@ const texto = (d: Prisma.Decimal) => d.toFixed(2);
 async function garantirSkuLivre(tx: Tx, sku: string | null, ignorarId?: string) {
   if (!sku) return;
   const existente = await tx.produto.findFirst({
-    where: { sku, excluidoEm: null, ...(ignorarId ? { id: { not: ignorarId } } : {}) },
+    where: {
+      sku,
+      excluidoEm: null,
+      ...(ignorarId ? { id: { not: ignorarId } } : {}),
+    },
     select: { id: true },
   });
   if (existente) throw new ErroNegocio("Já existe um produto com este SKU.");
 }
 
 async function exigirProduto(tx: Tx, id: string) {
-  const produto = await tx.produto.findFirst({ where: { id, excluidoEm: null }, select: { id: true } });
+  const produto = await tx.produto.findFirst({
+    where: { id, excluidoEm: null },
+    select: { id: true },
+  });
   if (!produto) throw new ErroNegocio(MENSAGEM_NAO_ENCONTRADO);
   return produto;
 }
@@ -44,7 +51,11 @@ export async function listarProdutos(ator: UsuarioAtual, filtros: FiltrosProduto
       area: true,
       sku: true,
       ativo: true,
-      ofertas: { where: { padrao: true }, select: { precoCheio: true }, take: 1 },
+      ofertas: {
+        where: { padrao: true },
+        select: { precoCheio: true },
+        take: 1,
+      },
       _count: { select: { ofertas: true } },
     },
   });
@@ -134,7 +145,10 @@ export async function excluirProduto(ator: UsuarioAtual, id: string) {
     if (!podeExcluirProduto({ vendas: 0, metas: 0 })) {
       throw new ErroNegocio("Este produto tem vendas ou metas. Desative em vez de excluir.");
     }
-    await tx.produto.update({ where: { id }, data: { excluidoEm: new Date() } });
+    await tx.produto.update({
+      where: { id },
+      data: { excluidoEm: new Date() },
+    });
   });
 }
 
@@ -148,19 +162,36 @@ export async function salvarOferta(ator: UsuarioAtual, produtoId: string, dados:
     const padrao = campos.padrao || quantas === 0;
     let ofertaId = id;
     if (id) {
-      const existe = await tx.ofertaProduto.findFirst({ where: { id, produtoId }, select: { id: true } });
+      const existe = await tx.ofertaProduto.findFirst({
+        where: { id, produtoId },
+        select: { id: true },
+      });
       if (!existe) throw new ErroNegocio(MENSAGEM_NAO_ENCONTRADO);
-      await tx.ofertaProduto.update({ where: { id }, data: { ...campos, padrao } });
+      await tx.ofertaProduto.update({
+        where: { id },
+        data: { ...campos, padrao },
+      });
     } else {
-      const maior = await tx.ofertaProduto.aggregate({ _max: { ordem: true }, where: { produtoId } });
+      const maior = await tx.ofertaProduto.aggregate({
+        _max: { ordem: true },
+        where: { produtoId },
+      });
       const nova = await tx.ofertaProduto.create({
-        data: { ...campos, padrao, produtoId, ordem: (maior._max.ordem ?? 0) + 1 },
+        data: {
+          ...campos,
+          padrao,
+          produtoId,
+          ordem: (maior._max.ordem ?? 0) + 1,
+        },
         select: { id: true },
       });
       ofertaId = nova.id;
     }
     if (padrao) {
-      await tx.ofertaProduto.updateMany({ where: { produtoId, id: { not: ofertaId } }, data: { padrao: false } });
+      await tx.ofertaProduto.updateMany({
+        where: { produtoId, id: { not: ofertaId } },
+        data: { padrao: false },
+      });
     }
   });
 }
@@ -176,8 +207,15 @@ export async function excluirOferta(ator: UsuarioAtual, ofertaId: string) {
     await tx.ofertaProduto.delete({ where: { id: ofertaId } });
     // Sem a padrão, a primeira oferta restante assume.
     if (oferta.padrao) {
-      const proxima = await tx.ofertaProduto.findFirst({ where: { produtoId: oferta.produtoId }, orderBy: { ordem: "asc" } });
-      if (proxima) await tx.ofertaProduto.update({ where: { id: proxima.id }, data: { padrao: true } });
+      const proxima = await tx.ofertaProduto.findFirst({
+        where: { produtoId: oferta.produtoId },
+        orderBy: { ordem: "asc" },
+      });
+      if (proxima)
+        await tx.ofertaProduto.update({
+          where: { id: proxima.id },
+          data: { padrao: true },
+        });
     }
   });
 }
@@ -188,19 +226,30 @@ export async function salvarLink(ator: UsuarioAtual, produtoId: string, dados: D
   await prisma.$transaction(async (tx) => {
     await exigirProduto(tx, produtoId);
     if (id) {
-      const existe = await tx.linkProduto.findFirst({ where: { id, produtoId }, select: { id: true } });
+      const existe = await tx.linkProduto.findFirst({
+        where: { id, produtoId },
+        select: { id: true },
+      });
       if (!existe) throw new ErroNegocio(MENSAGEM_NAO_ENCONTRADO);
       await tx.linkProduto.update({ where: { id }, data: campos });
       return;
     }
-    const maior = await tx.linkProduto.aggregate({ _max: { ordem: true }, where: { produtoId } });
-    await tx.linkProduto.create({ data: { ...campos, produtoId, ordem: (maior._max.ordem ?? 0) + 1 } });
+    const maior = await tx.linkProduto.aggregate({
+      _max: { ordem: true },
+      where: { produtoId },
+    });
+    await tx.linkProduto.create({
+      data: { ...campos, produtoId, ordem: (maior._max.ordem ?? 0) + 1 },
+    });
   });
 }
 
 export async function excluirLink(ator: UsuarioAtual, linkId: string) {
   exigirPermissaoComercial(ator, "comercial:gerenciar_produtos");
-  const link = await prisma.linkProduto.findFirst({ where: { id: linkId, produto: { excluidoEm: null } }, select: { id: true } });
+  const link = await prisma.linkProduto.findFirst({
+    where: { id: linkId, produto: { excluidoEm: null } },
+    select: { id: true },
+  });
   if (!link) throw new ErroNegocio(MENSAGEM_NAO_ENCONTRADO);
   await prisma.linkProduto.delete({ where: { id: linkId } });
 }

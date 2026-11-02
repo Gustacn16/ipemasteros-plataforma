@@ -23,12 +23,19 @@ export const ROTULO_FORMA_PAGAMENTO: Record<FormaPagamento, string> = {
 export const TIPOS_COMISSAO = ["valor", "percentual"] as const;
 export type TipoComissao = (typeof TIPOS_COMISSAO)[number];
 
-export const ROTULO_TIPO_COMISSAO: Record<TipoComissao, string> = { valor: "R$", percentual: "%" };
+export const ROTULO_TIPO_COMISSAO: Record<TipoComissao, string> = {
+  valor: "R$",
+  percentual: "%",
+};
 
 export const CATEGORIAS_LINK = ["vendas", "aulas", "outro"] as const;
 export type CategoriaLink = (typeof CATEGORIAS_LINK)[number];
 
-export const ROTULO_CATEGORIA_LINK: Record<CategoriaLink, string> = { vendas: "Vendas", aulas: "Aulas", outro: "Outro" };
+export const ROTULO_CATEGORIA_LINK: Record<CategoriaLink, string> = {
+  vendas: "Vendas",
+  aulas: "Aulas",
+  outro: "Outro",
+};
 
 // Campos chegam como strings de formulário; vazio vira null (ou 0 nos valores).
 const textoOpcional = (max: number) =>
@@ -103,7 +110,12 @@ export const esquemaProduto = z
   .superRefine((p, ctx) => {
     if (p.comissaoTipo !== "percentual") return;
     for (const campo of ["comissaoBase", "comissaoBonus"] as const) {
-      if (Number(p[campo]) > 100) ctx.addIssue({ code: "custom", path: [campo], message: "Percentual deve ser até 100" });
+      if (Number(p[campo]) > 100)
+        ctx.addIssue({
+          code: "custom",
+          path: [campo],
+          message: "Percentual deve ser até 100",
+        });
     }
   });
 export type DadosProduto = z.infer<typeof esquemaProduto>;

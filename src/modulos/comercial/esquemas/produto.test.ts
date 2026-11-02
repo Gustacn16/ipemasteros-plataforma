@@ -10,7 +10,12 @@ describe("esquemaProduto", () => {
   });
 
   it("SKU e campos de texto vazios viram null", () => {
-    const p = esquemaProduto.parse({ ...produtoBase, sku: "", area: " ", duracaoMeses: "" });
+    const p = esquemaProduto.parse({
+      ...produtoBase,
+      sku: "",
+      area: " ",
+      duracaoMeses: "",
+    });
     expect(p).toMatchObject({ sku: null, area: null, duracaoMeses: null });
   });
 
@@ -20,27 +25,61 @@ describe("esquemaProduto", () => {
   });
 
   it("comissão em % não passa de 100", () => {
-    const r = esquemaProduto.safeParse({ ...produtoBase, comissaoTipo: "percentual", comissaoBase: "150" });
+    const r = esquemaProduto.safeParse({
+      ...produtoBase,
+      comissaoTipo: "percentual",
+      comissaoBase: "150",
+    });
     expect(r.success).toBe(false);
     expect(r.error?.issues[0]?.message).toBe("Percentual deve ser até 100");
-    expect(esquemaProduto.parse({ ...produtoBase, comissaoTipo: "percentual", comissaoBase: "1,25" }).comissaoBase).toBe("1.25");
+    expect(
+      esquemaProduto.parse({
+        ...produtoBase,
+        comissaoTipo: "percentual",
+        comissaoBase: "1,25",
+      }).comissaoBase,
+    ).toBe("1.25");
   });
 
   it("comissão em R$ aceita formato brasileiro e vazio vira 0", () => {
-    const p = esquemaProduto.parse({ ...produtoBase, comissaoBase: "R$ 1.000,00", comissaoBonus: "" });
-    expect(p).toMatchObject({ comissaoTipo: "valor", comissaoBase: "1000.00", comissaoBonus: "0.00" });
+    const p = esquemaProduto.parse({
+      ...produtoBase,
+      comissaoBase: "R$ 1.000,00",
+      comissaoBonus: "",
+    });
+    expect(p).toMatchObject({
+      comissaoTipo: "valor",
+      comissaoBase: "1000.00",
+      comissaoBonus: "0.00",
+    });
   });
 
   it("recusa carga horária negativa e lê caixa marcada", () => {
     expect(esquemaProduto.safeParse({ ...produtoBase, cargaPratica: "-1" }).success).toBe(false);
-    expect(esquemaProduto.parse({ ...produtoBase, cargaPratica: "36", recorrente: "on" })).toMatchObject({ cargaPratica: 36, recorrente: true });
+    expect(
+      esquemaProduto.parse({
+        ...produtoBase,
+        cargaPratica: "36",
+        recorrente: "on",
+      }),
+    ).toMatchObject({ cargaPratica: 36, recorrente: true });
   });
 });
 
 describe("esquemaOferta", () => {
   it("lê o preço no formato brasileiro e aceita à vista", () => {
-    const o = esquemaOferta.parse({ ...ofertaBase, precoCheio: "3.300,00", parcelas: "0" });
-    expect(o).toMatchObject({ precoCheio: "3300.00", parcelas: 0, matricula: "0.00", padrao: false, formasPagamento: [] });
+    const o = esquemaOferta.parse({
+      ...ofertaBase,
+      precoCheio: "3.300,00",
+      parcelas: "0",
+    });
+    expect(o).toMatchObject({
+      precoCheio: "3300.00",
+      parcelas: 0,
+      matricula: "0.00",
+      padrao: false,
+      formasPagamento: [],
+    });
   });
 
   it("recusa mais de 60 parcelas e desconto acima de 100%", () => {
@@ -76,6 +115,9 @@ describe("esquemaLink e esquemaCanal", () => {
 describe("esquemaFiltrosProdutos", () => {
   it("padrão: só ativos; valores inválidos são ignorados", () => {
     expect(esquemaFiltrosProdutos.parse({})).toEqual({ situacao: "ativos" });
-    expect(esquemaFiltrosProdutos.parse({ tipo: "x", situacao: "y" })).toEqual({ situacao: "ativos", tipo: undefined });
+    expect(esquemaFiltrosProdutos.parse({ tipo: "x", situacao: "y" })).toEqual({
+      situacao: "ativos",
+      tipo: undefined,
+    });
   });
 });

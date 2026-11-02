@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { ajustarPadrao, cargaTotal, podeExcluirProduto } from "./produto";
 
-const semCarga = { cargaTeoricaPresencial: null, cargaTeoricaSincrona: null, cargaTeoricaAssincrona: null, cargaPratica: null, cargaExtra: null };
+const semCarga = {
+  cargaTeoricaPresencial: null,
+  cargaTeoricaSincrona: null,
+  cargaTeoricaAssincrona: null,
+  cargaPratica: null,
+  cargaExtra: null,
+};
 
 describe("cargaTotal", () => {
   it("soma as cargas preenchidas", () => {
