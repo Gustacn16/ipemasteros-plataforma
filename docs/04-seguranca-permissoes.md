@@ -31,7 +31,11 @@ Legenda: ✅ total · 👁 só leitura · 🔸 restrito ao que é seu · — sem
 | **Tarefas:** listas e status | ✅ | ✅ | 🔸 nos espaços em que é membro | — |
 | **Tarefas:** tarefas | ✅ todos os espaços | ✅ todos os espaços | ✅ nos espaços em que é membro (exclui só as que criou) | 🔸 vê e conclui as atribuídas a ele |
 | **Tarefas:** relatório | ✅ todos | ✅ todos | 🔸 só os próprios números | — |
-| **Agenda:** própria agenda | ✅ | ✅ | ✅ | ✅ |
+| **Agenda:** usar a tela, a agenda pessoal e a assinatura (`agenda:usar`) | ✅ | ✅ | ✅ | ✅ |
+| **Agenda:** ver o calendário da IPEMaster (`agenda:ver_institucional`) | ✅ | ✅ | ✅ | — |
+| **Agenda:** ver só os eventos marcados como visíveis para professores (`agenda:ver_institucional_professor`) | — | — | — | 🔸 |
+| **Agenda:** criar, editar e excluir eventos (`agenda:editar_institucional`) | ✅ | ✅ | ✅ | — |
+| **Agenda:** gerenciar tipos de evento (`agenda:gerenciar_tipos`) | ✅ | ✅ | — | — |
 | **Acadêmico:** cursos, turmas, aulas | ✅ | ✅ | ✅ | 👁 🔸 suas turmas |
 | **Acadêmico:** dados pessoais de alunos | ✅ | ✅ | ✅ (CPF mascarado) | 🔸 nome e presença das suas turmas |
 | **Acadêmico:** presenças | ✅ | ✅ | ✅ | 🔸 lança e corrige nas suas aulas |
