@@ -94,7 +94,7 @@ export async function listarVendas(ator: UsuarioAtual, filtros: FiltrosVendas) {
 export type LinhaVenda = Awaited<ReturnType<typeof listarVendas>>["vendas"][number];
 
 /** Confere produto, oferta, canal e vendedor contra o banco. Na edição, mantém valendo o que já estava gravado. */
-async function validarReferencias(tx: Tx, dados: DadosVenda, atual?: { produtoId: string; canalId: string | null }) {
+async function validarReferencias(tx: Tx, dados: DadosVenda, atual?: { produtoId: string; canalId: string | null; vendedorId: string }) {
   const produto = await tx.produto.findFirst({ where: { id: dados.produtoId }, select: { ativo: true, excluidoEm: true } });
   const mesmoProduto = atual?.produtoId === dados.produtoId;
   if (!produto || (!mesmoProduto && (!produto.ativo || produto.excluidoEm))) throw new ErroNegocio("Produto indisponível.");
@@ -110,7 +110,11 @@ async function validarReferencias(tx: Tx, dados: DadosVenda, atual?: { produtoId
   }
 
   const vendedor = await tx.usuario.findFirst({
-    where: { id: dados.vendedorId, ativo: true, papel: { in: [...PAPEIS_VENDEDOR] } },
+    // Vendedor que saiu continua valendo nas vendas antigas, se não for trocado.
+    where:
+      dados.vendedorId === atual?.vendedorId
+        ? { id: dados.vendedorId }
+        : { id: dados.vendedorId, ativo: true, papel: { in: [...PAPEIS_VENDEDOR] } },
     select: { id: true },
   });
   if (!vendedor) throw new ErroNegocio("Vendedor inválido.");

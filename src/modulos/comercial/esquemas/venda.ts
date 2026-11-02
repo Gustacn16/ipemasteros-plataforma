@@ -6,13 +6,18 @@ import { valorTotal } from "../regras/venda";
 import { FORMAS_PAGAMENTO } from "./produto";
 
 const FORMATO_DIA = /^\d{4}-\d{2}-\d{2}$/;
+/** O dia existe no calendário (recusa "2026-02-30", que o Date transformaria em março). */
+const diaExiste = (d: string) => {
+  const t = Date.parse(`${d}T00:00:00Z`);
+  return !Number.isNaN(t) && new Date(t).toISOString().slice(0, 10) === d;
+};
 
-const dia = z.string("Informe a data").regex(FORMATO_DIA, "Informe a data");
+const dia = z.string("Informe a data").regex(FORMATO_DIA, "Informe a data").refine(diaExiste, "Data inválida");
 const diaOpcional = z
   .string()
   .optional()
   .transform((v) => v || null)
-  .pipe(z.string().regex(FORMATO_DIA, "Data inválida").nullable());
+  .pipe(z.string().regex(FORMATO_DIA, "Data inválida").refine(diaExiste, "Data inválida").nullable());
 
 const idOpcional = z
   .string()
@@ -73,7 +78,7 @@ export const esquemaVenda = z
   });
 export type DadosVenda = z.infer<typeof esquemaVenda>;
 
-const diaFiltro = z.string().regex(FORMATO_DIA).optional().catch(undefined);
+const diaFiltro = z.string().regex(FORMATO_DIA).refine(diaExiste).optional().catch(undefined);
 
 /** Filtros da lista de vendas, vindos da URL. */
 export const esquemaFiltrosVendas = z.object({

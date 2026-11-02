@@ -59,3 +59,11 @@ describe("esquemaFiltrosVendas", () => {
     expect(esquemaFiltrosVendas.parse({})).toMatchObject({ periodo: "mes" });
   });
 });
+
+describe("datas impossíveis", () => {
+  it("recusa dia que não existe na venda e ignora no filtro", () => {
+    expect(esquemaVenda.safeParse({ ...base, dataVenda: "2026-13-45" }).success).toBe(false);
+    expect(esquemaVenda.safeParse({ ...base, dataEntrega: "2026-02-30" }).success).toBe(false);
+    expect(esquemaFiltrosVendas.parse({ periodo: "intervalo", de: "2026-99-99", ate: "2026-11-10" }).de).toBeUndefined();
+  });
+});

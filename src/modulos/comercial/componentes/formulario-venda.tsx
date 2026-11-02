@@ -14,6 +14,7 @@ import { preencherPelaOferta, valorTotal } from "../regras/venda";
 import type { ProdutoParaVenda } from "../servicos/produtos";
 import type { LinhaVenda } from "../servicos/vendas";
 import { estiloCampo, estiloSelect } from "./exibicao";
+import { opcoesDoFormulario } from "./opcoes-venda";
 
 type Pessoa = { id: string; nome: string };
 
@@ -74,16 +75,11 @@ export function FormularioVenda({
   const [estado, executar, salvando] = useActionState(salvarVendaAcao, { ok: false });
   const [excluindo, iniciarExclusao] = useTransition();
 
-  // Venda antiga de produto que foi desativado: o produto continua como opção.
-  const opcoesProduto =
-    venda && !produtos.some((p) => p.id === venda.produtoId)
-      ? [...produtos, { id: venda.produtoId, nome: venda.produtoNome, tipo: "curso_livre" as const, ofertas: [] }]
-      : produtos;
-  const opcoesCanal =
-    venda?.canalId && !canais.some((c) => c.id === venda.canalId)
-      ? [...canais, { id: venda.canalId, nome: venda.canalNome ?? "" }]
-      : canais;
-  const opcoesVendedor = podeEscolherVendedor ? vendedores : [usuario];
+  // Venda antiga: produto, oferta, vendedor e canal desativados depois continuam como opção.
+  const opcoes = opcoesDoFormulario({ produtos, vendedores: podeEscolherVendedor ? vendedores : [usuario], canais, venda });
+  const opcoesProduto = opcoes.produtos;
+  const opcoesCanal = opcoes.canais;
+  const opcoesVendedor = opcoes.vendedores;
 
   const [produtoId, setProdutoId] = useState(venda?.produtoId ?? "");
   const [ofertaId, setOfertaId] = useState(venda?.ofertaId ?? "");
@@ -96,7 +92,8 @@ export function FormularioVenda({
   function aplicarOferta(id: string) {
     setOfertaId(id);
     const oferta = ofertas.find((o) => o.id === id);
-    if (!oferta) return;
+    // Oferta sem preço (ex.: a de um produto desativado) não muda os valores já digitados.
+    if (!oferta || Number(oferta.precoCheio) === 0) return;
     const pagamento = preencherPelaOferta(oferta);
     setEntrada(paraCampo(pagamento.entrada));
     setParcelas(String(pagamento.numeroParcelas));
@@ -303,8 +300,10 @@ export function FormularioVenda({
             rows={3}
             placeholder="Detalhes adicionais sobre a venda…"
             defaultValue={venda?.observacoes ?? ""}
+            maxLength={2000}
             className={estiloCampo}
           />
+          {e?.observacoes?.length ? <p className="text-destructive text-sm">{e.observacoes.join(" ")}</p> : null}
         </div>
       </fieldset>
 
