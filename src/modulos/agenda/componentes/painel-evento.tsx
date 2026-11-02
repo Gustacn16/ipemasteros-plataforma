@@ -9,8 +9,7 @@ import { avisar } from "@/modulos/tarefas/componentes/avisar";
 import { excluirEventoAcao } from "../acoes/agenda";
 import type { obterEvento } from "../servicos/eventos";
 import { FormularioEvento, type OpcaoTipo } from "./formulario-evento";
-
-export const ID_MODELO_EVENTO = "__evento__";
+import { ID_MODELO_EVENTO } from "./item-agenda";
 
 type Dados = Awaited<ReturnType<typeof obterEvento>>;
 

@@ -128,3 +128,6 @@ export function FaixaItem({ item, continuaAntes, continuaDepois, mostrarHora }: 
     </Clicavel>
   );
 }
+
+/** Marcador trocado pelo id do evento nos links do painel (fora de módulo client). */
+export const ID_MODELO_EVENTO = "__evento__";
