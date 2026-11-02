@@ -58,6 +58,7 @@ O papel `comercial` tem, nos outros módulos, as mesmas permissões do colaborad
 | `comercial:gerenciar_vendas` (qualquer venda, sem limite de 7 dias) | ✅ | ✅ | — |
 | `comercial:gerenciar_metas` | ✅ | ✅ | — |
 | `comercial:gerenciar_produtos` (produtos, ofertas, links e canais) | ✅ | ✅ | — |
+| `comercial:excluir_produtos` (apagar produto do catálogo) | ✅ | — | — |
 
 Admin e gestor convidam usuários com o papel `comercial`.
 

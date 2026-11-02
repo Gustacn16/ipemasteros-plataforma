@@ -17,14 +17,14 @@ O catálogo é **único no sistema**: o Acadêmico vai usar os mesmos produtos (
 
 ## Telas
 - `/comercial`: por enquanto leva a Produtos (o dashboard chega na entrega 4).
-- `/comercial/produtos`: catálogo agrupado por tipo, com filtros na URL (`tipo`, `area`, `situacao=ativos|inativos|todos`) e "+ Novo produto".
+- `/comercial/produtos`: estante com uma prateleira por tipo (Pós-Graduação, Curso Livre, Paciente Modelo) e um cartão por produto (área, nome, preço e parcelas da oferta padrão, número de ofertas e links). Produto inativo aparece apagado, com borda tracejada. A lixeira no cartão aparece só para o admin. Filtros na URL: `busca` (nome), `tipo`, `area`, `situacao=ativos|inativos|todos`. Botão "+ Novo produto".
 - `/comercial/produtos/[id]`: ofertas e preços, links, dados gerais, carga horária, comissão, descrição, ementa e observações. Ações "Desativar/Ativar" e "Excluir". O papel `comercial` vê a ficha só para leitura.
 - `/comercial/canais`: lista editável de canais de venda.
 
 ## Regras de negócio
 1. A primeira oferta de um produto vira a padrão. Marcar outra como padrão desmarca as demais. Excluir a padrão passa a marca para a primeira oferta restante.
 2. Produto inativo ou excluído some dos campos de escolha, mas continua nas vendas e metas antigas.
-3. Excluir produto só é permitido sem vendas nem metas; senão, o sistema orienta a desativar. A exclusão é lógica (`excluidoEm`).
+3. Só o admin exclui produto (`comercial:excluir_produtos`), e só sem vendas nem metas; senão, o sistema orienta a desativar. A exclusão é lógica (`excluidoEm`).
 4. SKU é normalizado em maiúsculas e não pode repetir entre produtos não excluídos.
 5. Comissão em percentual vai até 100%.
 

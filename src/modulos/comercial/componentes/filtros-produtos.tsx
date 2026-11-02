@@ -1,6 +1,8 @@
 "use client";
 
+import { SearchIcon } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef } from "react";
 import { ROTULO_TIPO_PRODUTO, TIPOS_PRODUTO } from "../esquemas/produto";
 import { estiloSelect } from "./exibicao";
 
@@ -17,8 +19,27 @@ export function FiltrosProdutos({ areas }: { areas: string[] }) {
     router.replace(p.size ? `${caminho}?${p}` : caminho, { scroll: false });
   }
 
+  // A busca espera a pessoa parar de digitar antes de atualizar a URL.
+  const espera = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(espera.current), []);
+
   return (
     <div className="flex flex-wrap items-center gap-2 text-sm">
+      <label className="relative">
+        <span className="sr-only">Buscar produto</span>
+        <SearchIcon className="text-muted-foreground pointer-events-none absolute top-2.5 left-2.5 size-4" aria-hidden />
+        <input
+          type="search"
+          placeholder="Buscar produto"
+          defaultValue={busca.get("busca") ?? ""}
+          className={`${estiloSelect} w-56 pl-8`}
+          onChange={(e) => {
+            const valor = e.target.value.trim();
+            clearTimeout(espera.current);
+            espera.current = setTimeout(() => definir("busca", valor || null), 300);
+          }}
+        />
+      </label>
       <select
         aria-label="Tipo"
         className={estiloSelect}

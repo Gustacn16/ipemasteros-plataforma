@@ -159,6 +159,13 @@ export type DadosCanal = z.infer<typeof esquemaCanal>;
 export const esquemaFiltrosProdutos = z.object({
   tipo: z.enum(TIPOS_PRODUTO).optional().catch(undefined),
   area: z.string().optional(),
+  busca: z
+    .string()
+    .trim()
+    .max(100)
+    .optional()
+    .catch(undefined)
+    .transform((v) => v || undefined),
   situacao: z.enum(["ativos", "inativos", "todos"]).catch("ativos"),
 });
 export type FiltrosProdutos = z.infer<typeof esquemaFiltrosProdutos>;

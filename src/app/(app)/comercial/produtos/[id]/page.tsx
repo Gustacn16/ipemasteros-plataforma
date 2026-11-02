@@ -99,7 +99,9 @@ export default async function PaginaProduto({ params }: PageProps<"/comercial/pr
             {!produto.ativo && <SeloInativo />}
           </div>
         </div>
-        {podeEditar && <AcoesProduto id={produto.id} ativo={produto.ativo} />}
+        {podeEditar && (
+          <AcoesProduto id={produto.id} ativo={produto.ativo} podeExcluir={temPermissao(usuario.papel, "comercial:excluir_produtos")} />
+        )}
       </header>
 
       <OfertasProduto produtoId={produto.id} ofertas={produto.ofertas} podeEditar={podeEditar} />

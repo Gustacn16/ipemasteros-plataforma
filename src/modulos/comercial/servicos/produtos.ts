@@ -41,6 +41,8 @@ export async function listarProdutos(ator: UsuarioAtual, filtros: FiltrosProduto
       excluidoEm: null,
       ...(filtros.tipo ? { tipo: filtros.tipo } : {}),
       ...(filtros.area ? { area: filtros.area } : {}),
+      // A collation do MySQL já compara sem diferenciar maiúsculas e acentos.
+      ...(filtros.busca ? { nome: { contains: filtros.busca } } : {}),
       ...(filtros.situacao === "ativos" ? { ativo: true } : filtros.situacao === "inativos" ? { ativo: false } : {}),
     },
     orderBy: [{ tipo: "asc" }, { nome: "asc" }],
@@ -53,18 +55,22 @@ export async function listarProdutos(ator: UsuarioAtual, filtros: FiltrosProduto
       ativo: true,
       ofertas: {
         where: { padrao: true },
-        select: { precoCheio: true },
+        select: { precoCheio: true, parcelas: true, valorParcela: true },
         take: 1,
       },
-      _count: { select: { ofertas: true } },
+      _count: { select: { ofertas: true, links: true } },
     },
   });
   return produtos.map(({ ofertas, _count, ...p }) => ({
     ...p,
-    precoPadrao: ofertas[0] ? texto(ofertas[0].precoCheio) : null,
+    ofertaPadrao: ofertas[0]
+      ? { precoCheio: texto(ofertas[0].precoCheio), parcelas: ofertas[0].parcelas, valorParcela: texto(ofertas[0].valorParcela) }
+      : null,
     quantidadeOfertas: _count.ofertas,
+    quantidadeLinks: _count.links,
   }));
 }
+export type ProdutoEstante = Awaited<ReturnType<typeof listarProdutos>>[number];
 
 /** Áreas já usadas, para o filtro da lista. */
 export async function listarAreas() {
@@ -138,7 +144,7 @@ export async function definirAtivoProduto(ator: UsuarioAtual, id: string, ativo:
 }
 
 export async function excluirProduto(ator: UsuarioAtual, id: string) {
-  exigirPermissaoComercial(ator, "comercial:gerenciar_produtos");
+  exigirPermissaoComercial(ator, "comercial:excluir_produtos");
   await prisma.$transaction(async (tx) => {
     await exigirProduto(tx, id);
     // Vendas e metas entram nas entregas 2 e 3, que passam a contar aqui.

@@ -121,3 +121,10 @@ describe("esquemaFiltrosProdutos", () => {
     });
   });
 });
+
+describe("busca de produtos", () => {
+  it("guarda o texto da busca sem espaços nas pontas e ignora busca vazia", () => {
+    expect(esquemaFiltrosProdutos.parse({ busca: "  capilar " }).busca).toBe("capilar");
+    expect(esquemaFiltrosProdutos.parse({ busca: "   " }).busca).toBeUndefined();
+  });
+});

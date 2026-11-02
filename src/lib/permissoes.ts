@@ -38,7 +38,8 @@ export type Permissao =
   | "comercial:ver_equipe"
   | "comercial:gerenciar_vendas"
   | "comercial:gerenciar_metas"
-  | "comercial:gerenciar_produtos";
+  | "comercial:gerenciar_produtos"
+  | "comercial:excluir_produtos";
 
 // Colaborador e professor têm regras por registro (membro do espaço, tarefas
 // atribuídas) em src/modulos/tarefas/servicos/acesso.ts.
@@ -90,6 +91,8 @@ const PERMISSOES_POR_PAPEL: Record<Papel, readonly Permissao[]> = {
     ...CONTEUDO_GESTAO,
     ...AGENDA_GESTAO,
     ...COMERCIAL_GESTAO,
+    // Só o admin apaga produtos do catálogo.
+    "comercial:excluir_produtos",
   ],
   gestor: [
     "core:ver_usuarios",

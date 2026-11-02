@@ -145,7 +145,12 @@ describe("permissões do Comercial", () => {
   it("comercial vê o módulo e registra venda, mas não gerencia nem vê a equipe", () => {
     expect(temPermissao("comercial", "comercial:ver")).toBe(true);
     expect(temPermissao("comercial", "comercial:registrar_venda")).toBe(true);
-    for (const p of ["comercial:ver_equipe", "comercial:gerenciar_vendas", "comercial:gerenciar_metas", "comercial:gerenciar_produtos"] as const) {
+    for (const p of [
+      "comercial:ver_equipe",
+      "comercial:gerenciar_vendas",
+      "comercial:gerenciar_metas",
+      "comercial:gerenciar_produtos",
+    ] as const) {
       expect(temPermissao("comercial", p)).toBe(false);
     }
   });
@@ -171,5 +176,14 @@ describe("permissões do Comercial", () => {
     expect(podeConvidar("admin", "comercial")).toBe(true);
     expect(podeConvidar("gestor", "comercial")).toBe(true);
     expect(podeConvidar("comercial", "colaborador")).toBe(false);
+  });
+});
+
+describe("apagar produtos", () => {
+  it("só o admin apaga produtos", () => {
+    expect(temPermissao("admin", "comercial:excluir_produtos")).toBe(true);
+    for (const papel of ["gestor", "comercial", "colaborador", "professor", "aluno"] as const) {
+      expect(temPermissao(papel, "comercial:excluir_produtos")).toBe(false);
+    }
   });
 });

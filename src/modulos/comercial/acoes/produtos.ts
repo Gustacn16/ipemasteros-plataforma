@@ -66,7 +66,7 @@ export async function definirAtivoProdutoAcao(id: string, ativo: boolean): Promi
 
 export async function excluirProdutoAcao(id: string): Promise<EstadoAcao> {
   try {
-    const ator = await exigirPermissao("comercial:gerenciar_produtos");
+    const ator = await exigirPermissao("comercial:excluir_produtos");
     await excluirProduto(ator, id);
     revalidarComercial();
     return { ok: true, mensagem: "Produto excluído." };

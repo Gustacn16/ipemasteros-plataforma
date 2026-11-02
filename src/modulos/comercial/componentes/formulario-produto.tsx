@@ -187,7 +187,7 @@ export function FormularioProduto({ produto }: { produto: ProdutoDetalhe }) {
 }
 
 /** Ativar/desativar e excluir (só sem vendas e metas). */
-export function AcoesProduto({ id, ativo }: { id: string; ativo: boolean }) {
+export function AcoesProduto({ id, ativo, podeExcluir }: { id: string; ativo: boolean; podeExcluir: boolean }) {
   const router = useRouter();
   const [pendente, iniciar] = useTransition();
   return (
@@ -204,19 +204,21 @@ export function AcoesProduto({ id, ativo }: { id: string; ativo: boolean }) {
       >
         {ativo ? "Desativar" : "Ativar"}
       </Button>
-      <Button
-        variant="destructive"
-        size="sm"
-        disabled={pendente}
-        onClick={() => {
-          if (!confirm("Excluir este produto? Ele some do catálogo.")) return;
-          iniciar(async () => {
-            if (avisar(await excluirProdutoAcao(id))) router.push("/comercial/produtos");
-          });
-        }}
-      >
-        Excluir
-      </Button>
+      {podeExcluir && (
+        <Button
+          variant="destructive"
+          size="sm"
+          disabled={pendente}
+          onClick={() => {
+            if (!confirm("Excluir este produto? Ele some do catálogo.")) return;
+            iniciar(async () => {
+              if (avisar(await excluirProdutoAcao(id))) router.push("/comercial/produtos");
+            });
+          }}
+        >
+          Excluir
+        </Button>
+      )}
     </div>
   );
 }
