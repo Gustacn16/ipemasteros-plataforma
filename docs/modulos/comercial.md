@@ -12,14 +12,16 @@ Especificação: `docs/superpowers/specs/2026-11-02-comercial-design.md`.
 | `OfertaProduto` | id, produtoId, nome, padrao (no máximo uma por produto), precoCheio, matricula, parcelas (0 = à vista), valorParcela, descontoPontualidadePct, formasPagamento (`pix`/`cartao`/`boleto`/`transferencia`), link, ordem |
 | `LinkProduto` | id, produtoId, titulo, url, categoria (`vendas`/`aulas`/`outro`), ordem |
 | `CanalVenda` | id, nome (único), ativo, ordem |
+| `Venda` | id, produtoId, ofertaId?, vendedorId, dataVenda, dataEntradaLead?, nomeCliente, whatsappCliente? (só dígitos, sem o 55), canalId?, dataEntrega?, metodoPagamento (`pix`/`cartao`/`boleto`/`transferencia`), entrada, numeroParcelas, valorParcela, primeiroVencimento?, valorTotal, observacoes?, criadoPorId, excluidoEm |
 
 O catálogo é **único no sistema**: o Acadêmico vai usar os mesmos produtos (o `Curso` de `academico.md` passa a ser o `Produto`). Dinheiro em `Decimal(12,2)`; entre servidor e tela trafega como string `"3300.00"` (`src/lib/dinheiro.ts`).
 
 ## Telas
-- `/comercial`: por enquanto leva a Produtos (o dashboard chega na entrega 4).
+- `/comercial`: por enquanto leva a Vendas (o dashboard chega na entrega 4).
+- `/comercial/vendas`: lista com filtros na URL (`periodo=semana|mes|mes_passado|intervalo` com `de`/`ate`, `produto`, `vendedor` só para quem vê a equipe, `canal`) e rodapé com quantidade e valor total. "Registrar venda" abre o formulário na ordem que a equipe já usava: produto, data, vendedor, data do lead, cliente, WhatsApp, canal, data de entrega, forma de pagamento (oferta, método, entrada, parcelas, valor da parcela, 1º vencimento e total ao vivo) e observações. Clicar numa venda abre a edição, ou só a leitura quando a pessoa não pode mais editar.
 - `/comercial/produtos`: estante com uma prateleira por tipo (Pós-Graduação, Curso Livre, Paciente Modelo) e um cartão por produto (área, nome, preço e parcelas da oferta padrão, número de ofertas e links). Produto inativo aparece apagado, com borda tracejada. A lixeira no cartão aparece só para o admin. Filtros na URL: `busca` (nome), `tipo`, `area`, `situacao=ativos|inativos|todos`. Botão "+ Novo produto".
 - `/comercial/produtos/[id]`: ofertas e preços, links, dados gerais, carga horária, comissão, descrição, ementa e observações. Ações "Desativar/Ativar" e "Excluir". O papel `comercial` vê a ficha só para leitura.
-- `/comercial/canais`: lista editável de canais de venda.
+- `/comercial/canais`: lista de canais de venda (adicionar, renomear e ativar/desativar).
 
 ## Regras de negócio
 1. A primeira oferta de um produto vira a padrão. Marcar outra como padrão desmarca as demais. Excluir a padrão passa a marca para a primeira oferta restante.
@@ -27,6 +29,11 @@ O catálogo é **único no sistema**: o Acadêmico vai usar os mesmos produtos (
 3. Só o admin exclui produto (`comercial:excluir_produtos`), e só sem vendas nem metas; senão, o sistema orienta a desativar. A exclusão é lógica (`excluidoEm`).
 4. SKU é normalizado em maiúsculas e não pode repetir entre produtos não excluídos.
 5. Comissão em percentual vai até 100%.
+6. **Venda:** o valor total é sempre `entrada + parcelas × valor da parcela`, recalculado no servidor (em centavos).
+7. Escolher produto e oferta preenche o pagamento: à vista, a entrada é o preço inteiro; parcelado, a entrada é a matrícula e o valor da parcela é o da oferta ou, se ele for 0, `(preço − matrícula) ÷ parcelas`. Tudo pode ser alterado.
+8. Vendedor é um usuário ativo com papel `comercial`, `gestor` ou `admin`. O papel `comercial` só registra vendas em seu nome e edita ou exclui as próprias até 7 dias depois de registrar; admin e gestor, qualquer uma a qualquer tempo.
+9. Criar, editar e excluir venda gera auditoria (`venda.criada`, `venda.editada`, `venda.excluida`) só com nomes de campos e valor total, nunca nome ou WhatsApp do cliente. Excluir é lógico.
+10. A data em que o lead entrou não pode ser depois da data da venda. Produto e canal precisam estar ativos, exceto ao editar uma venda antiga sem trocá-los.
 
 ## Permissões
 Ver `docs/04-seguranca-permissoes.md` (papel `comercial` e permissões `comercial:*`). Admin e gestor gerenciam tudo; o papel `comercial` (vendedor) consulta o catálogo e, nas próximas entregas, registra as próprias vendas e vê os próprios números.
@@ -35,6 +42,8 @@ Ver `docs/04-seguranca-permissoes.md` (papel `comercial` e permissões `comercia
 Os 12 produtos de 02/11/2026 ficam em `src/modulos/comercial/dados/catalogo-produtos.ts`. A migration `20261103030000_comercial_catalogo` foi gerada por `npx tsx scripts/gerar-sql-catalogo.ts` e usa `INSERT IGNORE` com ids fixos, então não duplica dados nem desfaz edições feitas na tela.
 
 ## Situação da implementação
-**Entrega 1 (feito):** papel `comercial`, catálogo de produtos com ofertas e links, canais de venda e importação dos 12 produtos.
+**Entrega 1 (feito):** papel `comercial`, catálogo de produtos com ofertas e links (estante de cartões), canais de venda e importação dos 12 produtos.
 
-**Próximas:** entrega 2 (vendas), entrega 3 (metas) e entrega 4 (dashboard). Depois, cada uma com especificação própria: integração com o Kommo, parcelas e MRR, e cálculo de comissão.
+**Entrega 2 (feito):** registro de vendas, lista com filtros e total, edição, exclusão e auditoria.
+
+**Próximas:** entrega 3 (metas) e entrega 4 (dashboard). Depois, cada uma com especificação própria: integração com o Kommo, parcelas e MRR, e cálculo de comissão.

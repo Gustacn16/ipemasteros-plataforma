@@ -72,6 +72,7 @@ Ações sempre auditadas:
 - Visualização do CPF completo, exportação de dados.
 - Conexão e desconexão de integrações.
 - Publicação de conteúdo.
+- Criação, edição e exclusão de venda (só nomes de campos e valor total, sem dados do cliente).
 
 O log é somente inserção: ninguém edita nem apaga, nem pela interface. A retenção é de 5 anos.
 

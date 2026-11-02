@@ -22,7 +22,7 @@ Visão geral das entidades e de como os módulos se relacionam. Os campos detalh
 | Agenda | `TipoEvento`, `EventoInstitucional`, `AgendaExterna`, `AssinaturaAgenda` |
 | Acadêmico | `Curso`, `Turma`, `Disciplina`, `Aula`, `Professor`, `Aluno`, `Matricula`, `Presenca`, `Fornecedor`, `TurmaFornecedor`, `ModeloAvaliacao`, `PerguntaAvaliacao`, `RespostaAvaliacao` |
 | Conteúdo | `Canal`, `Campanha`, `Publicacao`, `PublicacaoCanal`, `MidiaPublicacao` |
-| Comercial | `Produto`, `OfertaProduto`, `LinkProduto`, `CanalVenda` (vendas e metas nas próximas entregas; Kommo e Meta Ads depois) |
+| Comercial | `Produto`, `OfertaProduto`, `LinkProduto`, `CanalVenda`, `Venda` (metas na próxima entrega; Kommo e Meta Ads depois) |
 
 ## Diagrama (relações principais)
 ```mermaid
