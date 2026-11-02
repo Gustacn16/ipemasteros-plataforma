@@ -1,10 +1,11 @@
+import { EventEmitter } from "node:events";
 import { Worker } from "node:worker_threads";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
 import { ErroNegocio } from "@/lib/erros";
-import { interpretarIcalIsolado } from "./ical-em-worker";
+import { interpretarIcalIsolado, MAX_INTERPRETACOES_SIMULTANEAS } from "./ical-em-worker";
 
 /** Worker de teste a partir de código JS (sem bundler). */
 function workerDe(codigo: string): () => Worker {
@@ -60,5 +61,45 @@ describe("interpretarIcalIsolado", () => {
     await expect(interpretarIcalIsolado("x", "2026-11-01", "2026-11-30", { criarWorker })).rejects.toThrow(
       "Não consegui interpretar esta agenda.",
     );
+  });
+
+  it("no máximo 4 interpretações rodam ao mesmo tempo; as outras esperam a vaga", async () => {
+    let ativos = 0;
+    let pico = 0;
+    /** Worker falso: responde depois de 20 ms e só libera ao terminar. */
+    class WorkerFalso extends EventEmitter {
+      postMessage() {
+        setTimeout(() => this.emit("message", { ok: true, eventos: [] }), 20);
+      }
+      terminate() {
+        ativos--;
+        return Promise.resolve(0);
+      }
+    }
+    const criarWorker = () => {
+      ativos++;
+      pico = Math.max(pico, ativos);
+      return new WorkerFalso() as unknown as Worker;
+    };
+    const pedidos = Array.from({ length: 10 }, () =>
+      interpretarIcalIsolado("x", "2026-11-01", "2026-11-30", { criarWorker }),
+    );
+    await expect(Promise.all(pedidos)).resolves.toHaveLength(10);
+    expect(MAX_INTERPRETACOES_SIMULTANEAS).toBe(4);
+    expect(pico).toBe(4);
+    expect(ativos).toBe(0);
+  });
+
+  it("falha ao criar o worker devolve a vaga", async () => {
+    const quebra = () => {
+      throw new Error("sem worker");
+    };
+    for (let i = 0; i < 6; i++) {
+      await expect(interpretarIcalIsolado("x", "2026-11-01", "2026-11-30", { criarWorker: quebra })).rejects.toThrow(
+        "Não consegui interpretar esta agenda.",
+      );
+    }
+    const criarWorker = workerDe(`parentPort.once("message", () => parentPort.postMessage({ ok: true, eventos: [] }));`);
+    await expect(interpretarIcalIsolado("x", "2026-11-01", "2026-11-30", { criarWorker })).resolves.toEqual([]);
   });
 });

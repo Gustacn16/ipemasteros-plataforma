@@ -109,19 +109,31 @@ export async function buscarIcal(url: string): Promise<string> {
 // ---------------------------------------------------------------------------
 // Cache em memória (uma instância do app; ver spec, riscos)
 
-type EntradaCache = { chaveUrl: string; expira: number; texto: Promise<string> };
+/** Quantos intervalos (de, ate) interpretados guardar por agenda. */
+const MAX_INTERVALOS = 12;
+
+/**
+ * Por agenda: o texto (10 min) e, junto dele, os eventos já interpretados por intervalo.
+ * Os interpretados vivem enquanto o texto vive, então valem os mesmos 10 minutos.
+ */
+type EntradaCache = {
+  chaveUrl: string;
+  expira: number;
+  texto: Promise<string>;
+  interpretados: Map<string, Promise<EventoExterno[]>>;
+};
 const cache = new Map<string, EntradaCache>();
 
 function chaveDaUrl(url: string): string {
   return createHash("sha256").update(url).digest("hex");
 }
 
-/** Remove a agenda do cache (ao trocar ou remover o link). */
+/** Remove a agenda do cache, texto e interpretados (ao editar, trocar ou remover). */
 export function esquecerAgendaExterna(id: string): void {
   cache.delete(id);
 }
 
-/** Lê a agenda `id`, guardando o texto por 10 minutos. Falhas não ficam no cache. */
+/** Lê a agenda `id`, guardando texto e eventos interpretados por 10 minutos. Falhas não ficam no cache. */
 export async function lerAgendaExterna(id: string, url: string, de: string, ate: string): Promise<EventoExterno[]> {
   const agora = Date.now();
   for (const [chave, entrada] of cache) if (entrada.expira <= agora) cache.delete(chave);
@@ -129,7 +141,12 @@ export async function lerAgendaExterna(id: string, url: string, de: string, ate:
   const chaveUrl = chaveDaUrl(url);
   let entrada = cache.get(id);
   if (!entrada || entrada.chaveUrl !== chaveUrl) {
-    const nova: EntradaCache = { chaveUrl, expira: Number.POSITIVE_INFINITY, texto: buscarIcal(url) };
+    const nova: EntradaCache = {
+      chaveUrl,
+      expira: Number.POSITIVE_INFINITY,
+      texto: buscarIcal(url),
+      interpretados: new Map(),
+    };
     cache.set(id, nova);
     nova.texto.then(
       () => {
@@ -141,5 +158,22 @@ export async function lerAgendaExterna(id: string, url: string, de: string, ate:
     );
     entrada = nova;
   }
-  return interpretarIcalIsolado(await entrada.texto, de, ate);
+  const texto = await entrada.texto;
+
+  const chaveIntervalo = `${de}|${ate}`;
+  let eventos = entrada.interpretados.get(chaveIntervalo);
+  if (!eventos) {
+    if (entrada.interpretados.size >= MAX_INTERVALOS) {
+      const maisAntigo = entrada.interpretados.keys().next().value;
+      if (maisAntigo !== undefined) entrada.interpretados.delete(maisAntigo);
+    }
+    const novos = interpretarIcalIsolado(texto, de, ate);
+    const dona = entrada;
+    dona.interpretados.set(chaveIntervalo, novos);
+    novos.catch(() => {
+      if (dona.interpretados.get(chaveIntervalo) === novos) dona.interpretados.delete(chaveIntervalo);
+    });
+    eventos = novos;
+  }
+  return eventos;
 }

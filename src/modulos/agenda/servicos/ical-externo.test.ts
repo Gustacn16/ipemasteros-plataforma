@@ -6,10 +6,11 @@ vi.mock("server-only", () => ({}));
 // O worker tem testes próprios (ical-em-worker.test.ts) e foi conferido no build.
 vi.mock("./ical-em-worker", async () => {
   const { interpretarIcal } = await vi.importActual<typeof import("./ical-interpretar")>("./ical-interpretar");
-  return { interpretarIcalIsolado: async (t: string, de: string, ate: string) => interpretarIcal(t, de, ate) };
+  return { interpretarIcalIsolado: vi.fn(async (t: string, de: string, ate: string) => interpretarIcal(t, de, ate)) };
 });
 
 import { ErroNegocio } from "@/lib/erros";
+import { interpretarIcalIsolado } from "./ical-em-worker";
 import { buscarIcal, esquecerAgendaExterna, interpretarIcal, lerAgendaExterna } from "./ical-externo";
 import { processarPedido, regraImpossivel } from "./ical-interpretar";
 
@@ -353,6 +354,7 @@ describe("lerAgendaExterna", () => {
     fetchMock = vi.fn(async () => respostaIcs(fixture("fuso-ny.ics")));
     vi.stubGlobal("fetch", fetchMock);
     esquecerAgendaExterna("ag1");
+    vi.mocked(interpretarIcalIsolado).mockClear();
   });
   afterEach(() => {
     vi.useRealTimers();
@@ -379,6 +381,34 @@ describe("lerAgendaExterna", () => {
     await expect(lerAgendaExterna("ag1", GOOGLE, "2026-11-01", "2026-11-30")).rejects.toThrow("erro 500");
     await expect(lerAgendaExterna("ag1", GOOGLE, "2026-11-01", "2026-11-30")).resolves.toHaveLength(1);
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("guarda o resultado interpretado por intervalo e esquece junto com o texto", async () => {
+    const interpretar = vi.mocked(interpretarIcalIsolado);
+    await lerAgendaExterna("ag1", GOOGLE, "2026-11-01", "2026-11-30");
+    await lerAgendaExterna("ag1", GOOGLE, "2026-11-01", "2026-11-30");
+    expect(interpretar).toHaveBeenCalledTimes(1);
+
+    await lerAgendaExterna("ag1", GOOGLE, "2026-12-01", "2026-12-31");
+    expect(interpretar).toHaveBeenCalledTimes(2);
+
+    vi.setSystemTime(new Date("2026-11-02T12:10:01Z"));
+    await lerAgendaExterna("ag1", GOOGLE, "2026-11-01", "2026-11-30");
+    expect(interpretar).toHaveBeenCalledTimes(3);
+
+    esquecerAgendaExterna("ag1");
+    await lerAgendaExterna("ag1", GOOGLE, "2026-11-01", "2026-11-30");
+    expect(interpretar).toHaveBeenCalledTimes(4);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("falha na interpretação não fica guardada", async () => {
+    const interpretar = vi.mocked(interpretarIcalIsolado);
+    interpretar.mockRejectedValueOnce(new ErroNegocio("Não consegui interpretar esta agenda."));
+    await expect(lerAgendaExterna("ag1", GOOGLE, "2026-11-01", "2026-11-30")).rejects.toThrow("interpretar");
+    await expect(lerAgendaExterna("ag1", GOOGLE, "2026-11-01", "2026-11-30")).resolves.toHaveLength(1);
+    expect(interpretar).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("URL nova na mesma agenda busca de novo", async () => {

@@ -26,18 +26,51 @@ function respostaValida(r: unknown): r is RespostaInterpretacao {
   return r.ok === false && "mensagem" in r && typeof r.mensagem === "string";
 }
 
-export function interpretarIcalIsolado(
+// ---------------------------------------------------------------------------
+// Limite global de interpretações simultâneas (cada uma é um worker com até 256 MB).
+
+export const MAX_INTERPRETACOES_SIMULTANEAS = 4;
+
+let emUso = 0;
+const fila: (() => void)[] = [];
+
+function ocuparVaga(): Promise<void> {
+  if (emUso < MAX_INTERPRETACOES_SIMULTANEAS) {
+    emUso++;
+    return Promise.resolve();
+  }
+  return new Promise<void>((r) => fila.push(r));
+}
+
+/** Passa a vaga direto para o próximo da fila, ou a devolve. */
+function liberarVaga(): void {
+  const proximo = fila.shift();
+  if (proximo) proximo();
+  else emUso--;
+}
+
+/**
+ * Interpreta `texto` num worker, com no máximo 4 ao mesmo tempo no processo.
+ * O prazo de 3 s conta a partir do início no worker, não da espera na fila.
+ */
+export async function interpretarIcalIsolado(
   texto: string,
   de: string,
   ate: string,
   opcoes: Opcoes = {},
 ): Promise<EventoExterno[]> {
+  await ocuparVaga();
+  return interpretarNoWorker(texto, de, ate, opcoes);
+}
+
+function interpretarNoWorker(texto: string, de: string, ate: string, opcoes: Opcoes): Promise<EventoExterno[]> {
   const timeoutMs = opcoes.timeoutMs ?? TIMEOUT_INTERPRETACAO_MS;
   return new Promise<EventoExterno[]>((resolve, reject) => {
     let worker: Worker;
     try {
       worker = (opcoes.criarWorker ?? criarWorkerPadrao)();
     } catch {
+      liberarVaga();
       reject(new ErroNegocio(NAO_INTERPRETOU));
       return;
     }
@@ -47,7 +80,8 @@ export function interpretarIcalIsolado(
       terminado = true;
       clearTimeout(prazo);
       worker.on("error", () => {}); // erros tardios do worker encerrado não derrubam o processo
-      void worker.terminate().catch(() => {});
+      // A vaga só volta quando o worker terminou de fato.
+      void worker.terminate().catch(() => {}).finally(liberarVaga);
       acao();
     };
     const falhar = () => encerrar(() => reject(new ErroNegocio(NAO_INTERPRETOU)));

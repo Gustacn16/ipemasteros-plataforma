@@ -58,6 +58,8 @@ model Usuario {
   conteudosCriados     Conteudo[]            @relation("ConteudoCriadoPor")
   conteudosAprovados   Conteudo[]            @relation("ConteudoAprovadoPor")
   eventosCriados       EventoInstitucional[] @relation("EventoCriadoPor")
+  agendasExternas      AgendaExterna[]
+  assinaturaAgenda     AssinaturaAgenda?
 
   @@map("usuarios")
 }
@@ -573,6 +575,35 @@ model EventoInstitucional {
   @@index([loteId])
   @@index([tipoId])
   @@map("eventos_institucionais")
+}
+
+/// Agenda pessoal ligada por link iCal (Google/Outlook). Só o dono vê. A URL fica cifrada (ADR 0005).
+model AgendaExterna {
+  id              String    @id @default(cuid())
+  usuarioId       String    @map("usuario_id")
+  nome            String    @db.VarChar(60)
+  cor             String    @db.VarChar(7)
+  urlCifrada      String    @map("url_cifrada") @db.Text
+  ultimoSucessoEm DateTime? @map("ultimo_sucesso_em")
+  ultimoErro      String?   @map("ultimo_erro") @db.VarChar(200)
+  criadoEm        DateTime  @default(now()) @map("criado_em")
+  atualizadoEm    DateTime  @updatedAt @map("atualizado_em")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@map("agendas_externas")
+}
+
+/// Link de assinatura .ics do calendário institucional. Guarda só o SHA-256 do token.
+model AssinaturaAgenda {
+  usuarioId String   @id @map("usuario_id")
+  tokenHash String   @unique @map("token_hash") @db.Char(64)
+  criadoEm  DateTime @default(now()) @map("criado_em")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@map("assinaturas_agenda")
 }
 
 // ─── Comercial ──────────────────────────────────────────────────────────────
