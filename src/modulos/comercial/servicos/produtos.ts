@@ -4,7 +4,7 @@ import { ErroNegocio } from "@/lib/erros";
 import { prisma } from "@/lib/prisma";
 import type { UsuarioAtual } from "@/lib/sessao";
 import type { DadosLink, DadosOferta, DadosProduto, FiltrosProdutos, FormaPagamento } from "../esquemas/produto";
-import { podeExcluirProduto } from "../regras/produto";
+import { ficaPadrao, podeExcluirProduto } from "../regras/produto";
 import { MENSAGEM_NAO_ENCONTRADO, exigirPermissaoComercial } from "./acesso";
 
 type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
@@ -158,15 +158,11 @@ export async function salvarOferta(ator: UsuarioAtual, produtoId: string, dados:
   await prisma.$transaction(async (tx) => {
     await exigirProduto(tx, produtoId);
     const quantas = await tx.ofertaProduto.count({ where: { produtoId } });
-    // A primeira oferta do produto é sempre a padrão.
-    const padrao = campos.padrao || quantas === 0;
+    const existe = id ? await tx.ofertaProduto.findFirst({ where: { id, produtoId }, select: { padrao: true } }) : null;
+    if (id && !existe) throw new ErroNegocio(MENSAGEM_NAO_ENCONTRADO);
+    const padrao = ficaPadrao({ marcada: campos.padrao, eraPadrao: existe?.padrao ?? false, quantasNoProduto: quantas });
     let ofertaId = id;
     if (id) {
-      const existe = await tx.ofertaProduto.findFirst({
-        where: { id, produtoId },
-        select: { id: true },
-      });
-      if (!existe) throw new ErroNegocio(MENSAGEM_NAO_ENCONTRADO);
       await tx.ofertaProduto.update({
         where: { id },
         data: { ...campos, padrao },

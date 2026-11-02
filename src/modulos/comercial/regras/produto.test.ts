@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ajustarPadrao, cargaTotal, podeExcluirProduto } from "./produto";
+import { ajustarPadrao, cargaTotal, ficaPadrao, podeExcluirProduto } from "./produto";
 
 const semCarga = {
   cargaTeoricaPresencial: null,
@@ -35,5 +35,20 @@ describe("ajustarPadrao", () => {
       { id: "c", padrao: true },
     ];
     expect(ajustarPadrao(ofertas, "b").map((o) => o.padrao)).toEqual([false, true, false]);
+  });
+});
+
+describe("ficaPadrao", () => {
+  it("primeira oferta do produto é sempre a padrão", () => {
+    expect(ficaPadrao({ marcada: false, eraPadrao: false, quantasNoProduto: 0 })).toBe(true);
+  });
+
+  it("desmarcar a oferta padrão não deixa o produto sem padrão", () => {
+    expect(ficaPadrao({ marcada: false, eraPadrao: true, quantasNoProduto: 2 })).toBe(true);
+  });
+
+  it("oferta comum só vira padrão se marcada", () => {
+    expect(ficaPadrao({ marcada: false, eraPadrao: false, quantasNoProduto: 2 })).toBe(false);
+    expect(ficaPadrao({ marcada: true, eraPadrao: false, quantasNoProduto: 2 })).toBe(true);
   });
 });

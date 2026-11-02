@@ -24,3 +24,12 @@ export function podeExcluirProduto(usos: { vendas: number; metas: number }): boo
 export function ajustarPadrao<T extends { id: string; padrao: boolean }>(ofertas: T[], idPadrao: string): T[] {
   return ofertas.map((o) => ({ ...o, padrao: o.id === idPadrao }));
 }
+
+/**
+ * Se a oferta salva fica como padrão: quando marcada, quando é a primeira do
+ * produto, ou quando já era a padrão (desmarcar não deixa o produto sem padrão;
+ * para trocar, marca-se outra).
+ */
+export function ficaPadrao(o: { marcada: boolean; eraPadrao: boolean; quantasNoProduto: number }): boolean {
+  return o.marcada || o.eraPadrao || o.quantasNoProduto === 0;
+}
