@@ -17,7 +17,7 @@ Especificação da F1a: `docs/superpowers/specs/2026-11-02-f1a-tarefas-design.md
 |---|---|
 | `Espaco` | id, nome, cor, ordem, excluidoEm, membros (`MembroEspaco`, N:N com Usuario) |
 | `Lista` | id, espacoId, nome, ordem, excluidoEm |
-| `StatusLista` | id, listaId, nome, cor, tipo (`aberto`/`em_andamento`/`concluido`/`fechado`), ordem |
+| `StatusLista` | id, listaId, nome, cor, tipo (`aberto`/`em_andamento`/`concluido`), ordem |
 | `Tarefa` | id, listaId, tarefaPaiId? (subtarefa), titulo, descricao (texto simples na F1a), statusId, prioridade (`urgente`/`alta`/`normal`/`baixa`), dataInicio? e dataEntrega? (só data), ordem, concluidaEm?, criadoPorId, excluidoEm |
 | `TarefaResponsavel` | tarefaId, usuarioId |
 | `ItemChecklist` | id, tarefaId, texto, concluido, ordem |
