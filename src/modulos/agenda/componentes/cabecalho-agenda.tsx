@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDaysIcon, CalendarRangeIcon, ChevronLeftIcon, ChevronRightIcon, ListIcon } from "lucide-react";
+import { CalendarDaysIcon, CalendarRangeIcon, ChevronLeftIcon, ChevronRightIcon, ListIcon, SettingsIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -76,6 +76,9 @@ export function CabecalhoAgenda({ visao, titulo, filtro, consulta, hrefAnterior,
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {children}
+        <Link href="/agenda/configuracoes" className="hover:bg-muted inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-sm font-medium">
+          <SettingsIcon className="size-4" aria-hidden /> Configurações
+        </Link>
         <div role="group" aria-label="Visualização" className={cn("bg-muted inline-flex rounded-lg p-0.5", pendente && "opacity-60")}>
           {OPCOES.map(({ valor, rotulo, icone: Icone }) => (
             <button
