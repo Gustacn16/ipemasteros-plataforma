@@ -6,7 +6,7 @@ A IPEMaster oferece pós-graduações e cursos livres para médicos. Hoje a oper
 ## Objetivos
 1. Centralizar a gestão de tarefas da equipe, no estilo ClickUp.
 2. Organizar a operação acadêmica (cursos, turmas, aulas, professores, alunos, fornecedores), com presença e avaliação registradas por formulário público via QR code.
-3. Dar a cada usuário sua agenda integrada ao Google Calendar.
+3. Dar a cada usuário uma agenda que junta o calendário da IPEMaster, as tarefas e a agenda pessoal dele no Google (por link iCal).
 4. Planejar e, quando possível, publicar o conteúdo dos canais de marketing.
 5. Registrar vendas e metas por produto e vendedor e mostrar num dashboard o realizado contra a meta. Depois, trazer o investimento em mídia (Meta Ads) e as conversões (Kommo).
 6. Tratar os dados de alunos em conformidade com a LGPD desde o início.
@@ -26,7 +26,7 @@ A IPEMaster oferece pós-graduações e cursos livres para médicos. Hoje a oper
 |---|---|---|
 | Core | Usuários, papéis, convites, auditoria, LGPD | `modulos/core.md` |
 | Tarefas | Espaços, listas, status personalizados, subtarefas (modelo ClickUp) | `modulos/tarefas.md` |
-| Agenda | Cada usuário conecta seu Google Calendar | `modulos/agenda.md` |
+| Agenda | Calendário da IPEMaster, tarefas com entrega e agenda pessoal do Google/Outlook por link iCal; assinatura `.ics` para levar o calendário ao Google | `modulos/agenda.md` |
 | Acadêmico | Cursos, turmas, aulas, alunos, professores, fornecedores, presença e avaliação | `modulos/academico.md` |
 | Conteúdo | Canais, calendário editorial, fluxo de aprovação e publicação | `modulos/conteudo.md` |
 | Comercial | Catálogo de produtos, vendas, metas e dashboard (depois: Kommo e Meta Ads) | `modulos/comercial.md` |
@@ -37,7 +37,7 @@ A IPEMaster oferece pós-graduações e cursos livres para médicos. Hoje a oper
 | **F0 — Fundação** | Projeto, deploy `teste`/`main` na Hostinger, Core (login, convites, papéis, auditoria) |
 | **F1 — Tarefas** | Gestão de tarefas completa |
 | **F2 — Acadêmico** | Cadastros, turmas, aulas, QR de presença, formulário de avaliação |
-| **F3 — Agenda** | Conexão com o Google Calendar por usuário |
+| **F3 — Agenda** | Calendário da IPEMaster, agenda pessoal por link iCal e assinatura `.ics` no Google (OAuth do Google fica para depois) |
 | **F4 — Conteúdo (planejamento)** | Canais, calendário editorial, aprovação |
 | **F5 — Conteúdo (publicação)** | Publicação via API onde for possível (Instagram/Facebook primeiro) |
 | **F6 — Comercial** | Produtos, vendas, metas e dashboard; depois, integrações Kommo e Meta Ads |

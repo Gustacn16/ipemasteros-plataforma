@@ -27,12 +27,14 @@ Especificação: `docs/superpowers/specs/2026-11-02-agenda-design.md`.
 - **`/agenda`:** calendário com as visões **Mês**, **Semana** e **Lista** (`?visao=`, `?data=AAAA-MM-DD`), botão Hoje e setas. A Lista mostra os próximos 60 dias agrupados por dia e é a visão padrão no celular.
   - **Mês:** grade de domingo a sábado. Evento de vários dias vira faixa contínua em cada semana. Cada dia mostra até 3 itens e "+N", que abre o dia.
   - **Semana:** uma coluna por dia, com os eventos de dia inteiro no topo e os com horário posicionados das 6h às 23h.
-  - **Barra de camadas:** IPEMaster (com filtro por tipo e por turma), Minhas tarefas e, na entrega 2, cada agenda pessoal. A visão e os filtros ficam salvos no cookie `agenda_filtro`.
+  - **Barra de camadas:** IPEMaster (com filtro por tipo e por turma), Minhas tarefas e Minhas agendas (cada agenda pessoal liga e desliga). A visão e os filtros ficam salvos no cookie `agenda_filtro` (agendas desligadas em `desligadas`).
+  - **Agenda pessoal no calendário:** os compromissos usam a cor da agenda com traço mais leve (fundo com 12% da cor e borda tracejada) e não abrem nada ao clicar. São convertidos para dia e hora de São Paulo no servidor; no dia inteiro, o fim do iCal é exclusivo (o último dia é o fim menos 1). A leitura só acontece se a pessoa tem agendas ligadas e roda junto com a consulta do calendário da IPEMaster. Agenda que falha mostra "Não consegui ler <nome>" acima do calendário, com link para Configurações, e o resto aparece normal.
   - Quem edita vê os botões "Novo evento" e "Lançar várias datas".
 - **`/agenda?evento=<id>`:** painel lateral com o detalhe do evento. Quem pode editar altera ou exclui ali. Mostra os outros eventos do mesmo lote.
 - **`/agenda/configuracoes`:** link "Configurações" no cabeçalho da Agenda.
-  - **Tipos de evento** (só `agenda:gerenciar_tipos`): cor, nome, Salvar, subir e descer, Ativo/Inativo e criação de tipo novo. Quem não gerencia tipos vê "Nada para configurar por enquanto.".
-  - **Minhas agendas** e **Levar para o Google** (entrega 2): colar links iCal e copiar o link de assinatura.
+  - **Minhas agendas** (todos): aviso fixo "Só você vê esses compromissos.", passo a passo do Google (Configurações → clique na sua agenda → Integrar agenda → "Endereço secreto no formato iCal" → copiar) e do Outlook (Calendários compartilhados → Publicar um calendário → link ICS), formulário com nome, cor e link (o servidor testa antes de salvar), e a lista com cor, nome, endereço mascarado, "Lida às HH:MM" ou o erro, Salvar e Remover (com confirmação). Até 5 agendas. Aviso: se a plataforma trocar a chave de segurança, é preciso colar o link de novo.
+  - **Levar para o Google** (quem vê o calendário da IPEMaster): botão Gerar link / Gerar novo link (o novo pede confirmação, porque o anterior para de funcionar na hora). **O link é exibido uma vez só**, logo depois de gerado, com Copiar (se a área de transferência falhar, o texto fica selecionado para copiar à mão). Instruções: Google Agenda → Outras agendas → + → "Do URL" → colar. Aviso "O Google pode levar algumas horas para atualizar".
+  - **Tipos de evento** (só `agenda:gerenciar_tipos`): cor, nome, Salvar, subir e descer, Ativo/Inativo e criação de tipo novo.
 - **Cores:** o evento usa a cor do seu tipo. A tarefa é roxa (#5F45F4), com ícone de tarefa. A agenda pessoal usa a cor escolhida, em traço mais leve.
 - O item **Agenda** do menu principal fica ativo para quem tem `agenda:usar`.
 
@@ -48,10 +50,10 @@ Especificação: `docs/superpowers/specs/2026-11-02-agenda-design.md`.
    - Só são aceitos links `https` de Google Calendar e Outlook, para impedir que o servidor seja usado para acessar endereços internos.
    - O link é guardado cifrado, e a tela mostra só o endereço e os últimos 6 caracteres.
    - Ao salvar, o servidor testa a leitura e, se falhar, explica o motivo.
-   - A leitura tem limite de tempo (8 s), de tamanho (5 MB) e de ocorrências (2.000), com cache de 10 minutos. Se uma agenda falhar, a tela avisa "Não consegui ler <nome>" e mostra o resto.
+   - A leitura tem limite de tempo (8 s), de tamanho (5 MB) e de ocorrências (2.000), com cache de 10 minutos. A interpretação roda em worker, com no máximo 4 leituras de agenda ao mesmo tempo no servidor. Se uma agenda falhar, a tela avisa "Não consegui ler <nome>" e mostra o resto.
    - Os eventos pessoais nunca são gravados no banco nem em log. Cada pessoa pode ter até 5 agendas.
 7. **Assinatura `.ics` (entrega 2):**
-   - Endereço `/api/agenda/assinatura/<token>.ics`. O banco guarda só o hash do token.
+   - Endereço `/api/agenda/assinatura/<token>.ics`. O banco guarda só o hash do token, por isso o link completo é mostrado uma vez só, na hora em que é gerado.
    - Traz os eventos da IPEMaster de 90 dias atrás até 365 dias à frente, filtrados pelo papel do dono. Nunca traz agenda pessoal nem tarefas.
    - Usuário inativo ou sem permissão recebe 404. "Gerar novo link" invalida o anterior na hora.
    - O Google pode levar horas para atualizar uma assinatura. A Agenda da plataforma é sempre imediata.
@@ -78,4 +80,6 @@ OAuth do Google (criar eventos no Google, aulas na agenda do professor), eventos
 ## Situação da implementação
 **Entrega 1, calendário da IPEMaster (feita, aguardando validação na homologação):** permissões, tipos de evento com semente e tela de gestão, eventos, lançamento em lote, visões Mês, Semana e Lista, painel do evento, camada de tarefas, filtros salvos e item no menu.
 
-**Entrega 2, iCal e assinatura (próxima):** agendas pessoais por link iCal (cifra, validação de endereço, leitura e cache), assinatura `.ics`, as seções "Minhas agendas" e "Levar para o Google" em `/agenda/configuracoes` e a ADR 0005. Só começa depois da validação da entrega 1.
+**Entrega 2, integração com o Google por iCal (feita, aguardando validação na homologação):** agendas pessoais por link iCal (cifra, validação de endereço, leitura em worker e cache), camada pessoal no calendário, assinatura `.ics`, as seções "Minhas agendas" e "Levar para o Google" em `/agenda/configuracoes` e a ADR 0005.
+
+**Depois (fora da v1):** OAuth do Google, para criar eventos no Google e levar tarefas e aulas para a agenda de cada pessoa.

@@ -61,7 +61,7 @@ Especificação da F1a: `docs/superpowers/specs/2026-11-02-f1a-tarefas-design.md
 - Regras em `src/modulos/tarefas/regras/relatorio.ts` (testes em `relatorio.test.ts`); consulta em `servicos/relatorio.ts`.
 
 ## Integrações
-- **Agenda:** tarefas com data podem ser enviadas ao Google Calendar do responsável (opção do usuário).
+- **Agenda:** as tarefas abertas com data de entrega aparecem na camada "Minhas tarefas" da Agenda da plataforma (`modulos/agenda.md`). Elas não vão para o Google: a assinatura `.ics` leva só o calendário da IPEMaster. Enviar tarefas ao Google depende do OAuth, que fica para depois.
 - **Acadêmico/Conteúdo:** uma tarefa pode ser vinculada a uma turma ou publicação e aparece na tela delas.
 
 ## Fora do escopo (v1)

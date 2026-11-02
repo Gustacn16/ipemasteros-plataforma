@@ -9,7 +9,8 @@ flowchart LR
     APP[Next.js App Router<br/>Node.js] --> DB[(MySQL)]
     CRON[Cron Hostinger] -->|HTTP + segredo| APP
   end
-  APP <--> GC[Google Calendar API]
+  APP -->|lê link iCal| GC[Google Agenda / Outlook]
+  GC -->|assina .ics| APP
   APP <--> META[Meta Graph / Marketing API]
   APP <--> KOMMO[Kommo API]
   APP --> SMTP[E-mail transacional]
@@ -59,7 +60,7 @@ Regras:
 ## Integrações
 | Integração | Uso | Autenticação | Fase |
 |---|---|---|---|
-| Google Calendar | Agenda de cada usuário | OAuth 2.0 por usuário (escopo de calendário) | F3 |
+| Google Agenda / Outlook | Ler a agenda pessoal e levar o calendário da IPEMaster ao Google | Sem OAuth na v1: link iCal secreto colado pela pessoa (guardado cifrado, ADR 0005) e link de assinatura `.ics` com token (o banco guarda só o hash). OAuth do Google fica para depois | F3 |
 | Meta Graph API | Publicar no Instagram/Facebook | OAuth da página/conta comercial | F5 |
 | Meta Marketing API | Investimento, impressões, cliques, leads | Token de sistema (Business Manager) | F6 |
 | Kommo API | Leads, negócios, vendas | OAuth Kommo + webhooks | F6 |
@@ -69,7 +70,6 @@ Tokens de integração ficam **criptografados no banco** (AES-256-GCM, chave em 
 
 ## Jobs agendados
 A Hostinger Cloud oferece cron no hPanel. Cada job é um `GET /api/cron/<tarefa>` com o header `Authorization: Bearer $CRON_SECRET`.
-- `sincronizar-agenda`: renova tokens Google e sincroniza eventos vinculados.
 - `importar-meta-ads` (diário) e `importar-kommo` (de hora em hora, complementando os webhooks).
 - `publicar-agendados` (a cada 5 min): publica conteúdos agendados.
 - `limpeza-lgpd` (semanal): anonimiza dados que passaram do prazo de retenção.

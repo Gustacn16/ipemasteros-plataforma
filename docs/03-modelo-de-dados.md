@@ -19,7 +19,7 @@ Visão geral das entidades e de como os módulos se relacionam. Os campos detalh
 |---|---|
 | Core | `Usuario`, `FotoUsuario`, `Sessao`, `Conta`, `Verificacao`, `Convite`, `LogAuditoria`, `SolicitacaoTitular` |
 | Tarefas | `Espaco`, `Pasta`, `Lista`, `StatusLista`, `Tarefa`, `TarefaResponsavel`, `ItemChecklist`, `Etiqueta`, `TarefaEtiqueta`, `Comentario`, `Anexo` |
-| Agenda | `ConexaoGoogle`, `CalendarioConectado`, `EventoVinculado` |
+| Agenda | `TipoEvento`, `EventoInstitucional`, `AgendaExterna`, `AssinaturaAgenda` |
 | Acadêmico | `Curso`, `Turma`, `Disciplina`, `Aula`, `Professor`, `Aluno`, `Matricula`, `Presenca`, `Fornecedor`, `TurmaFornecedor`, `ModeloAvaliacao`, `PerguntaAvaliacao`, `RespostaAvaliacao` |
 | Conteúdo | `Canal`, `Campanha`, `Publicacao`, `PublicacaoCanal`, `MidiaPublicacao` |
 | Comercial | `Produto`, `OfertaProduto`, `LinkProduto`, `CanalVenda` (vendas e metas nas próximas entregas; Kommo e Meta Ads depois) |
@@ -29,7 +29,10 @@ Visão geral das entidades e de como os módulos se relacionam. Os campos detalh
 erDiagram
   Usuario ||--o| Professor : "pode ser"
   Usuario ||--o{ LogAuditoria : gera
-  Usuario ||--o{ ConexaoGoogle : conecta
+  Usuario ||--o{ AgendaExterna : "liga (link iCal)"
+  Usuario ||--o| AssinaturaAgenda : assina
+  TipoEvento ||--o{ EventoInstitucional : classifica
+  Usuario ||--o{ EventoInstitucional : cria
 
   Espaco ||--o{ Pasta : contem
   Pasta ||--o{ Lista : contem
@@ -62,12 +65,11 @@ erDiagram
   Curso ||--o{ NegocioKommo : "venda de"
   LeadKommo ||--o{ NegocioKommo : ""
 
-  EventoVinculado }o--|| ConexaoGoogle : ""
 ```
 
 ## Vínculos entre módulos
 - **Tarefa ↔ outras entidades:** `Tarefa` tem `turmaId?` e `publicacaoId?` opcionais. Assim uma tarefa pode pertencer a uma turma ou a uma publicação sem acoplamento polimórfico.
-- **Agenda ↔ entidades:** `EventoVinculado` guarda `tipoOrigem` (`aula` | `tarefa` | `publicacao`), `origemId` e `googleEventId`. Isso evita colunas Google nas tabelas de outros módulos.
+- **Agenda ↔ entidades:** a Agenda não grava nada nas tabelas de outros módulos. A camada de tarefas lê as entregas de `Tarefa` na hora. Os eventos da agenda pessoal (`AgendaExterna`, link iCal cifrado) são lidos do Google ou do Outlook e nunca vão para o banco. `AssinaturaAgenda` guarda só o hash do token do link `.ics`. Detalhes em `modulos/agenda.md`.
 - **Professor ↔ Usuario:** `Professor.usuarioId?` é opcional. Um professor pode ser cadastrado antes de receber acesso.
 - **Comercial ↔ Acadêmico:** o `Produto` do Comercial é o catálogo único; as turmas do Acadêmico vão apontar para ele (ver `modulos/comercial.md`).
 
