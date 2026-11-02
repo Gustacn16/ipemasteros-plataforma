@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { gerarIcs, type EventoIcs } from "./ics";
+import { escaparTexto, gerarIcs, type EventoIcs } from "./ics";
 
 const agora = new Date("2026-11-02T12:00:00.000Z");
 
@@ -55,9 +55,14 @@ describe("gerarIcs", () => {
   it("escapa barra, ponto e vírgula, vírgula e quebra de linha", () => {
     const ev = { ...base, titulo: "Aula, módulo; 1", descricao: "a\\b\nc", local: "Sala 1, bloco; B" };
     const l = linhas(gerarIcs([ev], agora));
-    expect(l).toContain("SUMMARY:Aula\\, módulo\; 1");
-    expect(l).toContain("DESCRIPTION:a\\\\b\\nc");
-    expect(l).toContain("LOCATION:Sala 1\\, bloco\; B");
+    expect(l).toContain(String.raw`SUMMARY:Aula\, módulo\; 1`);
+    expect(l).toContain(String.raw`DESCRIPTION:a\\b\nc`);
+    expect(l).toContain(String.raw`LOCATION:Sala 1\, bloco\; B`);
+  });
+
+  it("escaparTexto transforma ; em barra invertida + ponto e vírgula", () => {
+    expect(escaparTexto("a;b")).toHaveLength(4);
+    expect(escaparTexto("a;b")).toBe(String.raw`a\;b`);
   });
 
   it("dobra linhas em 75 octetos sem partir caractere e preserva o texto", () => {

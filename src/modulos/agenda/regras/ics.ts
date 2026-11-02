@@ -18,10 +18,10 @@ const FUSO = "America/Sao_Paulo";
 const LIMITE_OCTETOS = 75;
 
 /** Escapa o valor de um campo de texto (RFC 5545, 3.3.11). */
-function escapar(texto: string): string {
+export function escaparTexto(texto: string): string {
   return texto
     .replace(/\\/g, "\\\\")
-    .replace(/;/g, "\;")
+    .replace(/;/g, "\\;")
     .replace(/,/g, "\\,")
     .replace(/\r\n|\r|\n/g, "\\n");
 }
@@ -62,7 +62,7 @@ function linhasDoEvento(e: EventoIcs, agora: Date): string[] {
     `UID:${e.id}@ipemaster`,
     `DTSTAMP:${instanteUtc(agora)}`,
     `LAST-MODIFIED:${instanteUtc(e.atualizadoEm)}`,
-    `SUMMARY:${escapar(titulo)}`,
+    `SUMMARY:${escaparTexto(titulo)}`,
   ];
   if (e.horaInicio) {
     l.push(`DTSTART;TZID=${FUSO}:${dataHoraLocal(e.dataInicio, e.horaInicio)}`);
@@ -71,8 +71,8 @@ function linhasDoEvento(e: EventoIcs, agora: Date): string[] {
     l.push(`DTSTART;VALUE=DATE:${soDigitos(e.dataInicio)}`);
     l.push(`DTEND;VALUE=DATE:${soDigitos(somarDias(e.dataFim, 1))}`);
   }
-  if (e.local) l.push(`LOCATION:${escapar(e.local)}`);
-  if (e.descricao) l.push(`DESCRIPTION:${escapar(e.descricao)}`);
+  if (e.local) l.push(`LOCATION:${escaparTexto(e.local)}`);
+  if (e.descricao) l.push(`DESCRIPTION:${escaparTexto(e.descricao)}`);
   l.push("END:VEVENT");
   return l;
 }
