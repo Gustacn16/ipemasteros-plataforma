@@ -44,6 +44,10 @@ model Usuario {
   tarefasCriadas    Tarefa[]            @relation("TarefasCriadas")
   tarefasAtribuidas TarefaResponsavel[]
 
+  conteudosResponsavel Conteudo[] @relation("ConteudoResponsavel")
+  conteudosCriados     Conteudo[] @relation("ConteudoCriadoPor")
+  conteudosAprovados   Conteudo[] @relation("ConteudoAprovadoPor")
+
   @@map("usuarios")
 }
 
@@ -291,4 +295,142 @@ model TarefaResponsavel {
   @@id([tarefaId, usuarioId])
   @@index([usuarioId])
   @@map("tarefas_responsaveis")
+}
+
+// ─── Conteúdo ────────────────────────────────────────────────────────────────
+// Ver docs/modulos/conteudo.md. Marca = conta (IPEMaster, Pedro Prado);
+// Canal = plataforma da marca; Publicacao = conteúdo × canal.
+
+enum PlataformaCanal {
+  instagram
+  youtube
+  tiktok
+  facebook
+  linkedin
+  newsletter
+  blog
+  podcast
+  outro
+}
+
+enum FormatoConteudo {
+  reels
+  carrossel
+  post
+  story
+  video
+  short
+  live
+  newsletter
+  artigo
+  outro
+}
+
+enum EtapaConteudo {
+  ideia
+  planejado
+  a_gravar
+  gravado
+  edicao
+  revisao
+  aprovado
+  publicado
+  cancelado
+}
+
+enum StatusPublicacao {
+  pendente
+  publicado
+}
+
+model Marca {
+  id           String    @id @default(cuid())
+  nome         String    @db.VarChar(60)
+  cor          String    @db.Char(7)
+  ordem        Int
+  excluidoEm   DateTime? @map("excluido_em")
+  criadoEm     DateTime  @default(now()) @map("criado_em")
+  atualizadoEm DateTime  @updatedAt @map("atualizado_em")
+
+  canais    Canal[]
+  conteudos Conteudo[]
+
+  @@map("marcas")
+}
+
+model Canal {
+  id            String          @id @default(cuid())
+  marcaId       String          @map("marca_id")
+  plataforma    PlataformaCanal
+  identificador String?         @db.VarChar(100)
+  ordem         Int
+  ativo         Boolean         @default(true)
+  excluidoEm    DateTime?       @map("excluido_em")
+  criadoEm      DateTime        @default(now()) @map("criado_em")
+  atualizadoEm  DateTime        @updatedAt @map("atualizado_em")
+
+  marca       Marca        @relation(fields: [marcaId], references: [id])
+  publicacoes Publicacao[]
+
+  @@index([marcaId])
+  @@map("canais")
+}
+
+/// Peça de conteúdo. Passa pelas etapas do pipeline e sai em um ou mais canais (Publicacao).
+model Conteudo {
+  id             String          @id @default(cuid())
+  marcaId        String          @map("marca_id")
+  titulo         String          @db.VarChar(200)
+  formato        FormatoConteudo
+  etapa          EtapaConteudo   @default(ideia)
+  roteiro        String?         @db.Text
+  legenda        String?         @db.Text
+  linkMaterial   String?         @map("link_material") @db.VarChar(500)
+  responsavelId  String?         @map("responsavel_id")
+  dataGravacao   DateTime?       @map("data_gravacao") @db.Date
+  dataPublicacao DateTime?       @map("data_publicacao") @db.Date
+  aprovadoPorId  String?         @map("aprovado_por_id")
+  aprovadoEm     DateTime?       @map("aprovado_em")
+  publicadoEm    DateTime?       @map("publicado_em")
+  criadoPorId    String          @map("criado_por_id")
+  excluidoEm     DateTime?       @map("excluido_em")
+  criadoEm       DateTime        @default(now()) @map("criado_em")
+  atualizadoEm   DateTime        @updatedAt @map("atualizado_em")
+
+  marca       Marca        @relation(fields: [marcaId], references: [id])
+  responsavel Usuario?     @relation("ConteudoResponsavel", fields: [responsavelId], references: [id])
+  criadoPor   Usuario      @relation("ConteudoCriadoPor", fields: [criadoPorId], references: [id])
+  aprovadoPor Usuario?     @relation("ConteudoAprovadoPor", fields: [aprovadoPorId], references: [id])
+  publicacoes Publicacao[]
+
+  @@index([marcaId, etapa])
+  @@index([dataPublicacao])
+  @@index([dataGravacao])
+  @@map("conteudos")
+}
+
+/// Saída de um conteúdo num canal: status, link e métricas (manuais na C1).
+model Publicacao {
+  id                String           @id @default(cuid())
+  conteudoId        String           @map("conteudo_id")
+  canalId           String           @map("canal_id")
+  status            StatusPublicacao @default(pendente)
+  url               String?          @db.VarChar(500)
+  publicadoEm       DateTime?        @map("publicado_em")
+  alcance           Int?
+  visualizacoes     Int?
+  curtidas          Int?
+  comentarios       Int?
+  compartilhamentos Int?
+  salvamentos       Int?
+  metricasEm        DateTime?        @map("metricas_em")
+  criadoEm          DateTime         @default(now()) @map("criado_em")
+  atualizadoEm      DateTime         @updatedAt @map("atualizado_em")
+
+  conteudo Conteudo @relation(fields: [conteudoId], references: [id], onDelete: Cascade)
+  canal    Canal    @relation(fields: [canalId], references: [id])
+
+  @@unique([conteudoId, canalId])
+  @@index([canalId, publicadoEm])
+  @@map("publicacoes")
 }
