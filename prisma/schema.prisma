@@ -35,10 +35,18 @@ model Usuario {
   criadoEm        DateTime  @default(now()) @map("criado_em")
   atualizadoEm    DateTime  @updatedAt @map("atualizado_em")
 
-  sessoes           Sessao[]
-  contas            Conta[]
-  convitesEnviados  Convite[]       @relation("ConvitesEnviados")
-  logsAuditoria     LogAuditoria[]
+  // Perfil básico, obrigatório no primeiro acesso (nulo só em contas antigas até completarem).
+  apelido          String?      @db.VarChar(40)
+  whatsapp         String?      @db.VarChar(15)
+  cargo            String?      @db.VarChar(80)
+  dataNascimento   DateTime?    @map("data_nascimento") @db.Date
+  perfilCompletoEm DateTime?    @map("perfil_completo_em")
+  foto             FotoUsuario?
+
+  sessoes          Sessao[]
+  contas           Conta[]
+  convitesEnviados Convite[]      @relation("ConvitesEnviados")
+  logsAuditoria    LogAuditoria[]
 
   membroDeEspacos   MembroEspaco[]
   tarefasCriadas    Tarefa[]            @relation("TarefasCriadas")
@@ -49,6 +57,18 @@ model Usuario {
   conteudosAprovados   Conteudo[] @relation("ConteudoAprovadoPor")
 
   @@map("usuarios")
+}
+
+/// Foto de perfil, já reduzida no navegador (ver ADR 0004). Fica fora de `usuarios` para não pesar as consultas.
+model FotoUsuario {
+  usuarioId    String   @id @map("usuario_id")
+  dados        Bytes    @db.MediumBlob
+  tipo         String   @db.VarChar(20)
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@map("fotos_usuarios")
 }
 
 /// Sessão de login (gerenciada pelo Better Auth).

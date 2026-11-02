@@ -6,8 +6,9 @@ import { dadosDoFormulario, tratarErroAcao, type EstadoAcao } from "@/lib/acoes"
 import { registrarAuditoria } from "@/lib/auditoria";
 import { auth } from "@/lib/auth";
 import { obterUsuarioAtual } from "@/lib/sessao";
-import { esquemaAceitarConvite, esquemaPrimeiroAcesso } from "../esquemas/usuario";
+import { esquemaAceitarConvite, esquemaPerfil, esquemaPrimeiroAcesso } from "../esquemas/usuario";
 import { aceitarConvite } from "../servicos/convites";
+import { completarCadastro, lerFoto } from "../servicos/perfil";
 import { criarPrimeiroAdmin } from "../servicos/primeiro-acesso";
 
 async function entrarComSenha(email: string, senha: string) {
@@ -19,7 +20,7 @@ export async function aceitarConviteAcao(_: EstadoAcao, formData: FormData): Pro
   let senha: string;
   try {
     const dados = esquemaAceitarConvite.parse(dadosDoFormulario(formData));
-    ({ email } = await aceitarConvite(dados));
+    ({ email } = await aceitarConvite(dados, await lerFoto(formData)));
     senha = dados.senha;
   } catch (erro) {
     return tratarErroAcao(erro);
@@ -39,6 +40,18 @@ export async function primeiroAcessoAcao(_: EstadoAcao, formData: FormData): Pro
     return tratarErroAcao(erro);
   }
   await entrarComSenha(email, senha);
+  redirect("/inicio");
+}
+
+export async function completarCadastroAcao(_: EstadoAcao, formData: FormData): Promise<EstadoAcao> {
+  const usuario = await obterUsuarioAtual();
+  if (!usuario) redirect("/login");
+  try {
+    const dados = esquemaPerfil.parse(dadosDoFormulario(formData));
+    await completarCadastro(usuario.id, dados, await lerFoto(formData));
+  } catch (erro) {
+    return tratarErroAcao(erro);
+  }
   redirect("/inicio");
 }
 

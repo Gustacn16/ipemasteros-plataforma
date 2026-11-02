@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ROTULO_PAPEL } from "@/lib/permissoes";
 import { aceitarConviteAcao } from "@/modulos/core/acoes/autenticacao";
 import { buscarConviteValido } from "@/modulos/core/servicos/convites";
-import { FormularioSenhaNova } from "../../formulario-senha-nova";
+import { FormularioCadastro } from "@/modulos/core/componentes/formulario-cadastro";
 
 export const metadata: Metadata = { title: "Convite — IPEMaster OS", referrer: "no-referrer" };
 
@@ -29,11 +29,12 @@ export default async function PaginaConvite({ params }: PageProps<"/convite/[tok
       <CardHeader>
         <CardTitle>Criar seu acesso</CardTitle>
         <CardDescription>
-          {convite.email} · {ROTULO_PAPEL[convite.papel]}
+          {convite.email} · {ROTULO_PAPEL[convite.papel]}. Preencha seus dados, adicione uma foto e crie sua senha.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <FormularioSenhaNova
+        <FormularioCadastro
+          comSenha
           acao={aceitarConviteAcao}
           rotuloBotao="Criar acesso e entrar"
           nomeInicial={convite.nome}

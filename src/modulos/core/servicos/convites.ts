@@ -6,6 +6,8 @@ import { ErroPermissao, podeConvidar, ROTULO_PAPEL, temPermissao, type Papel } f
 import { prisma } from "@/lib/prisma";
 import type { UsuarioAtual } from "@/lib/sessao";
 import { gerarToken, hashToken } from "@/lib/tokens";
+import type { DadosPerfil } from "../esquemas/usuario";
+import { salvarPerfil, type FotoEnviada } from "./perfil";
 import { criarUsuarioComSenha } from "./usuarios";
 
 const VALIDADE_CONVITE_MS = 72 * 60 * 60 * 1000;
@@ -117,8 +119,8 @@ export async function buscarConviteValido(token: string) {
   return { id: convite.id, nome: convite.nome, email: convite.email, papel: convite.papel };
 }
 
-/** Cria o usuário a partir do convite e marca o convite como aceito. */
-export async function aceitarConvite(dados: { token: string; nome: string; senha: string }) {
+/** Cria o usuário a partir do convite, já com perfil e foto, e marca o convite como aceito. */
+export async function aceitarConvite(dados: DadosPerfil & { token: string; senha: string }, foto: FotoEnviada) {
   return prisma.$transaction(async (tx) => {
     const convite = await tx.convite.findUnique({ where: { tokenHash: hashToken(dados.token) } });
     if (!convite || convite.aceitoEm || convite.revogadoEm || convite.expiraEm <= new Date()) {
@@ -130,6 +132,7 @@ export async function aceitarConvite(dados: { token: string; nome: string; senha
       senha: dados.senha,
       papel: convite.papel,
     });
+    await salvarPerfil(tx, usuario.id, dados, foto);
     await tx.convite.update({ where: { id: convite.id }, data: { aceitoEm: new Date() } });
     await registrarAuditoria(
       {

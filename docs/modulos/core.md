@@ -6,14 +6,16 @@ Base comum a todos os módulos: identidade, acesso, papéis, auditoria e conform
 ## Entidades
 | Entidade | Campos principais | Observações |
 |---|---|---|
-| `Usuario` | id, nome, email (único), papel (`admin`/`gestor`/`colaborador`/`professor`/`aluno`), ativo, avatarUrl, fusoHorario (padrão `America/Sao_Paulo`), ultimoAcessoEm | Desativar em vez de excluir |
+| `Usuario` | id, nome, email (único), papel (`admin`/`gestor`/`colaborador`/`professor`/`aluno`), ativo, imagem (URL da foto), apelido, whatsapp (só dígitos, com DDD), cargo, dataNascimento, perfilCompletoEm, ultimoAcessoEm | Desativar em vez de excluir |
+| `FotoUsuario` | usuarioId, dados (MEDIUMBLOB, até 512 KB), tipo | Foto de perfil 400×400 (ADR 0004) |
 | `Sessao`, `Conta`, `Verificacao` | Padrão Better Auth | Gerenciadas pela lib. Não alterar à mão |
 | `Convite` | id, email, papel, tokenHash, expiraEm, aceitoEm, convidadoPorId | Validade de 72h, uso único |
 | `LogAuditoria` | id, usuarioId?, acao, entidade, entidadeId, diff (JSON), ip, userAgent, criadoEm | Somente inserção |
 | `SolicitacaoTitular` | id, tipo (`acesso`/`correcao`/`anonimizacao`/`portabilidade`), titularTipo, titularId, status, prazoEm, atendidoPorId, observacoes | Ver 04-seguranca |
 
 ## Telas
-- `/login`, `/recuperar-senha`, `/convite/[token]` (definir senha)
+- `/login`, `/recuperar-senha`, `/convite/[token]` (dados básicos, foto e senha)
+- `/completar-cadastro`: etapa obrigatória para quem ainda não tem dados básicos e foto
 - `/perfil`: dados pessoais, senha, 2FA, conexões (atalho para a Agenda)
 - `/admin/usuarios`: lista, convidar, mudar papel, desativar
 - `/admin/auditoria`: busca por usuário, entidade, ação e período
@@ -33,6 +35,7 @@ Base comum a todos os módulos: identidade, acesso, papéis, auditoria e conform
 9. Ninguém altera o próprio papel nem desativa a própria conta. Isso evita se trancar fora do sistema.
 10. Um novo convite para o mesmo e-mail revoga o convite pendente anterior.
 11. Na auditoria, o gestor vê só as ações feitas por ele mesmo. O admin vê tudo.
+12. **Cadastro obrigatório:** no aceite do convite, a pessoa preenche nome completo, apelido, WhatsApp, cargo, data de nascimento e foto, junto com a senha. Contas sem esses dados (`perfilCompletoEm` nulo, como o primeiro admin) são levadas a `/completar-cadastro` por `exigirUsuario()` antes de qualquer tela. A foto fica no banco (ADR 0004) e é servida só a usuários logados. A data de nascimento não aparece para outros colaboradores.
 
 > As regras 4 (tokens Google) e 6 (vínculo com `Professor`) passam a valer quando os módulos Agenda (F3) e Acadêmico (F2) existirem.
 

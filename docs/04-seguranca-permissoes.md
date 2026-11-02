@@ -49,7 +49,7 @@ Legenda: ✅ total · 👁 só leitura · 🔸 restrito ao que é seu · — sem
 
 Ações sempre auditadas:
 - Login e logout, falhas de login.
-- Convites, mudança de papel, desativação de usuário.
+- Convites, mudança de papel, desativação de usuário, cadastro do perfil (só a lista de campos, sem os valores).
 - Criação, edição e exclusão de aluno, professor e matrícula.
 - Visualização do CPF completo, exportação de dados.
 - Conexão e desconexão de integrações.
@@ -84,6 +84,7 @@ São as únicas telas sem login, por isso recebem proteção extra:
 | Aluno | Respostas de avaliação | Melhoria da qualidade das aulas | Legítimo interesse (IX), **anônimas por padrão** |
 | Professor | Nome, contato, CPF, CRM, dados bancários (futuro) | Contratação e gestão docente | Execução de contrato (V) |
 | Usuário interno | Nome, e-mail, logs de acesso | Operação do sistema e segurança | Legítimo interesse (IX) / Marco Civil (art. 15) |
+| Usuário interno | Apelido, WhatsApp, cargo, data de nascimento, foto de perfil | Identificação da equipe nas telas, contato interno e aniversários. A data de nascimento não é exibida a outros colaboradores, e a foto só é servida a usuários logados | Legítimo interesse (IX) / execução de contrato de trabalho (V) |
 | Fornecedor (PF) | Nome, contato, documento | Relação comercial | Execução de contrato (V) |
 
 Não coletamos dados sensíveis (art. 5º, II), como saúde ou religião. Se algum campo novo puder conter esse tipo de dado, ele precisa de uma ADR e de revisão jurídica antes.

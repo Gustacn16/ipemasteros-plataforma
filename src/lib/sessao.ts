@@ -12,6 +12,10 @@ export type UsuarioAtual = {
   nome: string;
   email: string;
   papel: Papel;
+  /** URL da foto de perfil (rota protegida), se houver. */
+  imagem: string | null;
+  /** Falso enquanto a pessoa não preencheu dados básicos e foto. */
+  perfilCompleto: boolean;
 };
 
 /**
@@ -24,17 +28,25 @@ export const obterUsuarioAtual = cache(async (): Promise<UsuarioAtual | null> =>
 
   const usuario = await prisma.usuario.findUnique({
     where: { id: sessao.user.id },
-    select: { id: true, nome: true, email: true, papel: true, ativo: true },
+    select: { id: true, nome: true, email: true, papel: true, ativo: true, imagem: true, perfilCompletoEm: true },
   });
   if (!usuario?.ativo) return null;
 
-  return { id: usuario.id, nome: usuario.nome, email: usuario.email, papel: usuario.papel };
+  return {
+    id: usuario.id,
+    nome: usuario.nome,
+    email: usuario.email,
+    papel: usuario.papel,
+    imagem: usuario.imagem,
+    perfilCompleto: usuario.perfilCompletoEm !== null,
+  };
 });
 
-/** Para páginas: redireciona ao login se não houver sessão. */
+/** Para páginas: redireciona ao login se não houver sessão, e ao cadastro se faltar perfil e foto. */
 export async function exigirUsuario(): Promise<UsuarioAtual> {
   const usuario = await obterUsuarioAtual();
   if (!usuario) redirect("/login");
+  if (!usuario.perfilCompleto) redirect("/completar-cadastro");
   return usuario;
 }
 

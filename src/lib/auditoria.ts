@@ -14,6 +14,7 @@ export type AcaoAuditoria =
   | "usuario.papel_alterado"
   | "usuario.desativado"
   | "usuario.reativado"
+  | "usuario.perfil_atualizado"
   | "espaco.criado"
   | "espaco.excluido"
   | "espaco.membros_alterados"
