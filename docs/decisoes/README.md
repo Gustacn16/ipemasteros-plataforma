@@ -9,6 +9,7 @@ Cada decisão relevante de arquitetura vira um arquivo `NNNN-titulo-curto.md`. U
 | 0002 | [Build compatível com o servidor da Hostinger](0002-build-na-hostinger.md) | Aceito |
 | 0003 | [Cache Components desligado](0003-sem-cache-components.md) | Aceito |
 | 0004 | [Foto de perfil guardada no banco](0004-foto-de-perfil-no-banco.md) | Aceito |
+| 0005 | [Cifra dos links de agenda pessoal](0005-cifra-de-links-de-agenda.md) | Aceito |
 
 ## Pendentes (a escrever)
 - Storage de arquivos (anexos e mídias): R2 vs. Hostinger Object Storage (antes da F1)
