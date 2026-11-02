@@ -87,7 +87,7 @@ Toda Server Action valida a entrada com Zod e checa acesso no servidor antes de 
 | `/tarefas/relatorio` | Relatório (seção 8) |
 | `/perfil/seguranca` | Ativar 2FA e ver códigos de recuperação |
 
-**Barra lateral:** Início, Minhas tarefas, Relatório e a árvore de espaços e listas a que o usuário tem acesso, com "+ Novo espaço" para quem pode.
+**Navegação:** o menu principal mostra o item **Tarefas**. Dentro do módulo, um menu próprio ao lado do conteúdo traz Minhas tarefas, Relatório e a árvore de espaços e listas a que o usuário tem acesso, com "+ Novo espaço" para quem pode. No celular, esse menu fica recolhível no topo.
 
 **Visualização Lista:** tabela agrupada por status, com colunas título, responsáveis, entrega (vermelha se atrasada), prioridade e etiquetas. As subtarefas aparecem recolhidas sob a tarefa pai.
 

@@ -28,7 +28,7 @@ Especificação da F1a: `docs/superpowers/specs/2026-11-02-f1a-tarefas-design.md
 | `HistoricoTarefa` | id, tarefaId, usuarioId, campo, valorAntes, valorDepois, criadoEm |
 
 ## Telas
-- **Barra lateral:** árvore de Espaços, Pastas e Listas, com favoritos.
+- **Navegação:** o menu principal tem o item "Tarefas". Dentro do módulo, um menu próprio mostra Minhas tarefas, Relatório e a árvore de Espaços e Listas (no celular, recolhível no topo).
 - **Visualizações de uma lista** (alternáveis, com filtros e agrupamento salvos por usuário):
   - **Lista:** tabela com colunas, agrupada por status.
   - **Quadro (Kanban):** arrastar entre status.
