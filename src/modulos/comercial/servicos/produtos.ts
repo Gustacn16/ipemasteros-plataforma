@@ -147,8 +147,10 @@ export async function excluirProduto(ator: UsuarioAtual, id: string) {
   exigirPermissaoComercial(ator, "comercial:excluir_produtos");
   await prisma.$transaction(async (tx) => {
     await exigirProduto(tx, id);
-    // Vendas e metas entram nas entregas 2 e 3, que passam a contar aqui.
-    if (!podeExcluirProduto({ vendas: 0, metas: 0 })) {
+    // Conta também vendas excluídas: o histórico continua apontando para o produto.
+    // Metas entram na entrega 3, que passa a contar aqui.
+    const vendas = await tx.venda.count({ where: { produtoId: id } });
+    if (!podeExcluirProduto({ vendas, metas: 0 })) {
       throw new ErroNegocio("Este produto tem vendas ou metas. Desative em vez de excluir.");
     }
     await tx.produto.update({
@@ -255,3 +257,30 @@ export async function excluirLink(ator: UsuarioAtual, linkId: string) {
   if (!link) throw new ErroNegocio(MENSAGEM_NAO_ENCONTRADO);
   await prisma.linkProduto.delete({ where: { id: linkId } });
 }
+
+/** Produtos ativos com as ofertas, para o formulário de venda preencher os campos. */
+export async function listarProdutosParaVenda() {
+  const produtos = await prisma.produto.findMany({
+    where: { excluidoEm: null, ativo: true },
+    orderBy: [{ tipo: "asc" }, { nome: "asc" }],
+    select: {
+      id: true,
+      nome: true,
+      tipo: true,
+      ofertas: {
+        orderBy: [{ ordem: "asc" }, { criadoEm: "asc" }],
+        select: { id: true, nome: true, padrao: true, precoCheio: true, matricula: true, parcelas: true, valorParcela: true },
+      },
+    },
+  });
+  return produtos.map((p) => ({
+    ...p,
+    ofertas: p.ofertas.map((o) => ({
+      ...o,
+      precoCheio: texto(o.precoCheio),
+      matricula: texto(o.matricula),
+      valorParcela: texto(o.valorParcela),
+    })),
+  }));
+}
+export type ProdutoParaVenda = Awaited<ReturnType<typeof listarProdutosParaVenda>>[number];

@@ -24,7 +24,10 @@ export type AcaoAuditoria =
   | "agenda.evento_editado"
   | "agenda.evento_excluido"
   | "agenda.tipo_alterado"
-  | "agenda.assinatura_gerada";
+  | "agenda.assinatura_gerada"
+  | "venda.criada"
+  | "venda.editada"
+  | "venda.excluida";
 
 type DadosAuditoria = {
   usuarioId: string | null;

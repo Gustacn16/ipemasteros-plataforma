@@ -59,6 +59,8 @@ model Usuario {
   conteudosAprovados   Conteudo[]            @relation("ConteudoAprovadoPor")
   eventosCriados       EventoInstitucional[] @relation("EventoCriadoPor")
   agendasExternas      AgendaExterna[]
+  vendasDoVendedor     Venda[]               @relation("VendasDoVendedor")
+  vendasRegistradas    Venda[]               @relation("VendasRegistradas")
   assinaturaAgenda     AssinaturaAgenda?
 
   @@map("usuarios")
@@ -655,6 +657,7 @@ model Produto {
 
   ofertas OfertaProduto[]
   links   LinkProduto[]
+  vendas  Venda[]
 
   @@index([sku])
   @@index([tipo, ativo])
@@ -681,6 +684,7 @@ model OfertaProduto {
   atualizadoEm            DateTime @updatedAt @map("atualizado_em")
 
   produto Produto @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+  vendas  Venda[]
 
   @@index([produtoId])
   @@map("ofertas_produto")
@@ -711,5 +715,52 @@ model CanalVenda {
   criadoEm     DateTime @default(now()) @map("criado_em")
   atualizadoEm DateTime @updatedAt @map("atualizado_em")
 
+  vendas Venda[]
+
   @@map("canais_venda")
+}
+
+enum MetodoPagamento {
+  pix
+  cartao
+  boleto
+  transferencia
+}
+
+/// Venda registrada pelo vendedor. Guarda nome e WhatsApp do cliente (dado pessoal): criar, editar e excluir geram auditoria.
+model Venda {
+  id                 String          @id @default(cuid())
+  produtoId          String          @map("produto_id")
+  ofertaId           String?         @map("oferta_id")
+  vendedorId         String          @map("vendedor_id")
+  dataVenda          DateTime        @map("data_venda") @db.Date
+  dataEntradaLead    DateTime?       @map("data_entrada_lead") @db.Date
+  nomeCliente        String          @map("nome_cliente") @db.VarChar(150)
+  /// Só dígitos, sem o 55.
+  whatsappCliente    String?         @map("whatsapp_cliente") @db.VarChar(20)
+  canalId            String?         @map("canal_id")
+  dataEntrega        DateTime?       @map("data_entrega") @db.Date
+  metodoPagamento    MetodoPagamento @map("metodo_pagamento")
+  entrada            Decimal         @default(0) @db.Decimal(12, 2)
+  numeroParcelas     Int             @default(0) @map("numero_parcelas")
+  valorParcela       Decimal         @default(0) @map("valor_parcela") @db.Decimal(12, 2)
+  primeiroVencimento DateTime?       @map("primeiro_vencimento") @db.Date
+  /// Sempre recalculado no servidor: entrada + parcelas × valor da parcela.
+  valorTotal         Decimal         @map("valor_total") @db.Decimal(12, 2)
+  observacoes        String?         @db.Text
+  criadoPorId        String          @map("criado_por_id")
+  excluidoEm         DateTime?       @map("excluido_em")
+  criadoEm           DateTime        @default(now()) @map("criado_em")
+  atualizadoEm       DateTime        @updatedAt @map("atualizado_em")
+
+  produto   Produto        @relation(fields: [produtoId], references: [id])
+  oferta    OfertaProduto? @relation(fields: [ofertaId], references: [id], onDelete: SetNull)
+  vendedor  Usuario        @relation("VendasDoVendedor", fields: [vendedorId], references: [id])
+  canal     CanalVenda?    @relation(fields: [canalId], references: [id], onDelete: SetNull)
+  criadoPor Usuario        @relation("VendasRegistradas", fields: [criadoPorId], references: [id])
+
+  @@index([dataVenda])
+  @@index([vendedorId, dataVenda])
+  @@index([produtoId, dataVenda])
+  @@map("vendas")
 }
