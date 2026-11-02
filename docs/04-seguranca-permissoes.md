@@ -11,7 +11,7 @@
 - A conexão com o Google (Agenda) é **separada do login**: o usuário conecta o calendário de dentro do sistema.
 
 ## Papéis
-Cada usuário tem um papel: `admin`, `gestor`, `colaborador`, `professor` ou `aluno`. O papel `aluno` fica reservado para o futuro, sem login na v1.
+Cada usuário tem um papel: `admin`, `gestor`, `colaborador`, `comercial`, `professor` ou `aluno`. O papel `comercial` é o vendedor: tem as mesmas permissões do colaborador e, além delas, entra no módulo Comercial. O papel `aluno` fica reservado para o futuro, sem login na v1.
 
 As permissões são definidas em código, em `src/lib/permissoes.ts`, como um mapa `papel → lista de "modulo:acao"`. A checagem é sempre no servidor:
 ```ts
@@ -45,8 +45,21 @@ Legenda: ✅ total · 👁 só leitura · 🔸 restrito ao que é seu · — sem
 | **Conteúdo:** planejar, produzir e registrar publicações já aprovadas | ✅ | ✅ | ✅ | — |
 | **Conteúdo:** aprovar | ✅ | ✅ | — | — |
 | **Conteúdo:** contas, canais e conexões | ✅ | ✅ | — | — |
-| **Dashboard** | ✅ | ✅ | — | — |
 | **Integrações** (Meta, Kommo) | ✅ | — | — | — |
+
+### Comercial
+O papel `comercial` tem, nos outros módulos, as mesmas permissões do colaborador. Colaborador e professor não entram no Comercial.
+
+| Permissão | admin | gestor | comercial |
+|---|---|---|---|
+| `comercial:ver` (entrar no módulo, consultar produtos, ver os próprios números) | ✅ | ✅ | ✅ |
+| `comercial:registrar_venda` | ✅ | ✅ | 🔸 só as próprias |
+| `comercial:ver_equipe` (dashboard e vendas de todos) | ✅ | ✅ | — |
+| `comercial:gerenciar_vendas` (qualquer venda, sem limite de 7 dias) | ✅ | ✅ | — |
+| `comercial:gerenciar_metas` | ✅ | ✅ | — |
+| `comercial:gerenciar_produtos` (produtos, ofertas, links e canais) | ✅ | ✅ | — |
+
+Admin e gestor convidam usuários com o papel `comercial`.
 
 ## Auditoria
 `LogAuditoria` registra: `usuarioId`, `acao`, `entidade`, `entidadeId`, `diff` (antes/depois, **sem** CPF em claro), `ip`, `userAgent` e `criadoEm`.

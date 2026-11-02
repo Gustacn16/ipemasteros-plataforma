@@ -23,7 +23,7 @@ src/
   app/
     (auth)/            login, convite, recuperar senha
     (app)/             área logada (layout com menu e checagem de sessão)
-      tarefas/ agenda/ academico/ conteudo/ dashboard/ admin/
+      tarefas/ agenda/ academico/ conteudo/ comercial/ admin/
     (publico)/         formulários públicos sem login
       presenca/[token]/
       avaliacao/[token]/
@@ -32,7 +32,7 @@ src/
       cron/[tarefa]/   jobs disparados pelo cron
       webhooks/[origem]/ Kommo, Meta
   modulos/
-    core/ tarefas/ agenda/ academico/ conteudo/ dashboard/
+    core/ tarefas/ agenda/ academico/ conteudo/ comercial/
       servicos/        regras de negócio (única camada que fala com o Prisma)
       acoes/           Server Actions (validação Zod + permissão + chamada ao serviço)
       componentes/     UI do módulo
@@ -54,7 +54,7 @@ prisma/
 Regras:
 - Leituras em Server Components chamam serviços. Nada de `fetch` para a própria API.
 - Route Handlers só são usados para o que vem de fora: webhooks, cron, OAuth callbacks e formulários públicos (com rate limit).
-- Módulos não importam serviços uns dos outros livremente. Dependências permitidas: todos → `core`; `agenda` → `academico`/`tarefas` (para criar eventos); `dashboard` → `academico` (cursos).
+- Módulos não importam serviços uns dos outros livremente. Dependências permitidas: todos → `core`; `agenda` → `academico`/`tarefas` (para criar eventos); `academico` → `comercial` (produtos).
 
 ## Integrações
 | Integração | Uso | Autenticação | Fase |

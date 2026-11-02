@@ -8,7 +8,7 @@ A IPEMaster oferece pós-graduações e cursos livres para médicos. Hoje a oper
 2. Organizar a operação acadêmica (cursos, turmas, aulas, professores, alunos, fornecedores), com presença e avaliação registradas por formulário público via QR code.
 3. Dar a cada usuário sua agenda integrada ao Google Calendar.
 4. Planejar e, quando possível, publicar o conteúdo dos canais de marketing.
-5. Mostrar num dashboard o investimento em mídia (Meta Ads), as vendas e as conversões (Kommo).
+5. Registrar vendas e metas por produto e vendedor e mostrar num dashboard o realizado contra a meta. Depois, trazer o investimento em mídia (Meta Ads) e as conversões (Kommo).
 6. Tratar os dados de alunos em conformidade com a LGPD desde o início.
 
 ## Quem usa
@@ -17,6 +17,7 @@ A IPEMaster oferece pós-graduações e cursos livres para médicos. Hoje a oper
 | **admin** | Responsável técnico/diretoria | Tudo, incluindo usuários, papéis e auditoria |
 | **gestor** | Coordenação, líderes de área | Todos os módulos de negócio e o dashboard |
 | **colaborador** | Equipe operacional, marketing | Tarefas, agenda, conteúdo, acadêmico (operacional) |
+| **comercial** | Vendedores | O mesmo que o colaborador, mais o Comercial: consulta o catálogo, registra as próprias vendas e vê os próprios números e metas |
 | **professor** | Docentes das turmas | Suas turmas, aulas, presenças e avaliações; agenda; tarefas atribuídas |
 | **aluno** | Alunos matriculados | **Sem login na v1.** Interage só pelos formulários públicos de presença e avaliação |
 
@@ -28,7 +29,7 @@ A IPEMaster oferece pós-graduações e cursos livres para médicos. Hoje a oper
 | Agenda | Cada usuário conecta seu Google Calendar | `modulos/agenda.md` |
 | Acadêmico | Cursos, turmas, aulas, alunos, professores, fornecedores, presença e avaliação | `modulos/academico.md` |
 | Conteúdo | Canais, calendário editorial, fluxo de aprovação e publicação | `modulos/conteudo.md` |
-| Dashboard | Investimento em mídia, vendas, conversões e CAC | `modulos/dashboard.md` |
+| Comercial | Catálogo de produtos, vendas, metas e dashboard (depois: Kommo e Meta Ads) | `modulos/comercial.md` |
 
 ## Roadmap por fases
 | Fase | Entrega |
@@ -39,7 +40,7 @@ A IPEMaster oferece pós-graduações e cursos livres para médicos. Hoje a oper
 | **F3 — Agenda** | Conexão com o Google Calendar por usuário |
 | **F4 — Conteúdo (planejamento)** | Canais, calendário editorial, aprovação |
 | **F5 — Conteúdo (publicação)** | Publicação via API onde for possível (Instagram/Facebook primeiro) |
-| **F6 — Dashboard** | Integrações Meta Ads e Kommo, indicadores |
+| **F6 — Comercial** | Produtos, vendas, metas e dashboard; depois, integrações Kommo e Meta Ads |
 
 ## Fora do escopo (por ora)
 - Login e portal do aluno.

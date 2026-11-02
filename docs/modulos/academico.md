@@ -6,7 +6,7 @@ Gerenciar a operação acadêmica: cursos, turmas, aulas, professores, alunos, m
 ## Entidades
 | Entidade | Campos principais |
 |---|---|
-| `Curso` | id, nome, tipo (`pos_graduacao`/`curso_livre`), area, cargaHorariaTotal, frequenciaMinimaPct (padrão 75), ativo |
+| `Curso` | **Será o `Produto` do módulo Comercial (catálogo único, `modulos/comercial.md`).** Campos acadêmicos que faltarem entram no `Produto`. Referência original: id, nome, tipo (`pos_graduacao`/`curso_livre`), area, cargaHorariaTotal, frequenciaMinimaPct (padrão 75), ativo |
 | `Turma` | id, cursoId, codigo (ex.: `DERM-2026-1`), dataInicio, dataFim, modalidade (`presencial`/`online`/`hibrida`), local, status (`planejada`/`em_andamento`/`concluida`/`cancelada`), vagas |
 | `Disciplina` | id, cursoId, nome, cargaHoraria, ordem |
 | `Aula` | id, turmaId, disciplinaId?, professorId, inicio, fim, local, status (`agendada`/`realizada`/`cancelada`), tokenPresenca, tokenAvaliacao, janelaPresencaInicio, janelaPresencaFim, avaliacaoAberta (bool) |

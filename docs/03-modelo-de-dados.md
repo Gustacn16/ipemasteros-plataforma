@@ -22,7 +22,7 @@ Visão geral das entidades e de como os módulos se relacionam. Os campos detalh
 | Agenda | `ConexaoGoogle`, `CalendarioConectado`, `EventoVinculado` |
 | Acadêmico | `Curso`, `Turma`, `Disciplina`, `Aula`, `Professor`, `Aluno`, `Matricula`, `Presenca`, `Fornecedor`, `TurmaFornecedor`, `ModeloAvaliacao`, `PerguntaAvaliacao`, `RespostaAvaliacao` |
 | Conteúdo | `Canal`, `Campanha`, `Publicacao`, `PublicacaoCanal`, `MidiaPublicacao` |
-| Dashboard | `ContaAnuncio`, `CampanhaAnuncio`, `MetricaDiariaAnuncio`, `LeadKommo`, `NegocioKommo`, `Meta`, `ExecucaoImportacao` |
+| Comercial | `Produto`, `OfertaProduto`, `LinkProduto`, `CanalVenda` (vendas e metas nas próximas entregas; Kommo e Meta Ads depois) |
 
 ## Diagrama (relações principais)
 ```mermaid
@@ -69,7 +69,7 @@ erDiagram
 - **Tarefa ↔ outras entidades:** `Tarefa` tem `turmaId?` e `publicacaoId?` opcionais. Assim uma tarefa pode pertencer a uma turma ou a uma publicação sem acoplamento polimórfico.
 - **Agenda ↔ entidades:** `EventoVinculado` guarda `tipoOrigem` (`aula` | `tarefa` | `publicacao`), `origemId` e `googleEventId`. Isso evita colunas Google nas tabelas de outros módulos.
 - **Professor ↔ Usuario:** `Professor.usuarioId?` é opcional. Um professor pode ser cadastrado antes de receber acesso.
-- **Dashboard ↔ Curso:** campanhas de anúncio e negócios do Kommo são atribuídos a um `Curso` por mapeamento manual ou por regra de nome (ver `modulos/dashboard.md`).
+- **Comercial ↔ Acadêmico:** o `Produto` do Comercial é o catálogo único; as turmas do Acadêmico vão apontar para ele (ver `modulos/comercial.md`).
 
 ## Seed
 `prisma/seed.ts` cria um admin de desenvolvimento, papéis de exemplo, um espaço de tarefas e uma turma fictícia com alunos **fictícios**. Nunca usar dados reais no seed.
