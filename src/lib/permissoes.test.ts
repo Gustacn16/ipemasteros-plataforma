@@ -69,3 +69,23 @@ describe("permissões de Tarefas", () => {
     expect(temPermissao("aluno", "tarefas:usar")).toBe(false);
   });
 });
+
+describe("permissões de Conteúdo", () => {
+  it("admin e gestor aprovam e gerenciam canais", () => {
+    for (const papel of ["admin", "gestor"] as const) {
+      expect(temPermissao(papel, "conteudo:aprovar")).toBe(true);
+      expect(temPermissao(papel, "conteudo:gerenciar_canais")).toBe(true);
+    }
+  });
+
+  it("colaborador usa, mas não aprova nem gerencia canais", () => {
+    expect(temPermissao("colaborador", "conteudo:usar")).toBe(true);
+    expect(temPermissao("colaborador", "conteudo:aprovar")).toBe(false);
+    expect(temPermissao("colaborador", "conteudo:gerenciar_canais")).toBe(false);
+  });
+
+  it("professor e aluno não acessam", () => {
+    expect(temPermissao("professor", "conteudo:usar")).toBe(false);
+    expect(temPermissao("aluno", "conteudo:usar")).toBe(false);
+  });
+});

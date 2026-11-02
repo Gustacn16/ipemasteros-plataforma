@@ -16,7 +16,9 @@ export type AcaoAuditoria =
   | "usuario.reativado"
   | "espaco.criado"
   | "espaco.excluido"
-  | "espaco.membros_alterados";
+  | "espaco.membros_alterados"
+  | "conteudo.aprovado"
+  | "conteudo.publicacao_registrada";
 
 type DadosAuditoria = {
   usuarioId: string | null;

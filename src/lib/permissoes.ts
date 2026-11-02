@@ -23,7 +23,10 @@ export type Permissao =
   | "tarefas:gerenciar_listas"
   | "tarefas:ver_todos_espacos"
   | "tarefas:usar"
-  | "tarefas:ver_relatorio_equipe";
+  | "tarefas:ver_relatorio_equipe"
+  | "conteudo:usar"
+  | "conteudo:aprovar"
+  | "conteudo:gerenciar_canais";
 
 // Colaborador e professor têm regras por registro (membro do espaço, tarefas
 // atribuídas) em src/modulos/tarefas/servicos/acesso.ts.
@@ -35,6 +38,8 @@ const TAREFAS_GESTAO: readonly Permissao[] = [
   "tarefas:ver_relatorio_equipe",
 ];
 
+const CONTEUDO_GESTAO: readonly Permissao[] = ["conteudo:usar", "conteudo:aprovar", "conteudo:gerenciar_canais"];
+
 const PERMISSOES_POR_PAPEL: Record<Papel, readonly Permissao[]> = {
   admin: [
     "core:ver_usuarios",
@@ -43,9 +48,10 @@ const PERMISSOES_POR_PAPEL: Record<Papel, readonly Permissao[]> = {
     "core:desativar_usuario",
     "core:ver_auditoria",
     ...TAREFAS_GESTAO,
+    ...CONTEUDO_GESTAO,
   ],
-  gestor: ["core:ver_usuarios", "core:convidar_usuario", "core:ver_auditoria", ...TAREFAS_GESTAO],
-  colaborador: ["tarefas:gerenciar_listas", "tarefas:usar"],
+  gestor: ["core:ver_usuarios", "core:convidar_usuario", "core:ver_auditoria", ...TAREFAS_GESTAO, ...CONTEUDO_GESTAO],
+  colaborador: ["tarefas:gerenciar_listas", "tarefas:usar", "conteudo:usar"],
   professor: ["tarefas:usar"],
   aluno: [],
 };
