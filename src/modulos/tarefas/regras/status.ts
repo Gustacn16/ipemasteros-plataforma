@@ -32,3 +32,6 @@ export function concluidaEmAoMudarStatus(
   if (tipoNovo !== "concluido") return null;
   return concluidaEmAtual ?? agora;
 }
+
+/** Mensagem do servidor que a tela usa para pedir confirmação (regra 6). */
+export const ERRO_SUBTAREFAS_ABERTAS = "Esta tarefa tem subtarefas abertas. Concluir mesmo assim?";

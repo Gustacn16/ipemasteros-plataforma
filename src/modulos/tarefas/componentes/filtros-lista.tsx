@@ -1,0 +1,60 @@
+"use client";
+
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { PRIORIDADES, ROTULO_PRIORIDADE } from "../esquemas/tarefa";
+
+const estiloSelect = "border-input bg-background h-9 rounded-md border px-2 text-sm";
+
+/** Filtros da lista guardados na URL (responsável, prioridade, atrasadas). */
+export function FiltrosDaLista({ pessoas }: { pessoas: { id: string; nome: string }[] }) {
+  const router = useRouter();
+  const caminho = usePathname();
+  const busca = useSearchParams();
+
+  function definir(chave: string, valor: string | null) {
+    const p = new URLSearchParams(busca);
+    if (valor) p.set(chave, valor);
+    else p.delete(chave);
+    p.delete("tarefa");
+    router.replace(p.size ? `${caminho}?${p}` : caminho, { scroll: false });
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-sm">
+      <select
+        aria-label="Filtrar por responsável"
+        className={estiloSelect}
+        value={busca.get("responsavel") ?? ""}
+        onChange={(e) => definir("responsavel", e.target.value || null)}
+      >
+        <option value="">Todos os responsáveis</option>
+        {pessoas.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.nome}
+          </option>
+        ))}
+      </select>
+      <select
+        aria-label="Filtrar por prioridade"
+        className={estiloSelect}
+        value={busca.get("prioridade") ?? ""}
+        onChange={(e) => definir("prioridade", e.target.value || null)}
+      >
+        <option value="">Todas as prioridades</option>
+        {PRIORIDADES.map((p) => (
+          <option key={p} value={p}>
+            {ROTULO_PRIORIDADE[p]}
+          </option>
+        ))}
+      </select>
+      <label className="flex items-center gap-1.5">
+        <input
+          type="checkbox"
+          checked={busca.get("atrasadas") === "1"}
+          onChange={(e) => definir("atrasadas", e.target.checked ? "1" : null)}
+        />
+        Só atrasadas
+      </label>
+    </div>
+  );
+}

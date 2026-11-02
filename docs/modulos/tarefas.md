@@ -1,16 +1,24 @@
 # Módulo: Tarefas
 
 ## Objetivo
-Gestão de tarefas no modelo do ClickUp: hierarquia Espaço → Pasta → Lista → Tarefa, status personalizáveis por lista, subtarefas e várias visualizações. A meta é substituir o ClickUp na operação da equipe.
+Gestão de tarefas no modelo do ClickUp: hierarquia Espaço → Lista → Tarefa, status personalizáveis por lista, subtarefas e várias visualizações. A meta é substituir o ClickUp na operação da equipe, começando do zero (sem importar dados do ClickUp).
+
+Especificação da F1a: `docs/superpowers/specs/2026-11-02-f1a-tarefas-design.md`.
+
+## Vocabulário
+| Na operação | No sistema |
+|---|---|
+| Departamento | Espaço (ex.: Marketing) |
+| Grupo de demandas | Lista (ex.: Campanhas) |
+| Demanda | Tarefa |
 
 ## Entidades
 | Entidade | Campos principais |
 |---|---|
-| `Espaco` | id, nome, cor, icone, privado (bool), membros (relação N:N com Usuario), ordem |
-| `Pasta` | id, espacoId, nome, ordem |
-| `Lista` | id, espacoId, pastaId?, nome, descricao, ordem |
+| `Espaco` | id, nome, cor, ordem, excluidoEm, membros (`MembroEspaco`, N:N com Usuario) |
+| `Lista` | id, espacoId, nome, ordem, excluidoEm |
 | `StatusLista` | id, listaId, nome, cor, tipo (`aberto`/`em_andamento`/`concluido`/`fechado`), ordem |
-| `Tarefa` | id, listaId, tarefaPaiId? (subtarefa), titulo, descricao (rich text), statusId, prioridade (`urgente`/`alta`/`normal`/`baixa`), dataInicio?, dataEntrega?, estimativaMin?, ordem, turmaId?, publicacaoId?, concluidaEm?, criadoPorId |
+| `Tarefa` | id, listaId, tarefaPaiId? (subtarefa), titulo, descricao (texto simples na F1a), statusId, prioridade (`urgente`/`alta`/`normal`/`baixa`), dataInicio? e dataEntrega? (só data), ordem, concluidaEm?, criadoPorId, excluidoEm |
 | `TarefaResponsavel` | tarefaId, usuarioId |
 | `ItemChecklist` | id, tarefaId, texto, concluido, ordem |
 | `Etiqueta` | id, espacoId, nome, cor |
@@ -36,7 +44,7 @@ Gestão de tarefas no modelo do ClickUp: hierarquia Espaço → Pasta → Lista 
 4. Mover uma tarefa para um status do tipo `concluido` preenche `concluidaEm`. Sair dele limpa o campo.
 5. Subtarefas têm só um nível (subtarefa não tem subtarefa) e herdam a lista da tarefa pai.
 6. Concluir uma tarefa pai com subtarefas abertas pede confirmação.
-7. Espaço privado só é visível para os membros, além de admin e gestor.
+7. Cada pessoa só vê os espaços em que é membro; admin e gestor veem todos. Só membros (ou admin/gestor) podem ser atribuídos; quem sai do espaço continua responsável pelas tarefas que já tinha.
 8. Professor só vê as tarefas em que é responsável, sem navegar nos espaços.
 9. Menção com `@usuario` em comentário gera notificação no sistema.
 10. Toda alteração de status, responsável, datas ou prioridade gera uma linha em `HistoricoTarefa`.
@@ -49,6 +57,10 @@ Gestão de tarefas no modelo do ClickUp: hierarquia Espaço → Pasta → Lista 
 ## Fora do escopo (v1)
 Tarefas recorrentes, controle de tempo (time tracking), automações ("quando X então Y"), dependências entre tarefas, campos personalizados, importação do ClickUp. Ficam como candidatos para a v2.
 
+## Situação da implementação
+**F1a bloco 1 (feito):** espaços com membros, listas, status configuráveis, tarefas e subtarefas, responsáveis, datas, prioridade, visualização Lista com filtros, painel de detalhe e Minhas tarefas.
+
+**Próximos:** bloco 2 (Quadro Kanban, checklist, etiquetas, histórico, ordem fracionária) e bloco 3 (relatório por pessoa e 2FA). Pastas, comentários, anexos, calendário e texto formatado ficam para a F1c.
+
 ## Dúvidas em aberto
-- Será preciso importar os dados atuais do ClickUp? (A API do ClickUp permite exportar.)
 - As notificações por e-mail são necessárias ou bastam as notificações no sistema?

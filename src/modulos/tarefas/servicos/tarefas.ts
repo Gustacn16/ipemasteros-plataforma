@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import type { UsuarioAtual } from "@/lib/sessao";
 import type { FiltrosLista, Prioridade } from "../esquemas/tarefa";
 import { diaEmSaoPaulo, grupoDaEntrega, type GrupoMinhas } from "../regras/prazo";
-import { concluidaEmAoMudarStatus } from "../regras/status";
+import { ERRO_SUBTAREFAS_ABERTAS, concluidaEmAoMudarStatus } from "../regras/status";
 import {
   MENSAGEM_NAO_ENCONTRADO,
   exigirLista,
@@ -18,9 +18,6 @@ import {
   usuariosAtribuiveis,
 } from "./acesso";
 import { proximaOrdem } from "./ordem";
-
-/** Código que a tela usa para pedir confirmação ao concluir com subtarefas abertas (regra 6). */
-export const ERRO_SUBTAREFAS_ABERTAS = "Esta tarefa tem subtarefas abertas. Concluir mesmo assim?";
 
 const selecaoResumo = {
   id: true,
@@ -71,6 +68,8 @@ export async function obterTarefa(ator: UsuarioAtual, tarefaId: string) {
   await exigirTarefa(ator, tarefaId);
   const tarefa = await prisma.tarefa.findUniqueOrThrow({
     where: { id: tarefaId },
+    // Decimal não atravessa para componentes de cliente.
+    omit: { ordem: true },
     include: {
       status: { select: { id: true, nome: true, cor: true, tipo: true } },
       lista: { select: { id: true, nome: true, espacoId: true, espaco: { select: { nome: true } } } },
@@ -234,7 +233,15 @@ export async function listarMinhasTarefas(ator: UsuarioAtual) {
       prioridade: true,
       dataEntrega: true,
       status: { select: { nome: true, cor: true } },
-      lista: { select: { id: true, nome: true, espaco: { select: { nome: true, cor: true } } } },
+      lista: {
+        select: {
+          id: true,
+          nome: true,
+          espaco: { select: { nome: true, cor: true } },
+          // Para o botão "Concluir" de quem não abre a lista (professor).
+          status: { where: { tipo: "concluido" }, orderBy: { ordem: "asc" }, take: 1, select: { id: true } },
+        },
+      },
     },
   });
   const agora = new Date();
