@@ -17,6 +17,7 @@ enum Papel {
   admin
   gestor
   colaborador
+  comercial
   professor
   aluno
 }
@@ -572,4 +573,112 @@ model EventoInstitucional {
   @@index([loteId])
   @@index([tipoId])
   @@map("eventos_institucionais")
+}
+
+// ─── Comercial ──────────────────────────────────────────────────────────────
+
+enum TipoProduto {
+  curso_livre
+  paciente_modelo
+  pos_graduacao
+}
+
+enum TipoComissao {
+  valor
+  percentual
+}
+
+enum CategoriaLink {
+  vendas
+  aulas
+  outro
+}
+
+/// Catálogo único de produtos (cursos, pós e paciente modelo). O Acadêmico usa os mesmos produtos.
+model Produto {
+  id                     String       @id @default(cuid())
+  nome                   String       @db.VarChar(150)
+  tipo                   TipoProduto
+  area                   String?      @db.VarChar(80)
+  /// Único entre não excluídos (checado no serviço).
+  sku                    String?      @db.VarChar(60)
+  ativo                  Boolean      @default(true)
+  duracaoMeses           Int?         @map("duracao_meses")
+  recorrente             Boolean      @default(false)
+  responsavelPedagogico  String?      @map("responsavel_pedagogico") @db.VarChar(150)
+  corpoDocente           String?      @map("corpo_docente") @db.Text
+  cargaTeoricaPresencial Int?         @map("carga_teorica_presencial")
+  cargaTeoricaSincrona   Int?         @map("carga_teorica_sincrona")
+  cargaTeoricaAssincrona Int?         @map("carga_teorica_assincrona")
+  cargaPratica           Int?         @map("carga_pratica")
+  cargaExtra             Int?         @map("carga_extra")
+  comissaoTipo           TipoComissao @default(valor) @map("comissao_tipo")
+  comissaoBase           Decimal      @default(0) @map("comissao_base") @db.Decimal(12, 2)
+  comissaoBonus          Decimal      @default(0) @map("comissao_bonus") @db.Decimal(12, 2)
+  descricao              String?      @db.Text
+  ementa                 String?      @db.Text
+  observacoes            String?      @db.Text
+  excluidoEm             DateTime?    @map("excluido_em")
+  criadoEm               DateTime     @default(now()) @map("criado_em")
+  atualizadoEm           DateTime     @updatedAt @map("atualizado_em")
+
+  ofertas OfertaProduto[]
+  links   LinkProduto[]
+
+  @@index([sku])
+  @@index([tipo, ativo])
+  @@map("produtos")
+}
+
+/// Condição de venda de um produto (ex.: "À vista", "Em 24x"). No máximo uma padrão por produto.
+model OfertaProduto {
+  id                      String   @id @default(cuid())
+  produtoId               String   @map("produto_id")
+  nome                    String   @db.VarChar(80)
+  padrao                  Boolean  @default(false)
+  precoCheio              Decimal  @map("preco_cheio") @db.Decimal(12, 2)
+  matricula               Decimal  @default(0) @db.Decimal(12, 2)
+  /// 0 = à vista.
+  parcelas                Int      @default(0)
+  valorParcela            Decimal  @default(0) @map("valor_parcela") @db.Decimal(12, 2)
+  descontoPontualidadePct Decimal  @default(0) @map("desconto_pontualidade_pct") @db.Decimal(5, 2)
+  /// Lista de "pix" | "cartao" | "boleto" | "transferencia".
+  formasPagamento         Json     @map("formas_pagamento")
+  link                    String?  @db.VarChar(500)
+  ordem                   Int
+  criadoEm                DateTime @default(now()) @map("criado_em")
+  atualizadoEm            DateTime @updatedAt @map("atualizado_em")
+
+  produto Produto @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+
+  @@index([produtoId])
+  @@map("ofertas_produto")
+}
+
+model LinkProduto {
+  id           String        @id @default(cuid())
+  produtoId    String        @map("produto_id")
+  titulo       String        @db.VarChar(150)
+  url          String        @db.VarChar(500)
+  categoria    CategoriaLink @default(outro)
+  ordem        Int
+  criadoEm     DateTime      @default(now()) @map("criado_em")
+  atualizadoEm DateTime      @updatedAt @map("atualizado_em")
+
+  produto Produto @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+
+  @@index([produtoId])
+  @@map("links_produto")
+}
+
+/// Por onde a venda chegou (Instagram, Indicação...). Lista editável.
+model CanalVenda {
+  id           String   @id @default(cuid())
+  nome         String   @unique @db.VarChar(60)
+  ativo        Boolean  @default(true)
+  ordem        Int
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  @@map("canais_venda")
 }
