@@ -17,9 +17,8 @@ import { ChecklistTarefa } from "./checklist-tarefa";
 import { EtiquetasTarefa } from "./etiquetas";
 import { PontoCor, valorInputData } from "./exibicao";
 import { HistoricoTarefa } from "./historico-tarefa";
+import { ID_MODELO } from "./modelo-url";
 import { NovaTarefaRapida } from "./nova-tarefa-rapida";
-
-export const ID_MODELO = "__tarefa__";
 
 type Dados = Awaited<ReturnType<typeof obterTarefa>>;
 

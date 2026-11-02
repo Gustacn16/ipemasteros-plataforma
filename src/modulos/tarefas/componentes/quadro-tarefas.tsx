@@ -7,7 +7,7 @@ import type { TarefaResumo } from "../servicos/tarefas";
 import { avisar } from "./avisar";
 import { CartaoTarefa, type StatusQuadro } from "./cartao-tarefa";
 import { PontoCor } from "./exibicao";
-import { ID_MODELO } from "./painel-tarefa";
+import { ID_MODELO } from "./modelo-url";
 
 type Props = {
   status: StatusQuadro[];
