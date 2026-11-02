@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { exigirPermissaoPagina } from "@/lib/sessao";
 import { Cartao, SeloPlataforma } from "@/modulos/conteudo/componentes/exibicao";
-import { lerFiltro, urlComFiltro } from "@/modulos/conteudo/componentes/filtro";
+import { lerFiltro } from "@/modulos/conteudo/componentes/filtro";
 import { ROTULO_PLATAFORMA } from "@/modulos/conteudo/esquemas/conteudo";
 import type { CartaoConteudo } from "@/modulos/conteudo/servicos/conteudos";
 import { visaoGeral } from "@/modulos/conteudo/servicos/conteudos";
@@ -28,9 +28,9 @@ function Bloco({ titulo, itens, vazio, destaque, gravacao }: { titulo: string; i
   );
 }
 
-export default async function PaginaVisaoGeral({ searchParams }: PageProps<"/conteudo">) {
+export default async function PaginaVisaoGeral() {
   const usuario = await exigirPermissaoPagina("conteudo:usar");
-  const filtro = lerFiltro(await searchParams);
+  const filtro = await lerFiltro();
   const v = await visaoGeral(usuario, filtro);
 
   // Publicados do mês por plataforma.
@@ -55,7 +55,7 @@ export default async function PaginaVisaoGeral({ searchParams }: PageProps<"/con
           { rotulo: "Gravados aguardando edição", valor: v.aguardandoEdicao, href: "/conteudo/gravacoes" },
           { rotulo: "Publicados no mês", valor: v.publicadosMes.length, href: "/conteudo/publicados" },
         ].map((c) => (
-          <Link key={c.rotulo} href={urlComFiltro(c.href, filtro)} className="hover:bg-muted/50 rounded-lg border p-4">
+          <Link key={c.rotulo} href={c.href} className="hover:bg-muted/50 rounded-lg border p-4">
             <p className="text-muted-foreground text-sm">{c.rotulo}</p>
             <p className={c.alerta ? "text-3xl font-semibold text-red-600" : "text-3xl font-semibold"}>{c.valor}</p>
           </Link>

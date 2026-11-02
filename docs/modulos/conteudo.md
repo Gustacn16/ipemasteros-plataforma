@@ -32,7 +32,7 @@ Especificação da C1: `docs/superpowers/specs/2026-11-02-conteudo-c1-design.md`
 - `/conteudo/itens/[id]`: detalhe, edição e registro das publicações e métricas.
 - `/conteudo/configuracoes`: contas e canais (admin/gestor).
 
-Todas as visões filtram por conta ou canal pelo menu do módulo (`?marca=` / `?canal=`).
+Todas as visões têm uma barra de filtros (conta, canal, responsável, formato e etapa). O filtro fica salvo no cookie `conteudo_filtro` (só ids e códigos, por navegador, validade de 1 ano) e vale em todas as visões até a pessoa clicar em "Limpar filtros". As contas do menu lateral usam o mesmo filtro. O mês continua na URL (`?mes=`).
 
 ## Regras de negócio
 1. Só gestor ou admin aprova. Uma publicação só pode ser marcada como publicada depois de `aprovado`.

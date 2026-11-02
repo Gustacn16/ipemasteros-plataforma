@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { esquemaAtualizarConteudo, esquemaMetricas, esquemaMudarEtapa } from "./conteudo";
+import { esquemaAtualizarConteudo, esquemaMetricas, esquemaMudarEtapa, filtroDoCookie } from "./conteudo";
 
 describe("esquemas de conteúdo", () => {
   const base = {
@@ -38,5 +38,23 @@ describe("esquemas de conteúdo", () => {
     expect(r.alcance).toBe(1200);
     expect(r.curtidas).toBeNull();
     expect(esquemaMetricas.safeParse({ publicacaoId: "p1", alcance: "-3" }).success).toBe(false);
+  });
+});
+
+describe("filtroDoCookie", () => {
+  it("lê o filtro salvo", () => {
+    expect(filtroDoCookie(JSON.stringify({ marca: "m1", formato: "reels", etapa: "aprovado" }))).toEqual({
+      marca: "m1",
+      formato: "reels",
+      etapa: "aprovado",
+    });
+  });
+  it("ignora campos inválidos e vazios", () => {
+    expect(filtroDoCookie(JSON.stringify({ marca: "", formato: "xyz", etapa: "nada", responsavel: "u1" }))).toEqual({ responsavel: "u1" });
+  });
+  it("cookie ausente ou corrompido vira filtro vazio", () => {
+    expect(filtroDoCookie(undefined)).toEqual({});
+    expect(filtroDoCookie("{quebrado")).toEqual({});
+    expect(filtroDoCookie("[1,2]")).toEqual({});
   });
 });

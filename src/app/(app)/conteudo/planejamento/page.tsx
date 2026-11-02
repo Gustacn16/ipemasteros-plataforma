@@ -8,9 +8,9 @@ import { listarQuadro } from "@/modulos/conteudo/servicos/conteudos";
 
 export const metadata: Metadata = { title: "Planejamento — IPEMaster OS" };
 
-export default async function PaginaPlanejamento({ searchParams }: PageProps<"/conteudo/planejamento">) {
+export default async function PaginaPlanejamento() {
   const usuario = await exigirPermissaoPagina("conteudo:usar");
-  const quadro = await listarQuadro(usuario, lerFiltro(await searchParams));
+  const quadro = await listarQuadro(usuario, await lerFiltro());
 
   return (
     <div className="grid gap-4">

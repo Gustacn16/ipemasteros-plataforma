@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ETAPAS_SELECIONAVEIS } from "../regras/etapas";
+import { ETAPAS, ETAPAS_SELECIONAVEIS } from "../regras/etapas";
 
 export const PLATAFORMAS = ["instagram", "youtube", "tiktok", "facebook", "linkedin", "newsletter", "blog", "podcast", "outro"] as const;
 export type Plataforma = (typeof PLATAFORMAS)[number];
@@ -115,11 +115,35 @@ export const esquemaMetricas = z.object({
   salvamentos: numero,
 });
 
+const idOpcional = z.string().min(1).max(40).optional().catch(undefined);
+
+/** Filtro das visões do módulo. Cada campo inválido é ignorado em vez de quebrar a página. */
 export const esquemaFiltroConteudo = z.object({
-  marca: z.string().optional(),
-  canal: z.string().optional(),
+  marca: idOpcional,
+  canal: idOpcional,
+  responsavel: idOpcional,
+  formato: z.enum(FORMATOS).optional().catch(undefined),
+  etapa: z.enum(ETAPAS).optional().catch(undefined),
 });
 export type FiltroConteudo = z.infer<typeof esquemaFiltroConteudo>;
+
+/** O filtro fica salvo neste cookie (só ids e códigos) até a pessoa limpar. */
+export const COOKIE_FILTRO = "conteudo_filtro";
+
+export function filtroDoCookie(valor: string | undefined): FiltroConteudo {
+  if (!valor) return {};
+  try {
+    const r = esquemaFiltroConteudo.safeParse(JSON.parse(valor));
+    return r.success ? limparFiltro(r.data) : {};
+  } catch {
+    return {};
+  }
+}
+
+/** Remove os campos vazios. */
+export function limparFiltro(f: FiltroConteudo): FiltroConteudo {
+  return Object.fromEntries(Object.entries(f).filter(([, v]) => v)) as FiltroConteudo;
+}
 
 export const esquemaMes = z
   .string()

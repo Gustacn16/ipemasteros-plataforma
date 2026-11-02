@@ -2,10 +2,11 @@
 
 import { ChevronDownIcon, PlusIcon, SettingsIcon } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/componentes/ui/button";
 import { cn } from "@/lib/utils";
-import { ROTULO_PLATAFORMA } from "../esquemas/conteudo";
+import { ROTULO_PLATAFORMA, type FiltroConteudo } from "../esquemas/conteudo";
+import { useAplicarFiltro } from "./barra-filtros";
 import type { Conta } from "../servicos/contas";
 import { SeloPlataforma } from "./selo-plataforma";
 import { NovoConteudo } from "./novo-conteudo";
@@ -18,34 +19,27 @@ const VISOES = [
   { href: "/conteudo/publicados", rotulo: "Publicados" },
 ];
 
-const estiloItem = "hover:bg-muted flex items-center gap-2 truncate rounded-md px-2 py-1.5 text-sm";
+const estiloItem = "hover:bg-muted flex w-full items-center gap-2 truncate rounded-md px-2 py-1.5 text-left text-sm";
 
-function Conteudo({ contas, podeConfigurar }: { contas: Conta[]; podeConfigurar: boolean }) {
+type Props = { contas: Conta[]; podeConfigurar: boolean; filtro: FiltroConteudo };
+
+function Conteudo({ contas, podeConfigurar, filtro }: Props) {
   const caminho = usePathname();
-  const busca = useSearchParams();
-  const marca = busca.get("marca");
-  const canal = busca.get("canal");
-  // As visões mantêm o filtro de conta; o detalhe e as configurações voltam para a visão geral.
+  const router = useRouter();
+  const { aplicar } = useAplicarFiltro();
+  const { marca, canal } = filtro;
+  // Fora das visões (detalhe, configurações), escolher uma conta leva para a visão geral.
   const ehVisao = VISOES.some((v) => v.href === caminho);
-  const base = ehVisao ? caminho : "/conteudo";
-  const comFiltro = (href: string) => {
-    const p = new URLSearchParams();
-    if (marca) p.set("marca", marca);
-    if (canal) p.set("canal", canal);
-    return p.size ? `${href}?${p}` : href;
-  };
-  const filtrar = (params: Record<string, string>) => {
-    const p = new URLSearchParams(params);
-    const mes = busca.get("mes");
-    if (mes && ehVisao) p.set("mes", mes);
-    return `${base}?${p}`;
+  const filtrar = (novo: Pick<FiltroConteudo, "marca" | "canal">) => {
+    aplicar({ ...filtro, ...novo });
+    if (!ehVisao) router.push("/conteudo");
   };
 
   return (
     <nav aria-label="Conteúdo" className="grid gap-4">
       <NovoConteudo
         contas={contas}
-        marcaPadrao={marca ?? undefined}
+        marcaPadrao={marca}
         gatilho={
           <Button size="sm" className="w-full">
             <PlusIcon /> Novo conteúdo
@@ -56,7 +50,7 @@ function Conteudo({ contas, podeConfigurar }: { contas: Conta[]; podeConfigurar:
         {VISOES.map((v) => (
           <Link
             key={v.href}
-            href={comFiltro(v.href)}
+            href={v.href}
             aria-current={caminho === v.href ? "page" : undefined}
             className={cn(estiloItem, caminho === v.href && "bg-muted font-medium")}
           >
@@ -74,9 +68,9 @@ function Conteudo({ contas, podeConfigurar }: { contas: Conta[]; podeConfigurar:
             </Link>
           )}
         </div>
-        <Link href={base} className={cn(estiloItem, !marca && !canal && "font-medium")}>
+        <button type="button" onClick={() => filtrar({ marca: undefined, canal: undefined })} className={cn(estiloItem, !marca && !canal && "font-medium")}>
           Todas as contas
-        </Link>
+        </button>
         {contas.length === 0 && (
           <p className="text-muted-foreground px-2 py-1 text-sm">
             {podeConfigurar ? "Cadastre as contas na engrenagem." : "Nenhuma conta cadastrada ainda."}
@@ -84,24 +78,26 @@ function Conteudo({ contas, podeConfigurar }: { contas: Conta[]; podeConfigurar:
         )}
         {contas.map((c) => (
           <div key={c.id} className="grid gap-0.5">
-            <Link
-              href={filtrar({ marca: c.id })}
-              aria-current={marca === c.id && !canal ? "true" : undefined}
+            <button
+              type="button"
+              onClick={() => filtrar({ marca: c.id, canal: undefined })}
+              aria-pressed={marca === c.id && !canal}
               className={cn(estiloItem, "font-medium", marca === c.id && !canal && "bg-muted")}
             >
               <span aria-hidden className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: c.cor }} />
               {c.nome}
-            </Link>
+            </button>
             {c.canais.map((k) => (
-              <Link
+              <button
+                type="button"
                 key={k.id}
-                href={filtrar({ canal: k.id })}
-                aria-current={canal === k.id ? "true" : undefined}
+                onClick={() => filtrar({ marca: c.id, canal: k.id })}
+                aria-pressed={canal === k.id}
                 className={cn(estiloItem, "pl-6", canal === k.id && "bg-muted font-medium")}
               >
                 <SeloPlataforma plataforma={k.plataforma} />
                 {ROTULO_PLATAFORMA[k.plataforma]}
-              </Link>
+              </button>
             ))}
           </div>
         ))}
@@ -111,7 +107,7 @@ function Conteudo({ contas, podeConfigurar }: { contas: Conta[]; podeConfigurar:
 }
 
 /** Menu interno do módulo Conteúdo (fixo na tela larga, recolhível no celular). */
-export function MenuConteudo(props: { contas: Conta[]; podeConfigurar: boolean }) {
+export function MenuConteudo(props: Props) {
   return (
     <>
       <aside className="hidden w-60 shrink-0 border-r p-4 md:block">

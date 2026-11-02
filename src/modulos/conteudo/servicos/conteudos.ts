@@ -28,7 +28,20 @@ function whereFiltro(f: FiltroConteudo): Prisma.ConteudoWhereInput {
     marca: { excluidoEm: null },
     ...(f.marca ? { marcaId: f.marca } : {}),
     ...(f.canal ? { publicacoes: { some: { canalId: f.canal } } } : {}),
+    ...(f.responsavel ? { responsavelId: f.responsavel } : {}),
+    ...(f.formato ? { formato: f.formato } : {}),
+    // AND para somar com o recorte de etapa que cada visão já aplica.
+    ...(f.etapa ? { AND: [{ etapa: f.etapa }] } : {}),
   };
+}
+
+/** Pessoas que podem ser responsáveis por um conteúdo. */
+export function listarPessoas() {
+  return prisma.usuario.findMany({
+    where: { ativo: true, papel: { in: ["admin", "gestor", "colaborador"] } },
+    orderBy: { nome: "asc" },
+    select: { id: true, nome: true },
+  });
 }
 
 const selecaoCartao = {
@@ -101,7 +114,7 @@ export async function listarPublicados(ator: UsuarioAtual, mes: string, f: Filtr
     where: {
       status: "publicado",
       publicadoEm: { gte: inicioDoDiaSP(`${mes}-01`), lt: inicioDoDiaSP(`${proximoMes(mes)}-01`) },
-      conteudo: whereFiltro({ marca: f.marca }),
+      conteudo: whereFiltro({ ...f, canal: undefined, etapa: undefined }),
       ...(f.canal ? { canalId: f.canal } : {}),
     },
     orderBy: { publicadoEm: "desc" },
@@ -181,11 +194,7 @@ export async function obterConteudo(ator: UsuarioAtual, conteudoId: string) {
     },
   });
   if (!conteudo) throw new ErroNegocio(MENSAGEM_NAO_ENCONTRADO);
-  const pessoas = await prisma.usuario.findMany({
-    where: { ativo: true, papel: { in: ["admin", "gestor", "colaborador"] } },
-    orderBy: { nome: "asc" },
-    select: { id: true, nome: true },
-  });
+  const pessoas = await listarPessoas();
   return { conteudo, pessoas, podeAprovar: podeAprovar(ator) };
 }
 

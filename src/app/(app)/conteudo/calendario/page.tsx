@@ -4,7 +4,7 @@ import Link from "next/link";
 import { exigirPermissaoPagina } from "@/lib/sessao";
 import { cn } from "@/lib/utils";
 import { SeloPlataforma } from "@/modulos/conteudo/componentes/exibicao";
-import { lerFiltro, lerMes, urlComFiltro } from "@/modulos/conteudo/componentes/filtro";
+import { lerFiltro, lerMes } from "@/modulos/conteudo/componentes/filtro";
 import { mesAnterior, mesAtual, proximoMes } from "@/modulos/conteudo/regras/calendario";
 import { COR_ETAPA, ROTULO_ETAPA } from "@/modulos/conteudo/regras/etapas";
 import { listarCalendario } from "@/modulos/conteudo/servicos/conteudos";
@@ -19,7 +19,7 @@ const nomeMes = (mes: string) =>
 export default async function PaginaCalendario({ searchParams }: PageProps<"/conteudo/calendario">) {
   const usuario = await exigirPermissaoPagina("conteudo:usar");
   const busca = await searchParams;
-  const filtro = lerFiltro(busca);
+  const filtro = await lerFiltro();
   const mes = lerMes(busca);
   const comGravacoes = busca.gravacoes === "1";
   const { grade, itens } = await listarCalendario(usuario, mes, filtro, comGravacoes);
@@ -34,7 +34,7 @@ export default async function PaginaCalendario({ searchParams }: PageProps<"/con
   }
 
   const url = (extra: Record<string, string>) =>
-    urlComFiltro("/conteudo/calendario", filtro, { ...(comGravacoes ? { gravacoes: "1" } : {}), mes, ...extra });
+    `/conteudo/calendario?${new URLSearchParams({ ...(comGravacoes ? { gravacoes: "1" } : {}), mes, ...extra })}`;
 
   return (
     <div className="grid gap-4">
@@ -54,7 +54,7 @@ export default async function PaginaCalendario({ searchParams }: PageProps<"/con
           )}
         </div>
         <Link
-          href={urlComFiltro("/conteudo/calendario", filtro, { mes, ...(comGravacoes ? {} : { gravacoes: "1" }) })}
+          href={`/conteudo/calendario?${new URLSearchParams({ mes, ...(comGravacoes ? {} : { gravacoes: "1" }) })}`}
           className="flex items-center gap-2 text-sm"
           aria-pressed={comGravacoes}
         >

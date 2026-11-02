@@ -26,7 +26,7 @@ export default async function PaginaItemConteudo({ params }: PageProps<"/conteud
     // A key remonta os formulários quando o conteúdo muda no servidor.
     <div key={conteudo.atualizadoEm.toISOString()} className="grid max-w-4xl gap-8">
       <header className="grid gap-3">
-        <Link href={`/conteudo/planejamento?marca=${conteudo.marca.id}`} className="text-muted-foreground flex items-center gap-1.5 text-sm hover:underline">
+        <Link href="/conteudo/planejamento" className="text-muted-foreground flex items-center gap-1.5 text-sm hover:underline">
           <span aria-hidden className="size-2.5 rounded-full" style={{ backgroundColor: conteudo.marca.cor }} />
           {conteudo.marca.nome} · {ROTULO_FORMATO[conteudo.formato]}
         </Link>

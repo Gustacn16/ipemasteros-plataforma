@@ -4,7 +4,7 @@ import Link from "next/link";
 import { formatarDataHora } from "@/lib/datas";
 import { exigirPermissaoPagina } from "@/lib/sessao";
 import { NomeCanal } from "@/modulos/conteudo/componentes/exibicao";
-import { lerFiltro, lerMes, urlComFiltro } from "@/modulos/conteudo/componentes/filtro";
+import { lerFiltro, lerMes } from "@/modulos/conteudo/componentes/filtro";
 import { ROTULO_FORMATO } from "@/modulos/conteudo/esquemas/conteudo";
 import { mesAnterior, proximoMes, taxaEngajamento } from "@/modulos/conteudo/regras/calendario";
 import { listarPublicados, type LinhaPublicado } from "@/modulos/conteudo/servicos/conteudos";
@@ -24,7 +24,7 @@ function somar(linhas: LinhaPublicado[], campo: "alcance" | "visualizacoes" | "c
 export default async function PaginaPublicados({ searchParams }: PageProps<"/conteudo/publicados">) {
   const usuario = await exigirPermissaoPagina("conteudo:usar");
   const busca = await searchParams;
-  const filtro = lerFiltro(busca);
+  const filtro = await lerFiltro();
   const mes = lerMes(busca);
   const linhas = await listarPublicados(usuario, mes, filtro);
 
@@ -42,7 +42,7 @@ export default async function PaginaPublicados({ searchParams }: PageProps<"/con
     return { canal: ls[0].canal, marca: ls[0].conteudo.marca, quantidade: ls.length, alcance: t.alcance, engajamento: taxaEngajamento(t) };
   });
 
-  const url = (m: string) => urlComFiltro("/conteudo/publicados", filtro, { mes: m });
+  const url = (m: string) => `/conteudo/publicados?mes=${m}`;
 
   return (
     <div className="grid gap-6">

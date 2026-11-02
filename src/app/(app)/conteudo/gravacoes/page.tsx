@@ -8,9 +8,9 @@ import { listarGravacoes } from "@/modulos/conteudo/servicos/conteudos";
 
 export const metadata: Metadata = { title: "Gravações — IPEMaster OS" };
 
-export default async function PaginaGravacoes({ searchParams }: PageProps<"/conteudo/gravacoes">) {
+export default async function PaginaGravacoes() {
   const usuario = await exigirPermissaoPagina("conteudo:usar");
-  const { aGravar, gravados } = await listarGravacoes(usuario, lerFiltro(await searchParams));
+  const { aGravar, gravados } = await listarGravacoes(usuario, await lerFiltro());
 
   return (
     <div className="grid gap-8">
