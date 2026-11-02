@@ -3,28 +3,41 @@
 ## Objetivo
 Planejar, aprovar e acompanhar a produção de conteúdo dos canais da IPEMaster num calendário editorial e, quando a API do canal permitir, **publicar direto pelo sistema**.
 
+Especificação da C1: `docs/superpowers/specs/2026-11-02-conteudo-c1-design.md`.
+
+## Vocabulário
+| Termo | No sistema |
+|---|---|
+| Conta (IPEMaster, Pedro Prado) | `Marca` |
+| Plataforma da conta | `Canal` |
+| Peça de conteúdo | `Conteudo` |
+| Saída da peça num canal | `Publicacao` (status, link e métricas) |
+
 ## Entidades
 | Entidade | Campos principais |
 |---|---|
-| `Canal` | id, nome, tipo (`instagram`/`facebook`/`youtube`/`tiktok`/`linkedin`/`blog`/`email`/`whatsapp`/`outro`), contaExterna (ex.: @ipemaster), conectado (bool), credencialCriptografada?, ativo |
-| `Campanha` | id, nome, cursoId?, objetivo, dataInicio, dataFim, cor |
-| `Publicacao` | id, titulo, campanhaId?, formato (`post`/`carrossel`/`reels`/`story`/`video`/`artigo`/`email`/`outro`), briefing, legenda, status, dataPrevista, responsavelId, aprovadoPorId?, aprovadoEm? |
-| `PublicacaoCanal` | id, publicacaoId, canalId, legendaPersonalizada?, agendadoPara?, statusPublicacao (`pendente`/`agendado`/`publicando`/`publicado`/`erro`/`manual`), idExterno?, urlPublicada?, erro?, publicadoEm? |
-| `MidiaPublicacao` | id, publicacaoId, chaveStorage, tipo (imagem/vídeo), ordem, legendaAlt |
+| `Marca` | id, nome, cor, ordem, excluidoEm |
+| `Canal` | id, marcaId, plataforma (`instagram`/`youtube`/`tiktok`/`facebook`/`linkedin`/`newsletter`/`blog`/`podcast`/`outro`), identificador (@perfil), ativo, excluidoEm |
+| `Conteudo` | id, marcaId, titulo, formato (`reels`/`carrossel`/`post`/`story`/`video`/`short`/`live`/`newsletter`/`artigo`/`outro`), etapa, roteiro, legenda, linkMaterial (Drive), responsavelId, dataGravacao, dataPublicacao, aprovadoPorId/Em, publicadoEm, criadoPorId, excluidoEm |
+| `Publicacao` | id, conteudoId, canalId, status (`pendente`/`publicado`), url, publicadoEm, alcance, visualizacoes, curtidas, comentarios, compartilhamentos, salvamentos, metricasEm |
 
-**Status da Publicação:**
-`ideia` → `briefing` → `em_producao` → `em_revisao` → `aprovado` → `agendado` → `publicado` (também pode ir para `cancelado` em qualquer ponto).
+**Etapas do conteúdo:** `ideia` → `planejado` → `a_gravar` → `gravado` → `edicao` → `revisao` → `aprovado` → `publicado` (e `cancelado`). `publicado` é automático: acontece quando todas as publicações nos canais são marcadas.
 
-## Telas
-- `/conteudo/calendario`: calendário editorial mensal e semanal com cores por canal e campanha, arrastar para mudar a data e filtros por canal, campanha, responsável e status.
-- `/conteudo/quadro`: kanban pelos status da publicação.
-- `/conteudo/publicacoes/[id]`: briefing, legenda (com variação por canal), mídias, checklist de aprovação, canais de destino com status individual e tarefas vinculadas.
-- `/conteudo/campanhas`: campanhas e as publicações de cada uma.
-- `/conteudo/canais`: cadastro e conexão dos canais (admin/gestor).
+## Telas (C1)
+- `/conteudo`: visão geral (atrasados, próximos 7 dias, gravações marcadas, gravados aguardando edição, publicados no mês por plataforma).
+- `/conteudo/planejamento`: quadro por etapa, de ideia a aprovado.
+- `/conteudo/calendario`: calendário mensal por data de publicação, com opção de mostrar gravações.
+- `/conteudo/gravacoes`: agenda de gravação e banco de gravados.
+- `/conteudo/publicados`: publicações do mês com link, métricas e engajamento por canal.
+- `/conteudo/itens/[id]`: detalhe, edição e registro das publicações e métricas.
+- `/conteudo/configuracoes`: contas e canais (admin/gestor).
+
+Todas as visões filtram por conta ou canal pelo menu do módulo (`?marca=` / `?canal=`).
 
 ## Regras de negócio
-1. Só gestor ou admin aprova. Uma publicação só pode ser `agendado` ou publicada depois de `aprovado`.
-2. Alterar legenda ou mídia de uma publicação já aprovada a devolve para `em_revisao`.
+1. Só gestor ou admin aprova. Uma publicação só pode ser marcada como publicada depois de `aprovado`.
+2. Quem não aprova e altera roteiro ou legenda de um conteúdo aprovado o devolve para `revisao`.
+2a. A partir de `planejado`, o conteúdo precisa de pelo menos um canal, sempre da mesma conta.
 3. **Publicação automática** só existe para canais com API suportada e conectada (ver tabela abaixo). Nos demais, o status por canal é `manual`: a equipe publica por fora e marca como publicado informando a URL.
 4. O job `publicar-agendados` roda a cada 5 min e publica os `PublicacaoCanal` com `agendadoPara <= agora`. Em caso de falha, marca `erro` com a mensagem, tenta de novo 2 vezes e notifica o responsável.
 5. A publicação só fica `publicado` quando **todos** os canais estão `publicado` ou `manual` concluído.
@@ -45,6 +58,11 @@ Planejar, aprovar e acompanhar a produção de conteúdo dos canais da IPEMaster
 - Meta Graph API (Instagram e Facebook) na F5. As mídias precisam estar numa URL pública temporária (storage com URL assinada).
 - **Tarefas:** tarefas de produção vinculadas à publicação.
 - **Agenda:** opcionalmente, publicações agendadas aparecem na agenda do responsável.
+
+## Situação da implementação
+**C1 (feito):** contas e canais, pipeline de produção, planejamento, calendário, gravações, publicados com métricas manuais.
+
+**C2 (próxima, depende do usuário):** conexão com o Instagram (métricas automáticas e agendamento) via Meta Graph API. Pré-requisitos: conta profissional no Instagram, app na Meta aprovado, storage de mídia (ADR pendente) e cron na Hostinger. Ver seção 9 da especificação.
 
 ## Fora do escopo (v1)
 Métricas de engajamento por post, inbox de comentários e DMs, geração de conteúdo por IA, banco de mídias completo.

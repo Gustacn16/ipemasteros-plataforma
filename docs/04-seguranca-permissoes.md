@@ -38,9 +38,9 @@ Legenda: ✅ total · 👁 só leitura · 🔸 restrito ao que é seu · — sem
 | **Acadêmico:** avaliações | ✅ | ✅ | 👁 | 🔸 agregadas, das suas aulas |
 | **Acadêmico:** fornecedores | ✅ | ✅ | ✅ | — |
 | **Acadêmico:** exportar dados de alunos | ✅ | ✅ | — | — |
-| **Conteúdo:** planejar | ✅ | ✅ | ✅ | — |
-| **Conteúdo:** aprovar e publicar | ✅ | ✅ | — | — |
-| **Conteúdo:** conectar canais | ✅ | ✅ | — | — |
+| **Conteúdo:** planejar, produzir e registrar publicações já aprovadas | ✅ | ✅ | ✅ | — |
+| **Conteúdo:** aprovar | ✅ | ✅ | — | — |
+| **Conteúdo:** contas, canais e conexões | ✅ | ✅ | — | — |
 | **Dashboard** | ✅ | ✅ | — | — |
 | **Integrações** (Meta, Kommo) | ✅ | — | — | — |
 
