@@ -38,6 +38,7 @@ export default async function PaginaLista({ params, searchParams }: PageProps<"/
   const filtros = esquemaFiltrosLista.parse({
     responsavel: texto(busca.responsavel),
     prioridade: texto(busca.prioridade),
+    etiqueta: texto(busca.etiqueta),
     atrasadas: texto(busca.atrasadas),
   });
 
@@ -49,7 +50,12 @@ export default async function PaginaLista({ params, searchParams }: PageProps<"/
 
   // Mantém os filtros ao abrir e fechar o painel da tarefa.
   const paramsFiltros = new URLSearchParams(
-    Object.entries({ responsavel: filtros.responsavel, prioridade: filtros.prioridade, atrasadas: filtros.atrasadas ? "1" : undefined })
+    Object.entries({
+      responsavel: filtros.responsavel,
+      prioridade: filtros.prioridade,
+      etiqueta: filtros.etiqueta,
+      atrasadas: filtros.atrasadas ? "1" : undefined,
+    })
       .filter((e): e is [string, string] => Boolean(e[1])),
   );
   const urlBase = `/tarefas/listas/${listaId}`;
@@ -78,7 +84,7 @@ export default async function PaginaLista({ params, searchParams }: PageProps<"/
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <NovaTarefaRapida listaId={listaId} />
-        <FiltrosDaLista pessoas={dados.atribuiveis} />
+        <FiltrosDaLista pessoas={dados.atribuiveis} etiquetas={dados.etiquetas} />
       </div>
 
       {visao === "quadro" ? (

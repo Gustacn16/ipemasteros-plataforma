@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import type { UsuarioAtual } from "@/lib/sessao";
 import { exigirEspaco, exigirPermissaoTarefas, filtroEspacosVisiveis } from "./acesso";
 import { proximaOrdem } from "./ordem";
+import { listarEtiquetas } from "./detalhes";
 
 type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
@@ -80,15 +81,16 @@ export async function excluirEspaco(ator: UsuarioAtual, espacoId: string) {
 export async function obterConfiguracaoEspaco(ator: UsuarioAtual, espacoId: string) {
   exigirPermissaoTarefas(ator, "tarefas:gerenciar_espacos");
   const espaco = await exigirEspaco(ator, espacoId);
-  const [membros, usuarios] = await Promise.all([
+  const [membros, usuarios, etiquetas] = await Promise.all([
     prisma.membroEspaco.findMany({ where: { espacoId }, select: { usuarioId: true } }),
     prisma.usuario.findMany({
       where: { ativo: true, papel: { in: ["admin", "gestor", "colaborador"] } },
       orderBy: { nome: "asc" },
       select: { id: true, nome: true, email: true, papel: true },
     }),
+    listarEtiquetas(espacoId),
   ]);
-  return { espaco, membroIds: membros.map((m) => m.usuarioId), usuarios };
+  return { espaco, membroIds: membros.map((m) => m.usuarioId), usuarios, etiquetas };
 }
 
 export async function definirMembros(ator: UsuarioAtual, espacoId: string, usuarioIds: string[]) {

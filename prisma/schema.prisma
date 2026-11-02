@@ -51,6 +51,7 @@ model Usuario {
   membroDeEspacos   MembroEspaco[]
   tarefasCriadas    Tarefa[]            @relation("TarefasCriadas")
   tarefasAtribuidas TarefaResponsavel[]
+  historicoTarefas  HistoricoTarefa[]
 
   conteudosResponsavel Conteudo[] @relation("ConteudoResponsavel")
   conteudosCriados     Conteudo[] @relation("ConteudoCriadoPor")
@@ -220,8 +221,9 @@ model Espaco {
   criadoEm     DateTime  @default(now()) @map("criado_em")
   atualizadoEm DateTime  @updatedAt @map("atualizado_em")
 
-  membros MembroEspaco[]
-  listas  Lista[]
+  membros   MembroEspaco[]
+  listas    Lista[]
+  etiquetas Etiqueta[]
 
   @@map("espacos")
 }
@@ -297,6 +299,9 @@ model Tarefa {
   status       StatusLista         @relation(fields: [statusId], references: [id])
   criadoPor    Usuario             @relation("TarefasCriadas", fields: [criadoPorId], references: [id])
   responsaveis TarefaResponsavel[]
+  checklist    ItemChecklist[]
+  etiquetas    TarefaEtiqueta[]
+  historico    HistoricoTarefa[]
 
   @@index([listaId, statusId, ordem])
   @@index([tarefaPaiId])
@@ -315,6 +320,74 @@ model TarefaResponsavel {
   @@id([tarefaId, usuarioId])
   @@index([usuarioId])
   @@map("tarefas_responsaveis")
+}
+
+model ItemChecklist {
+  id        String   @id @default(cuid())
+  tarefaId  String   @map("tarefa_id")
+  texto     String   @db.VarChar(200)
+  concluido Boolean  @default(false)
+  ordem     Decimal  @db.Decimal(20, 10)
+  criadoEm  DateTime @default(now()) @map("criado_em")
+
+  tarefa Tarefa @relation(fields: [tarefaId], references: [id], onDelete: Cascade)
+
+  @@index([tarefaId, ordem])
+  @@map("itens_checklist")
+}
+
+model Etiqueta {
+  id           String   @id @default(cuid())
+  espacoId     String   @map("espaco_id")
+  nome         String   @db.VarChar(40)
+  cor          String   @db.Char(7)
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  espaco  Espaco           @relation(fields: [espacoId], references: [id])
+  tarefas TarefaEtiqueta[]
+
+  @@unique([espacoId, nome])
+  @@map("etiquetas")
+}
+
+model TarefaEtiqueta {
+  tarefaId   String @map("tarefa_id")
+  etiquetaId String @map("etiqueta_id")
+
+  tarefa   Tarefa   @relation(fields: [tarefaId], references: [id], onDelete: Cascade)
+  etiqueta Etiqueta @relation(fields: [etiquetaId], references: [id], onDelete: Cascade)
+
+  @@id([tarefaId, etiquetaId])
+  @@index([etiquetaId])
+  @@map("tarefas_etiquetas")
+}
+
+enum CampoHistorico {
+  status
+  responsaveis
+  dataInicio   @map("data_inicio")
+  dataEntrega  @map("data_entrega")
+  prioridade
+  lista
+}
+
+/// Somente inserção: cada mudança de status, responsáveis, datas, prioridade ou lista.
+model HistoricoTarefa {
+  id          String         @id @default(cuid())
+  tarefaId    String         @map("tarefa_id")
+  usuarioId   String         @map("usuario_id")
+  campo       CampoHistorico
+  valorAntes  Json?          @map("valor_antes")
+  valorDepois Json?          @map("valor_depois")
+  criadoEm    DateTime       @default(now()) @map("criado_em")
+
+  tarefa  Tarefa  @relation(fields: [tarefaId], references: [id], onDelete: Cascade)
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@index([tarefaId, criadoEm])
+  @@index([usuarioId])
+  @@map("historico_tarefas")
 }
 
 // ─── Conteúdo ────────────────────────────────────────────────────────────────

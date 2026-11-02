@@ -53,9 +53,28 @@ export const esquemaMudarStatus = z.object({
 export const esquemaFiltrosLista = z.object({
   responsavel: z.string().optional(),
   prioridade: z.enum(PRIORIDADES).optional().catch(undefined),
+  etiqueta: z.string().optional(),
   atrasadas: z
     .string()
     .optional()
     .transform((v) => v === "1"),
 });
 export type FiltrosLista = z.infer<typeof esquemaFiltrosLista>;
+
+const textoItem = z.string().trim().min(1, "Escreva o item").max(200, "Item longo demais");
+
+export const esquemaNovoItemChecklist = z.object({ tarefaId: id, texto: textoItem });
+
+export const esquemaAtualizarItemChecklist = z
+  .object({ itemId: id, texto: textoItem.optional(), concluido: z.boolean().optional() })
+  .refine((d) => d.texto !== undefined || d.concluido !== undefined, "Nada para salvar");
+
+export const esquemaMoverItemChecklist = z.object({ itemId: id, direcao: z.enum(["cima", "baixo"]) });
+
+export const esquemaEtiquetasTarefa = z.object({ tarefaId: id, etiquetaIds: z.array(id).max(20, "Etiquetas demais") });
+
+const nomeEtiqueta = z.string().trim().min(1, "Informe o nome").max(40, "Nome longo demais");
+const corEtiqueta = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Cor inválida").transform((c) => c.toLowerCase());
+
+export const esquemaNovaEtiqueta = z.object({ espacoId: id, nome: nomeEtiqueta, cor: corEtiqueta });
+export const esquemaEditarEtiqueta = z.object({ etiquetaId: id, nome: nomeEtiqueta, cor: corEtiqueta });

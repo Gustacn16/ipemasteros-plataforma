@@ -5,8 +5,8 @@ import { PRIORIDADES, ROTULO_PRIORIDADE } from "../esquemas/tarefa";
 
 const estiloSelect = "border-input bg-background h-9 rounded-md border px-2 text-sm";
 
-/** Filtros da lista guardados na URL (responsável, prioridade, atrasadas). */
-export function FiltrosDaLista({ pessoas }: { pessoas: { id: string; nome: string }[] }) {
+/** Filtros da lista guardados na URL (responsável, prioridade, etiqueta, atrasadas). */
+export function FiltrosDaLista({ pessoas, etiquetas }: { pessoas: { id: string; nome: string }[]; etiquetas: { id: string; nome: string }[] }) {
   const router = useRouter();
   const caminho = usePathname();
   const busca = useSearchParams();
@@ -47,6 +47,21 @@ export function FiltrosDaLista({ pessoas }: { pessoas: { id: string; nome: strin
           </option>
         ))}
       </select>
+      {etiquetas.length > 0 && (
+        <select
+          aria-label="Filtrar por etiqueta"
+          className={estiloSelect}
+          value={busca.get("etiqueta") ?? ""}
+          onChange={(e) => definir("etiqueta", e.target.value || null)}
+        >
+          <option value="">Todas as etiquetas</option>
+          {etiquetas.map((e) => (
+            <option key={e.id} value={e.id}>
+              {e.nome}
+            </option>
+          ))}
+        </select>
+      )}
       <label className="flex items-center gap-1.5">
         <input
           type="checkbox"

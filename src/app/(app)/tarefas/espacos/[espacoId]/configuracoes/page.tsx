@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ErroNegocio } from "@/lib/erros";
 import { exigirPermissaoPagina } from "@/lib/sessao";
 import { ExcluirEspaco, FormularioDadosEspaco, MembrosEspaco } from "@/modulos/tarefas/componentes/configuracoes-espaco";
+import { GerenciarEtiquetas } from "@/modulos/tarefas/componentes/etiquetas";
 import { obterConfiguracaoEspaco } from "@/modulos/tarefas/servicos/espacos";
 
 export const metadata: Metadata = { title: "Configurações do espaço — IPEMaster OS" };
@@ -37,6 +38,16 @@ export default async function PaginaConfiguracoesEspaco({ params }: PageProps<"/
           <p className="text-muted-foreground text-sm">Quem participa deste departamento vê o espaço e pode receber tarefas dele.</p>
         </div>
         <MembrosEspaco espacoId={espacoId} usuarios={dados.usuarios} membroIds={dados.membroIds} />
+      </section>
+
+      <section className="grid gap-3" aria-labelledby="sec-etiquetas">
+        <div>
+          <h2 id="sec-etiquetas" className="font-semibold">
+            Etiquetas
+          </h2>
+          <p className="text-muted-foreground text-sm">Servem para agrupar e filtrar as tarefas deste espaço (ex.: Campanha, Financeiro).</p>
+        </div>
+        <GerenciarEtiquetas espacoId={espacoId} etiquetas={dados.etiquetas} />
       </section>
 
       <section className="grid gap-3 border-t pt-6" aria-labelledby="sec-excluir">

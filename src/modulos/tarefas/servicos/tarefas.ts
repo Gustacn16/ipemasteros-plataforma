@@ -1,11 +1,12 @@
 import "server-only";
-import type { Prisma } from "@/generated/prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 import { ErroNegocio } from "@/lib/erros";
-import { ErroPermissao } from "@/lib/permissoes";
+import { ErroPermissao, temPermissao } from "@/lib/permissoes";
 import { prisma } from "@/lib/prisma";
 import type { UsuarioAtual } from "@/lib/sessao";
 import type { FiltrosLista, Prioridade } from "../esquemas/tarefa";
-import { diaEmSaoPaulo, grupoDaEntrega, type GrupoMinhas } from "../regras/prazo";
+import { mudancasDaTarefa, type Mudanca } from "../regras/historico";
+import { diaDaDataEntrega, diaEmSaoPaulo, grupoDaEntrega, type GrupoMinhas } from "../regras/prazo";
 import { ERRO_SUBTAREFAS_ABERTAS, concluidaEmAoMudarStatus } from "../regras/status";
 import {
   MENSAGEM_NAO_ENCONTRADO,
@@ -17,6 +18,7 @@ import {
   podeExcluirTarefa,
   usuariosAtribuiveis,
 } from "./acesso";
+import { listarEtiquetas } from "./detalhes";
 import { proximaOrdem } from "./ordem";
 
 const selecaoResumo = {
@@ -29,6 +31,8 @@ const selecaoResumo = {
   tarefaPaiId: true,
   responsaveis: { select: { usuario: { select: { id: true, nome: true } } } },
   _count: { select: { subtarefas: { where: { excluidoEm: null } } } },
+  checklist: { select: { concluido: true } },
+  etiquetas: { select: { etiqueta: { select: { id: true, nome: true, cor: true } } } },
 } satisfies Prisma.TarefaSelect;
 
 export type TarefaResumo = Prisma.TarefaGetPayload<{ select: typeof selecaoResumo }>;
@@ -45,11 +49,12 @@ export async function obterListaComTarefas(ator: UsuarioAtual, listaId: string, 
       { listaId },
       filtros.responsavel ? { responsaveis: { some: { usuarioId: filtros.responsavel } } } : {},
       filtros.prioridade ? { prioridade: filtros.prioridade } : {},
+      filtros.etiqueta ? { etiquetas: { some: { etiquetaId: filtros.etiqueta } } } : {},
       filtros.atrasadas ? { concluidaEm: null, dataEntrega: { lt: hoje } } : {},
     ],
   };
 
-  const [status, tarefas, atribuiveis] = await Promise.all([
+  const [status, tarefas, atribuiveis, etiquetas] = await Promise.all([
     prisma.statusLista.findMany({
       where: { listaId },
       orderBy: { ordem: "asc" },
@@ -57,11 +62,12 @@ export async function obterListaComTarefas(ator: UsuarioAtual, listaId: string, 
     }),
     prisma.tarefa.findMany({ where, orderBy: [{ ordem: "asc" }, { criadoEm: "asc" }], select: selecaoResumo }),
     usuariosAtribuiveis(lista.espacoId),
+    listarEtiquetas(lista.espacoId),
   ]);
 
   const principais = tarefas.filter((t) => !t.tarefaPaiId);
   const subtarefas = tarefas.filter((t) => t.tarefaPaiId);
-  return { lista, status, principais, subtarefas, atribuiveis };
+  return { lista, status, principais, subtarefas, atribuiveis, etiquetas };
 }
 
 export async function obterTarefa(ator: UsuarioAtual, tarefaId: string) {
@@ -82,20 +88,30 @@ export async function obterTarefa(ator: UsuarioAtual, tarefaId: string) {
         orderBy: [{ ordem: "asc" }, { criadoEm: "asc" }],
         select: { id: true, titulo: true, concluidaEm: true, status: { select: { nome: true, cor: true } } },
       },
+      checklist: { orderBy: { ordem: "asc" }, select: { id: true, texto: true, concluido: true } },
+      etiquetas: { select: { etiqueta: { select: { id: true, nome: true, cor: true } } } },
+      historico: {
+        orderBy: { criadoEm: "desc" },
+        take: 100,
+        select: { id: true, campo: true, valorAntes: true, valorDepois: true, criadoEm: true, usuario: { select: { nome: true } } },
+      },
     },
   });
-  const [statusDaLista, atribuiveis] = await Promise.all([
+  const [statusDaLista, atribuiveis, etiquetasDoEspaco] = await Promise.all([
     prisma.statusLista.findMany({
       where: { listaId: tarefa.listaId },
       orderBy: { ordem: "asc" },
       select: { id: true, nome: true, cor: true, tipo: true },
     }),
     usuariosAtribuiveis(tarefa.lista.espacoId),
+    listarEtiquetas(tarefa.lista.espacoId),
   ]);
   return {
     tarefa,
     statusDaLista,
     atribuiveis,
+    etiquetasDoEspaco,
+    podeGerenciarEtiquetas: temPermissao(ator.papel, "tarefas:gerenciar_listas") && podeEditarTarefa(ator),
     podeEditar: podeEditarTarefa(ator),
     podeExcluir: podeExcluirTarefa(ator, tarefa),
   };
@@ -163,7 +179,19 @@ export async function atualizarTarefa(ator: UsuarioAtual, tarefaId: string, camp
     }
   }
 
+  const nomes = new Map(
+    (await prisma.usuario.findMany({ where: { id: { in: [...new Set([...ids, ...idsAtuais])] } }, select: { id: true, nome: true } })).map(
+      (u) => [u.id, u.nome],
+    ),
+  );
+  const dia = (d: Date | null) => (d ? diaDaDataEntrega(d) : null);
+  const mudancas = mudancasDaTarefa(
+    { prioridade: tarefa.prioridade, dataInicio: dia(tarefa.dataInicio), dataEntrega: dia(tarefa.dataEntrega), responsaveis: idsAtuais.map((id) => nomes.get(id) ?? "?") },
+    { prioridade: campos.prioridade, dataInicio: dia(campos.dataInicio), dataEntrega: dia(campos.dataEntrega), responsaveis: ids.map((id) => nomes.get(id) ?? "?") },
+  );
+
   await prisma.$transaction(async (tx) => {
+    await registrarHistorico(tx, tarefaId, ator.id, mudancas);
     await tx.tarefa.update({
       where: { id: tarefaId },
       data: {
@@ -197,14 +225,30 @@ export async function mudarStatus(
     if (abertas > 0) throw new ErroNegocio(ERRO_SUBTAREFAS_ABERTAS);
   }
 
-  const maior = await prisma.tarefa.aggregate({ _max: { ordem: true }, where: { listaId: tarefa.listaId, statusId } });
-  await prisma.tarefa.update({
-    where: { id: tarefaId },
-    data: {
-      statusId,
-      concluidaEm: concluidaEmAoMudarStatus(novo.tipo, tarefa.concluidaEm, new Date()),
-      ...(statusId !== tarefa.statusId ? { ordem: proximaOrdem(maior._max.ordem) } : {}),
-    },
+  if (statusId === tarefa.statusId) return;
+  const [maior, anterior] = await Promise.all([
+    prisma.tarefa.aggregate({ _max: { ordem: true }, where: { listaId: tarefa.listaId, statusId } }),
+    prisma.statusLista.findUnique({ where: { id: tarefa.statusId }, select: { nome: true } }),
+  ]);
+  await prisma.$transaction(async (tx) => {
+    await registrarHistorico(tx, tarefaId, ator.id, [{ campo: "status", valorAntes: anterior?.nome ?? null, valorDepois: novo.nome }]);
+    await tx.tarefa.update({
+      where: { id: tarefaId },
+      data: {
+        statusId,
+        concluidaEm: concluidaEmAoMudarStatus(novo.tipo, tarefa.concluidaEm, new Date()),
+        ordem: proximaOrdem(maior._max.ordem),
+      },
+    });
+  });
+}
+
+/** Grava as linhas do histórico (regra 8) dentro da transação da mudança. */
+async function registrarHistorico(tx: Prisma.TransactionClient, tarefaId: string, usuarioId: string, mudancas: Mudanca[]) {
+  if (!mudancas.length) return;
+  const json = (v: Mudanca["valorAntes"]) => (v === null ? Prisma.DbNull : v);
+  await tx.historicoTarefa.createMany({
+    data: mudancas.map((m) => ({ tarefaId, usuarioId, campo: m.campo, valorAntes: json(m.valorAntes), valorDepois: json(m.valorDepois) })),
   });
 }
 

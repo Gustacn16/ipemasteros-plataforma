@@ -31,7 +31,7 @@ Especificação da F1a: `docs/superpowers/specs/2026-11-02-f1a-tarefas-design.md
 - **Navegação:** o menu principal tem o item "Tarefas". Dentro do módulo, um menu próprio mostra Minhas tarefas, Relatório e a árvore de Espaços e Listas (no celular, recolhível no topo).
 - **Visualizações de uma lista** (alternáveis, com filtros e agrupamento salvos por usuário):
   - **Lista:** tabela com colunas, agrupada por status.
-  - **Quadro (Kanban):** uma coluna por status. Cada cartão tem o menu "Mover para" (⋯) e o botão de concluir (✓). A mudança aparece na hora e volta, com aviso, se o servidor recusar. Arrastar com o mouse fica para depois. O cartão mostra faixa e selo de prioridade, situação da entrega (atrasada, hoje, amanhã, em N dias), progresso das subtarefas e responsáveis.
+  - **Quadro (Kanban):** uma coluna por status. Cada cartão tem o menu "Mover para" (⋯) e o botão de concluir (✓). A mudança aparece na hora e volta, com aviso, se o servidor recusar. Arrastar com o mouse fica para depois. O cartão mostra faixa e selo de prioridade, situação da entrega (atrasada, hoje, amanhã, em N dias), etiquetas, progresso do checklist e das subtarefas e responsáveis.
   - A escolha Lista/Quadro fica salva no cookie `tarefas_visao` (por navegador, vale para todas as listas).
   - **Calendário:** por data de entrega.
 - **Minhas tarefas** (`/tarefas/minhas`): tudo atribuído a mim, agrupado em "Atrasadas", "Hoje", "Próximos 7 dias" e "Sem data".
@@ -72,7 +72,9 @@ Tarefas recorrentes, controle de tempo (time tracking), automações ("quando X 
 
 **F1a bloco 3 (em andamento):** relatório por pessoa (feito). Falta o 2FA.
 
-**Próximos:** bloco 2 (Quadro Kanban, checklist, etiquetas, histórico, ordem fracionária) e o restante do bloco 3 (2FA). Pastas, comentários, anexos, calendário e texto formatado ficam para a F1c.
+**F1a bloco 2 (feito):** Quadro com "Mover para", cartão novo, checklist (marcar, adicionar, subir/descer, remover; quem vê a tarefa usa o checklist), etiquetas por espaço (gestão na configuração do espaço e criação rápida no painel por quem tem `tarefas:gerenciar_listas`; filtro por etiqueta na lista) e histórico (`HistoricoTarefa`, gravado na mesma transação em mudanças de status, responsáveis, datas e prioridade; valores guardados como texto pronto para exibir; regras em `regras/historico.ts`). Arrastar no quadro e reordenar cartões ficam para depois.
+
+**Próximos:** o restante do bloco 3 (2FA). Pastas, comentários, anexos, calendário e texto formatado ficam para a F1c.
 
 ## Dúvidas em aberto
 - As notificações por e-mail são necessárias ou bastam as notificações no sistema?

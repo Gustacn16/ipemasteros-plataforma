@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRightLeftIcon, CalendarIcon, CheckCircle2Icon, CheckIcon, ListTreeIcon, MoreHorizontalIcon } from "lucide-react";
+import { ArrowRightLeftIcon, CalendarIcon, CheckCircle2Icon, CheckIcon, ListChecksIcon, ListTreeIcon, MoreHorizontalIcon } from "lucide-react";
 import Link from "next/link";
 import {
   DropdownMenu,
@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { ROTULO_PRIORIDADE, type Prioridade } from "../esquemas/tarefa";
 import { situacaoEntrega, type TomEntrega } from "../regras/prazo";
 import type { TarefaResumo } from "../servicos/tarefas";
+import { SeloEtiqueta } from "./etiquetas";
 import { Avatares, PontoCor, formatarDiaEntrega } from "./exibicao";
 
 export type StatusQuadro = { id: string; nome: string; cor: string; tipo: string };
@@ -76,6 +77,9 @@ export function CartaoTarefa({ tarefa, href, status, subtarefas, pendente, mover
   const concluida = Boolean(tarefa.concluidaEm);
   const statusConcluido = status.find((s) => s.tipo === "concluido");
   const selo = SELO_PRIORIDADE[tarefa.prioridade];
+  const itens = tarefa.checklist.length;
+  const itensFeitos = tarefa.checklist.filter((i) => i.concluido).length;
+  const etiquetas = tarefa.etiquetas.map((e) => e.etiqueta);
 
   return (
     <article
@@ -138,6 +142,15 @@ export function CartaoTarefa({ tarefa, href, status, subtarefas, pendente, mover
         </div>
       </div>
 
+      {etiquetas.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {etiquetas.slice(0, 3).map((e) => (
+            <SeloEtiqueta key={e.id} etiqueta={e} className="max-w-32" />
+          ))}
+          {etiquetas.length > 3 && <span className="text-muted-foreground text-xs">+{etiquetas.length - 3}</span>}
+        </div>
+      )}
+
       {(selo || tarefa.dataEntrega) && (
         <div className="flex flex-wrap items-center gap-1.5">
           {selo && <span className={cn("rounded-md px-1.5 py-0.5 text-xs font-medium", selo)}>{ROTULO_PRIORIDADE[tarefa.prioridade]}</span>}
@@ -145,30 +158,38 @@ export function CartaoTarefa({ tarefa, href, status, subtarefas, pendente, mover
         </div>
       )}
 
-      {subtarefas && subtarefas.total > 0 && (
-        <div className="grid gap-1" title={`${subtarefas.concluidas} de ${subtarefas.total} subtarefas concluídas`}>
+      {itens > 0 && (
+        <div className="grid gap-1" title={`Checklist: ${itensFeitos} de ${itens} itens feitos`}>
           <div className="text-muted-foreground flex items-center justify-between text-xs">
             <span className="flex items-center gap-1">
-              <ListTreeIcon className="size-3.5" aria-hidden /> Subtarefas
+              <ListChecksIcon className="size-3.5" aria-hidden /> Checklist
             </span>
-            <span>
-              {subtarefas.concluidas}/{subtarefas.total}
+            <span className={cn(itensFeitos === itens && "font-medium text-green-700")}>
+              {itensFeitos}/{itens}
             </span>
           </div>
           <div className="bg-muted h-1.5 overflow-hidden rounded-full" aria-hidden>
-            <div className="h-full rounded-full bg-[#5F45F4] transition-all" style={{ width: `${(subtarefas.concluidas / subtarefas.total) * 100}%` }} />
+            <div
+              className={cn("h-full rounded-full transition-all", itensFeitos === itens ? "bg-green-500" : "bg-[#5F45F4]")}
+              style={{ width: `${(itensFeitos / itens) * 100}%` }}
+            />
           </div>
         </div>
       )}
 
       <div className="flex items-center justify-between gap-2">
-        {concluida ? (
-          <span className="flex items-center gap-1 text-xs text-green-700">
-            <CheckCircle2Icon className="size-3.5" aria-hidden /> Concluída
-          </span>
-        ) : (
-          <span />
-        )}
+        <span className="flex items-center gap-2.5 text-xs">
+          {concluida && (
+            <span className="flex items-center gap-1 text-green-700">
+              <CheckCircle2Icon className="size-3.5" aria-hidden /> Concluída
+            </span>
+          )}
+          {subtarefas && subtarefas.total > 0 && (
+            <span className="text-muted-foreground flex items-center gap-1" title={`${subtarefas.concluidas} de ${subtarefas.total} subtarefas concluídas`}>
+              <ListTreeIcon className="size-3.5" aria-hidden /> {subtarefas.concluidas}/{subtarefas.total}
+            </span>
+          )}
+        </span>
         {tarefa.responsaveis.length > 0 ? (
           <Avatares pessoas={tarefa.responsaveis.map((r) => r.usuario)} />
         ) : (

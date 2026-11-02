@@ -13,7 +13,10 @@ import { PRIORIDADES, ROTULO_PRIORIDADE, type Prioridade } from "../esquemas/tar
 import { ERRO_SUBTAREFAS_ABERTAS } from "../regras/status";
 import type { obterTarefa } from "../servicos/tarefas";
 import { avisar } from "./avisar";
+import { ChecklistTarefa } from "./checklist-tarefa";
+import { EtiquetasTarefa } from "./etiquetas";
 import { PontoCor, valorInputData } from "./exibicao";
+import { HistoricoTarefa } from "./historico-tarefa";
 import { NovaTarefaRapida } from "./nova-tarefa-rapida";
 
 export const ID_MODELO = "__tarefa__";
@@ -24,7 +27,7 @@ const estiloCampo = "border-input bg-background w-full rounded-md border px-2 py
 
 /** Painel lateral com o detalhe da tarefa (tela cheia no celular). */
 export function PainelTarefa({ dados, urlFechar, modeloUrlTarefa }: { dados: Dados; urlFechar: string; modeloUrlTarefa: string }) {
-  const { tarefa, statusDaLista, atribuiveis, podeEditar, podeExcluir } = dados;
+  const { tarefa, statusDaLista, atribuiveis, etiquetasDoEspaco, podeEditar, podeExcluir, podeGerenciarEtiquetas } = dados;
   const router = useRouter();
   const [pendente, iniciar] = useTransition();
   const [erros, setErros] = useState<Record<string, string[] | undefined>>({});
@@ -139,7 +142,18 @@ export function PainelTarefa({ dados, urlFechar, modeloUrlTarefa }: { dados: Dad
             </select>
           </div>
 
-          <form action={salvar} className="grid gap-4">
+          <EtiquetasTarefa
+            tarefaId={tarefa.id}
+            espacoId={tarefa.lista.espacoId}
+            selecionadas={tarefa.etiquetas.map((e) => e.etiqueta)}
+            doEspaco={etiquetasDoEspaco}
+            podeEditar={podeEditar}
+            podeCriar={podeGerenciarEtiquetas}
+          />
+
+          <ChecklistTarefa tarefaId={tarefa.id} itens={tarefa.checklist} />
+
+          <form action={salvar} className="grid gap-4 border-t pt-5">
             <fieldset disabled={!podeEditar || pendente} className="grid gap-4">
               <div className="grid gap-1.5">
                 <Label htmlFor="titulo-tarefa">Título</Label>
@@ -234,10 +248,10 @@ export function PainelTarefa({ dados, urlFechar, modeloUrlTarefa }: { dados: Dad
             </section>
           )}
 
-          <p className="text-muted-foreground border-t pt-3 text-xs">
-            Criada por {tarefa.criadoPor.nome} em {formatarDataHora(tarefa.criadoEm)}
-            {tarefa.concluidaEm && ` · Concluída em ${formatarDataHora(tarefa.concluidaEm)}`}
-          </p>
+          <div className="border-t pt-5">
+            <HistoricoTarefa linhas={tarefa.historico} criadaPor={tarefa.criadoPor.nome} criadaEm={tarefa.criadoEm} />
+            {tarefa.concluidaEm && <p className="text-muted-foreground mt-3 text-xs">Concluída em {formatarDataHora(tarefa.concluidaEm)}</p>}
+          </div>
         </div>
       </aside>
     </div>
