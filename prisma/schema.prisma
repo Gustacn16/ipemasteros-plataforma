@@ -40,6 +40,10 @@ model Usuario {
   convitesEnviados  Convite[]       @relation("ConvitesEnviados")
   logsAuditoria     LogAuditoria[]
 
+  membroDeEspacos   MembroEspaco[]
+  tarefasCriadas    Tarefa[]            @relation("TarefasCriadas")
+  tarefasAtribuidas TarefaResponsavel[]
+
   @@map("usuarios")
 }
 
@@ -164,4 +168,127 @@ model SolicitacaoTitular {
   atualizadoEm  DateTime                 @updatedAt @map("atualizado_em")
 
   @@map("solicitacoes_titular")
+}
+
+// ─── Tarefas ─────────────────────────────────────────────────────────────────
+// Ver docs/modulos/tarefas.md. Espaço = departamento; tarefa = demanda.
+
+enum TipoStatus {
+  aberto
+  em_andamento
+  concluido
+}
+
+enum PrioridadeTarefa {
+  urgente
+  alta
+  normal
+  baixa
+}
+
+/// Departamento (ex.: Marketing). Nome único entre os não excluídos (checado no serviço).
+model Espaco {
+  id           String    @id @default(cuid())
+  nome         String    @db.VarChar(80)
+  cor          String    @db.Char(7)
+  ordem        Decimal   @db.Decimal(20, 10)
+  excluidoEm   DateTime? @map("excluido_em")
+  criadoEm     DateTime  @default(now()) @map("criado_em")
+  atualizadoEm DateTime  @updatedAt @map("atualizado_em")
+
+  membros MembroEspaco[]
+  listas  Lista[]
+
+  @@map("espacos")
+}
+
+model MembroEspaco {
+  espacoId  String   @map("espaco_id")
+  usuarioId String   @map("usuario_id")
+  criadoEm  DateTime @default(now()) @map("criado_em")
+
+  espaco  Espaco  @relation(fields: [espacoId], references: [id], onDelete: Cascade)
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@id([espacoId, usuarioId])
+  @@index([usuarioId])
+  @@map("membros_espaco")
+}
+
+model Lista {
+  id           String    @id @default(cuid())
+  espacoId     String    @map("espaco_id")
+  nome         String    @db.VarChar(80)
+  ordem        Decimal   @db.Decimal(20, 10)
+  excluidoEm   DateTime? @map("excluido_em")
+  criadoEm     DateTime  @default(now()) @map("criado_em")
+  atualizadoEm DateTime  @updatedAt @map("atualizado_em")
+
+  espaco  Espaco        @relation(fields: [espacoId], references: [id])
+  status  StatusLista[]
+  tarefas Tarefa[]
+
+  @@index([espacoId])
+  @@map("listas")
+}
+
+model StatusLista {
+  id           String     @id @default(cuid())
+  listaId      String     @map("lista_id")
+  nome         String     @db.VarChar(40)
+  cor          String     @db.Char(7)
+  tipo         TipoStatus
+  ordem        Decimal    @db.Decimal(20, 10)
+  criadoEm     DateTime   @default(now()) @map("criado_em")
+  atualizadoEm DateTime   @updatedAt @map("atualizado_em")
+
+  lista   Lista    @relation(fields: [listaId], references: [id], onDelete: Cascade)
+  tarefas Tarefa[]
+
+  @@index([listaId])
+  @@map("status_lista")
+}
+
+/// Demanda. Subtarefa tem tarefaPaiId (um nível só) e a mesma lista da tarefa pai.
+model Tarefa {
+  id           String           @id @default(cuid())
+  listaId      String           @map("lista_id")
+  tarefaPaiId  String?          @map("tarefa_pai_id")
+  titulo       String           @db.VarChar(200)
+  descricao    String?          @db.Text
+  statusId     String           @map("status_id")
+  prioridade   PrioridadeTarefa @default(normal)
+  dataInicio   DateTime?        @map("data_inicio") @db.Date
+  dataEntrega  DateTime?        @map("data_entrega") @db.Date
+  ordem        Decimal          @db.Decimal(20, 10)
+  concluidaEm  DateTime?        @map("concluida_em")
+  criadoPorId  String           @map("criado_por_id")
+  excluidoEm   DateTime?        @map("excluido_em")
+  criadoEm     DateTime         @default(now()) @map("criado_em")
+  atualizadoEm DateTime         @updatedAt @map("atualizado_em")
+
+  lista        Lista               @relation(fields: [listaId], references: [id])
+  tarefaPai    Tarefa?             @relation("Subtarefas", fields: [tarefaPaiId], references: [id])
+  subtarefas   Tarefa[]            @relation("Subtarefas")
+  status       StatusLista         @relation(fields: [statusId], references: [id])
+  criadoPor    Usuario             @relation("TarefasCriadas", fields: [criadoPorId], references: [id])
+  responsaveis TarefaResponsavel[]
+
+  @@index([listaId, statusId, ordem])
+  @@index([tarefaPaiId])
+  @@index([dataEntrega])
+  @@index([concluidaEm])
+  @@map("tarefas")
+}
+
+model TarefaResponsavel {
+  tarefaId  String @map("tarefa_id")
+  usuarioId String @map("usuario_id")
+
+  tarefa  Tarefa  @relation(fields: [tarefaId], references: [id], onDelete: Cascade)
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@id([tarefaId, usuarioId])
+  @@index([usuarioId])
+  @@map("tarefas_responsaveis")
 }
