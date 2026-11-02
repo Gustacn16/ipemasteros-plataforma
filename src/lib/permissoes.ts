@@ -2,13 +2,14 @@
 // Regras que dependem do registro (ex.: professor só vê as próprias turmas)
 // ficam no serviço do módulo, não aqui.
 
-export const PAPEIS = ["admin", "gestor", "colaborador", "professor", "aluno"] as const;
+export const PAPEIS = ["admin", "gestor", "colaborador", "comercial", "professor", "aluno"] as const;
 export type Papel = (typeof PAPEIS)[number];
 
 export const ROTULO_PAPEL: Record<Papel, string> = {
   admin: "Admin",
   gestor: "Gestor",
   colaborador: "Colaborador",
+  comercial: "Comercial",
   professor: "Professor",
   aluno: "Aluno",
 };
@@ -31,7 +32,13 @@ export type Permissao =
   | "agenda:ver_institucional"
   | "agenda:ver_institucional_professor"
   | "agenda:editar_institucional"
-  | "agenda:gerenciar_tipos";
+  | "agenda:gerenciar_tipos"
+  | "comercial:ver"
+  | "comercial:registrar_venda"
+  | "comercial:ver_equipe"
+  | "comercial:gerenciar_vendas"
+  | "comercial:gerenciar_metas"
+  | "comercial:gerenciar_produtos";
 
 // Colaborador e professor têm regras por registro (membro do espaço, tarefas
 // atribuídas) em src/modulos/tarefas/servicos/acesso.ts.
@@ -52,6 +59,26 @@ const AGENDA_GESTAO: readonly Permissao[] = [
   "agenda:gerenciar_tipos",
 ];
 
+// O vendedor (papel comercial) só registra as próprias vendas; a regra por
+// registro fica em src/modulos/comercial/servicos/acesso.ts.
+const COMERCIAL_GESTAO: readonly Permissao[] = [
+  "comercial:ver",
+  "comercial:registrar_venda",
+  "comercial:ver_equipe",
+  "comercial:gerenciar_vendas",
+  "comercial:gerenciar_metas",
+  "comercial:gerenciar_produtos",
+];
+
+const PERMISSOES_COLABORADOR: readonly Permissao[] = [
+  "tarefas:gerenciar_listas",
+  "tarefas:usar",
+  "conteudo:usar",
+  "agenda:usar",
+  "agenda:ver_institucional",
+  "agenda:editar_institucional",
+];
+
 const PERMISSOES_POR_PAPEL: Record<Papel, readonly Permissao[]> = {
   admin: [
     "core:ver_usuarios",
@@ -62,6 +89,7 @@ const PERMISSOES_POR_PAPEL: Record<Papel, readonly Permissao[]> = {
     ...TAREFAS_GESTAO,
     ...CONTEUDO_GESTAO,
     ...AGENDA_GESTAO,
+    ...COMERCIAL_GESTAO,
   ],
   gestor: [
     "core:ver_usuarios",
@@ -70,24 +98,20 @@ const PERMISSOES_POR_PAPEL: Record<Papel, readonly Permissao[]> = {
     ...TAREFAS_GESTAO,
     ...CONTEUDO_GESTAO,
     ...AGENDA_GESTAO,
+    ...COMERCIAL_GESTAO,
   ],
-  colaborador: [
-    "tarefas:gerenciar_listas",
-    "tarefas:usar",
-    "conteudo:usar",
-    "agenda:usar",
-    "agenda:ver_institucional",
-    "agenda:editar_institucional",
-  ],
+  colaborador: PERMISSOES_COLABORADOR,
+  comercial: [...PERMISSOES_COLABORADOR, "comercial:ver", "comercial:registrar_venda"],
   professor: ["tarefas:usar", "agenda:usar", "agenda:ver_institucional_professor"],
   aluno: [],
 };
 
 /** Papéis que cada papel pode convidar. Só admin cria admin ou gestor. */
 const PAPEIS_CONVIDAVEIS: Record<Papel, readonly Papel[]> = {
-  admin: ["admin", "gestor", "colaborador", "professor"],
-  gestor: ["colaborador", "professor"],
+  admin: ["admin", "gestor", "colaborador", "comercial", "professor"],
+  gestor: ["colaborador", "comercial", "professor"],
   colaborador: [],
+  comercial: [],
   professor: [],
   aluno: [],
 };

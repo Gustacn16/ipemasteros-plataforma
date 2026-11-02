@@ -38,7 +38,7 @@ describe("quem pode convidar quem", () => {
   });
 
   it("gestor convida colaborador e professor", () => {
-    expect(papeisConvidaveis("gestor")).toEqual(["colaborador", "professor"]);
+    expect(papeisConvidaveis("gestor")).toEqual(["colaborador", "comercial", "professor"]);
   });
 
   it("ninguém convida aluno (sem login na v1)", () => {
@@ -123,5 +123,53 @@ describe("agenda", () => {
 
   it("aluno não tem nenhuma", () => {
     for (const p of TODAS) expect(temPermissao("aluno", p)).toBe(false);
+  });
+});
+
+describe("permissões do Comercial", () => {
+  const TODAS = [
+    "comercial:ver",
+    "comercial:registrar_venda",
+    "comercial:ver_equipe",
+    "comercial:gerenciar_vendas",
+    "comercial:gerenciar_metas",
+    "comercial:gerenciar_produtos",
+  ] as const;
+
+  it("admin e gestor têm todas as permissões do Comercial", () => {
+    for (const papel of ["admin", "gestor"] as const) {
+      for (const p of TODAS) expect(temPermissao(papel, p)).toBe(true);
+    }
+  });
+
+  it("comercial vê o módulo e registra venda, mas não gerencia nem vê a equipe", () => {
+    expect(temPermissao("comercial", "comercial:ver")).toBe(true);
+    expect(temPermissao("comercial", "comercial:registrar_venda")).toBe(true);
+    for (const p of ["comercial:ver_equipe", "comercial:gerenciar_vendas", "comercial:gerenciar_metas", "comercial:gerenciar_produtos"] as const) {
+      expect(temPermissao("comercial", p)).toBe(false);
+    }
+  });
+
+  it("comercial tem as mesmas permissões de tarefas, conteúdo e agenda do colaborador", () => {
+    for (const p of [
+      "tarefas:usar",
+      "tarefas:gerenciar_listas",
+      "conteudo:usar",
+      "agenda:usar",
+      "agenda:ver_institucional",
+      "agenda:editar_institucional",
+    ] as const) {
+      expect(temPermissao("comercial", p)).toBe(temPermissao("colaborador", p));
+    }
+  });
+
+  it("colaborador, professor e aluno não entram no Comercial", () => {
+    for (const papel of ["colaborador", "professor", "aluno"] as const) expect(temPermissao(papel, "comercial:ver")).toBe(false);
+  });
+
+  it("admin e gestor convidam comercial; comercial não convida ninguém", () => {
+    expect(podeConvidar("admin", "comercial")).toBe(true);
+    expect(podeConvidar("gestor", "comercial")).toBe(true);
+    expect(podeConvidar("comercial", "colaborador")).toBe(false);
   });
 });
