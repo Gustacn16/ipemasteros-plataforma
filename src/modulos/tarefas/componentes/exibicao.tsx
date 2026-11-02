@@ -63,7 +63,7 @@ export function Avatares({ pessoas }: { pessoas: { id: string; nome: string }[] 
       {pessoas.slice(0, 3).map((p) => (
         <span
           key={p.id}
-          className="flex size-6 items-center justify-center rounded-full bg-orange-100 text-[10px] font-semibold text-orange-800 ring-2 ring-white"
+          className="flex size-6 items-center justify-center rounded-full bg-[#ece9fe] text-[10px] font-semibold text-[#3f2bb8] ring-2 ring-white"
         >
           {iniciais(p.nome)}
         </span>

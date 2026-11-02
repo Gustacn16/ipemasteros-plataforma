@@ -28,6 +28,7 @@ const selecaoResumo = {
   statusId: true,
   tarefaPaiId: true,
   responsaveis: { select: { usuario: { select: { id: true, nome: true } } } },
+  _count: { select: { subtarefas: { where: { excluidoEm: null } } } },
 } satisfies Prisma.TarefaSelect;
 
 export type TarefaResumo = Prisma.TarefaGetPayload<{ select: typeof selecaoResumo }>;

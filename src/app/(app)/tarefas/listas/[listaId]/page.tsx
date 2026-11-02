@@ -1,14 +1,18 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { ErroNegocio } from "@/lib/erros";
 import { temPermissao } from "@/lib/permissoes";
 import { exigirUsuario } from "@/lib/sessao";
+import { AlternarVisao } from "@/modulos/tarefas/componentes/alternar-visao";
 import { ConfigurarStatus } from "@/modulos/tarefas/componentes/configurar-status";
 import { FiltrosDaLista } from "@/modulos/tarefas/componentes/filtros-lista";
 import { NovaTarefaRapida } from "@/modulos/tarefas/componentes/nova-tarefa-rapida";
 import { ID_MODELO, PainelTarefa } from "@/modulos/tarefas/componentes/painel-tarefa";
+import { QuadroTarefas } from "@/modulos/tarefas/componentes/quadro-tarefas";
 import { TabelaTarefas } from "@/modulos/tarefas/componentes/tabela-tarefas";
 import { esquemaFiltrosLista } from "@/modulos/tarefas/esquemas/tarefa";
+import { COOKIE_VISAO, lerVisao } from "@/modulos/tarefas/regras/visao";
 import { navegaEmEspacos } from "@/modulos/tarefas/servicos/acesso";
 import { obterListaComTarefas, obterTarefa } from "@/modulos/tarefas/servicos/tarefas";
 
@@ -41,6 +45,7 @@ export default async function PaginaLista({ params, searchParams }: PageProps<"/
   const idTarefa = texto(busca.tarefa);
   const detalhe = idTarefa ? await obterTarefa(usuario, idTarefa).catch(() => null) : null;
   const podeGerenciar = temPermissao(usuario.papel, "tarefas:gerenciar_listas");
+  const visao = lerVisao((await cookies()).get(COOKIE_VISAO)?.value);
 
   // Mantém os filtros ao abrir e fechar o painel da tarefa.
   const paramsFiltros = new URLSearchParams(
@@ -65,7 +70,10 @@ export default async function PaginaLista({ params, searchParams }: PageProps<"/
           </p>
           <h1 className="text-2xl font-semibold tracking-tight">{dados.lista.nome}</h1>
         </div>
-        {podeGerenciar && <ConfigurarStatus listaId={listaId} status={dados.status} />}
+        <div className="flex items-center gap-2">
+          <AlternarVisao visao={visao} />
+          {podeGerenciar && <ConfigurarStatus listaId={listaId} status={dados.status} />}
+        </div>
       </header>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -73,7 +81,11 @@ export default async function PaginaLista({ params, searchParams }: PageProps<"/
         <FiltrosDaLista pessoas={dados.atribuiveis} />
       </div>
 
-      <TabelaTarefas status={dados.status} principais={dados.principais} subtarefas={dados.subtarefas} urlTarefa={urlTarefa} />
+      {visao === "quadro" ? (
+        <QuadroTarefas status={dados.status} principais={dados.principais} subtarefas={dados.subtarefas} modeloUrlTarefa={urlTarefa(ID_MODELO)} />
+      ) : (
+        <TabelaTarefas status={dados.status} principais={dados.principais} subtarefas={dados.subtarefas} urlTarefa={urlTarefa} />
+      )}
 
       {detalhe && detalhe.tarefa.listaId === listaId && (
         <PainelTarefa

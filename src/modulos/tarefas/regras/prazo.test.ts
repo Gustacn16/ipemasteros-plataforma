@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { datasValidas, diaDaDataEntrega, diaEmSaoPaulo, grupoDaEntrega } from "./prazo";
+import { datasValidas, diaDaDataEntrega, diaEmSaoPaulo, grupoDaEntrega, situacaoEntrega } from "./prazo";
 
 // Datas @db.Date chegam do Prisma como meia-noite UTC do dia.
 const dia = (iso: string) => new Date(`${iso}T00:00:00Z`);
@@ -49,5 +49,23 @@ describe("datasValidas", () => {
 
   it("recusa início depois da entrega", () => {
     expect(datasValidas(dia("2026-11-28"), dia("2026-11-27"))).toBe(false);
+  });
+});
+
+describe("situacaoEntrega (cartão)", () => {
+  // 02/11 às 22h em São Paulo = 03/11 01h UTC: o dia ainda é 02/11.
+  const agora = new Date("2026-11-03T01:00:00Z");
+  const dia = (d: string) => new Date(`${d}T00:00:00Z`);
+
+  it("classifica pelo dia de São Paulo", () => {
+    expect(situacaoEntrega(dia("2026-10-30"), null, agora)).toEqual({ tom: "atrasada", dias: -3 });
+    expect(situacaoEntrega(dia("2026-11-02"), null, agora)).toEqual({ tom: "hoje", dias: 0 });
+    expect(situacaoEntrega(dia("2026-11-03"), null, agora)).toEqual({ tom: "amanha", dias: 1 });
+    expect(situacaoEntrega(dia("2026-11-09"), null, agora)).toEqual({ tom: "proxima", dias: 7 });
+    expect(situacaoEntrega(dia("2026-11-10"), null, agora)).toEqual({ tom: "futura", dias: 8 });
+  });
+
+  it("tarefa concluída nunca fica atrasada", () => {
+    expect(situacaoEntrega(dia("2026-10-30"), agora, agora).tom).toBe("concluida");
   });
 });

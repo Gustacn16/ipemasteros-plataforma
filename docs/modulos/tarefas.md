@@ -31,7 +31,8 @@ Especificação da F1a: `docs/superpowers/specs/2026-11-02-f1a-tarefas-design.md
 - **Navegação:** o menu principal tem o item "Tarefas". Dentro do módulo, um menu próprio mostra Minhas tarefas, Relatório e a árvore de Espaços e Listas (no celular, recolhível no topo).
 - **Visualizações de uma lista** (alternáveis, com filtros e agrupamento salvos por usuário):
   - **Lista:** tabela com colunas, agrupada por status.
-  - **Quadro (Kanban):** arrastar entre status.
+  - **Quadro (Kanban):** uma coluna por status. Cada cartão tem o menu "Mover para" (⋯) e o botão de concluir (✓). A mudança aparece na hora e volta, com aviso, se o servidor recusar. Arrastar com o mouse fica para depois. O cartão mostra faixa e selo de prioridade, situação da entrega (atrasada, hoje, amanhã, em N dias), progresso das subtarefas e responsáveis.
+  - A escolha Lista/Quadro fica salva no cookie `tarefas_visao` (por navegador, vale para todas as listas).
   - **Calendário:** por data de entrega.
 - **Minhas tarefas** (`/tarefas/minhas`): tudo atribuído a mim, agrupado em "Atrasadas", "Hoje", "Próximos 7 dias" e "Sem data".
 - **Detalhe da tarefa** (painel lateral ou modal): descrição, subtarefas, checklist, responsáveis, datas, prioridade, etiquetas, anexos, comentários e histórico.

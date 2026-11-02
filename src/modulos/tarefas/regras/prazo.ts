@@ -57,3 +57,16 @@ export function datasValidas(inicio: Date | null, entrega: Date | null): boolean
   if (!inicio || !entrega) return true;
   return diaDaDataEntrega(inicio) <= diaDaDataEntrega(entrega);
 }
+
+export type TomEntrega = "concluida" | "atrasada" | "hoje" | "amanha" | "proxima" | "futura";
+
+/** Situação da entrega para o cartão: tom de cor e quantos dias faltam (negativo = atraso). */
+export function situacaoEntrega(dataEntrega: Date, concluidaEm: Date | null, agora: Date): { tom: TomEntrega; dias: number } {
+  const hoje = Date.parse(`${diaEmSaoPaulo(agora)}T00:00:00Z`);
+  const dias = Math.round((Date.parse(`${diaDaDataEntrega(dataEntrega)}T00:00:00Z`) - hoje) / 86_400_000);
+  if (concluidaEm) return { tom: "concluida", dias };
+  if (dias < 0) return { tom: "atrasada", dias };
+  if (dias === 0) return { tom: "hoje", dias };
+  if (dias === 1) return { tom: "amanha", dias };
+  return { tom: dias <= 7 ? "proxima" : "futura", dias };
+}
