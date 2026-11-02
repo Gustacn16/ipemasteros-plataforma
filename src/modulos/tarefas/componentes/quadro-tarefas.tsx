@@ -63,16 +63,18 @@ export function QuadroTarefas({ status, principais, subtarefas, modeloUrlTarefa 
             <section
               key={s.id}
               aria-labelledby={`coluna-${s.id}`}
-              className="bg-muted/50 flex max-h-[calc(100svh-15rem)] w-[min(18rem,85vw)] shrink-0 snap-start flex-col rounded-xl"
+              className="flex max-h-[calc(100svh-15rem)] w-[min(18rem,85vw)] shrink-0 snap-start flex-col rounded-2xl bg-neutral-100/70"
             >
-              <h2 id={`coluna-${s.id}`} className="flex items-center gap-2 px-3 pt-3 pb-2 text-sm font-semibold">
-                <PontoCor cor={s.cor} />
+              <h2 id={`coluna-${s.id}`} className="flex items-center gap-2 px-4 pt-3.5 pb-1 text-[13px] font-medium tracking-[-0.005em]">
+                <PontoCor cor={s.cor} className="size-2" />
                 <span className="truncate">{s.nome}</span>
-                <span className="bg-background text-muted-foreground ml-auto rounded-full px-2 py-0.5 text-xs font-medium">{daColuna.length}</span>
+                <span className="grid h-[18px] min-w-[18px] place-items-center rounded-[6px] bg-black/[0.06] px-1 text-[11px] font-medium text-neutral-500 tabular-nums">
+                  {daColuna.length}
+                </span>
               </h2>
-              <div className="grid content-start gap-2 overflow-y-auto px-2 pb-2">
+              <div className="grid content-start gap-2 overflow-y-auto p-3 pt-2">
                 {daColuna.length === 0 ? (
-                  <p className="text-muted-foreground rounded-lg border border-dashed px-3 py-6 text-center text-xs">Nenhuma tarefa</p>
+                  <p className="rounded-xl border border-dashed border-neutral-300 bg-black/[0.02] px-3 py-6 text-center text-xs text-neutral-500">Nenhuma tarefa</p>
                 ) : (
                   daColuna.map((t) => (
                     <CartaoTarefa

@@ -56,18 +56,24 @@ function iniciais(nome: string): string {
   return ((partes[0]?.[0] ?? "") + (partes.length > 1 ? (partes.at(-1)?.[0] ?? "") : "")).toUpperCase();
 }
 
-export function Avatares({ pessoas }: { pessoas: { id: string; nome: string }[] }) {
+export function Avatares({ pessoas }: { pessoas: { id: string; nome: string; imagem?: string | null }[] }) {
   if (pessoas.length === 0) return <span className="text-muted-foreground">—</span>;
   return (
     <span className="flex -space-x-1.5" title={pessoas.map((p) => p.nome).join(", ")}>
-      {pessoas.slice(0, 3).map((p) => (
-        <span
-          key={p.id}
-          className="flex size-6 items-center justify-center rounded-full bg-[#ece9fe] text-[10px] font-semibold text-[#3f2bb8] ring-2 ring-white"
-        >
-          {iniciais(p.nome)}
-        </span>
-      ))}
+      {pessoas.slice(0, 3).map((p) =>
+        p.imagem ? (
+          // Foto servida por rota protegida; não passa pelo otimizador de imagens.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img key={p.id} src={p.imagem} alt="" draggable={false} className="size-6 rounded-full object-cover ring-2 ring-white" />
+        ) : (
+          <span
+            key={p.id}
+            className="flex size-6 items-center justify-center rounded-full bg-[#ece9fe] text-[10px] font-semibold text-[#3f2bb8] ring-2 ring-white"
+          >
+            {iniciais(p.nome)}
+          </span>
+        ),
+      )}
       {pessoas.length > 3 && (
         <span className="flex size-6 items-center justify-center rounded-full bg-neutral-200 text-[10px] ring-2 ring-white">
           +{pessoas.length - 3}

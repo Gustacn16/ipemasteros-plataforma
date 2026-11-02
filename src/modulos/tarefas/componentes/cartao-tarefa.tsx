@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRightLeftIcon, CalendarIcon, CheckCircle2Icon, CheckIcon, ListChecksIcon, ListTreeIcon, MoreHorizontalIcon } from "lucide-react";
+import { ArrowRightLeftIcon, CalendarDaysIcon, CheckCircle2Icon, CheckIcon, FlagIcon, ListTreeIcon, MoreHorizontalIcon } from "lucide-react";
 import Link from "next/link";
 import {
   DropdownMenu,
@@ -19,31 +19,28 @@ import { Avatares, PontoCor, formatarDiaEntrega } from "./exibicao";
 
 export type StatusQuadro = { id: string; nome: string; cor: string; tipo: string };
 
-const FAIXA_PRIORIDADE: Record<Prioridade, string> = {
-  urgente: "border-l-red-500",
-  alta: "border-l-orange-400",
-  normal: "border-l-transparent",
-  baixa: "border-l-sky-300",
+/** Selo de altura fixa, sem caixa de linha, para ícone e texto ficarem centrados. */
+const SELO = "inline-flex h-[22px] items-center gap-1 rounded-[7px] px-2 text-[11px] leading-none font-medium";
+
+const SELO_PRIORIDADE: Record<Prioridade, string> = {
+  urgente: "bg-rose-50 text-rose-600",
+  alta: "bg-amber-50 text-amber-700",
+  normal: "bg-blue-50 text-blue-600",
+  baixa: "bg-neutral-100 text-neutral-500",
 };
 
-const SELO_PRIORIDADE: Partial<Record<Prioridade, string>> = {
-  urgente: "bg-red-100 text-red-700",
-  alta: "bg-orange-100 text-orange-700",
-  baixa: "bg-sky-50 text-sky-700",
-};
-
-const ESTILO_ENTREGA: Record<TomEntrega, string> = {
-  atrasada: "bg-red-50 text-red-700 ring-red-200",
-  hoje: "bg-amber-50 text-amber-800 ring-amber-200",
-  amanha: "bg-violet-50 text-violet-700 ring-violet-200",
-  proxima: "bg-muted text-foreground ring-transparent",
-  futura: "text-muted-foreground ring-transparent",
-  concluida: "text-muted-foreground ring-transparent",
+const COR_ENTREGA: Record<TomEntrega, string> = {
+  atrasada: "font-medium text-red-600",
+  hoje: "font-medium text-amber-600",
+  amanha: "text-amber-600",
+  proxima: "text-neutral-600",
+  futura: "text-neutral-500",
+  concluida: "text-neutral-400",
 };
 
 function textoEntrega(tom: TomEntrega, dias: number, data: Date): string {
   if (tom === "atrasada") return dias === -1 ? "Atrasada 1 dia" : `Atrasada ${-dias} dias`;
-  if (tom === "hoje") return "Entrega hoje";
+  if (tom === "hoje") return "Hoje";
   if (tom === "amanha") return "Amanhã";
   if (tom === "proxima") return `Em ${dias} dias`;
   return formatarDiaEntrega(data);
@@ -52,12 +49,38 @@ function textoEntrega(tom: TomEntrega, dias: number, data: Date): string {
 function Entrega({ data, concluidaEm }: { data: Date; concluidaEm: Date | null }) {
   const { tom, dias } = situacaoEntrega(data, concluidaEm, new Date());
   return (
-    <span
-      className={cn("inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium ring-1 ring-inset", ESTILO_ENTREGA[tom])}
-      title={`Entrega: ${formatarDiaEntrega(data)}`}
-    >
-      <CalendarIcon className="size-3" aria-hidden />
+    <span className={cn("inline-flex items-center gap-1 text-[11.5px] tabular-nums", COR_ENTREGA[tom])} title={`Entrega: ${formatarDiaEntrega(data)}`}>
+      <CalendarDaysIcon className="size-3 shrink-0" strokeWidth={2.25} aria-hidden />
       {textoEntrega(tom, dias, data)}
+    </span>
+  );
+}
+
+/** Anel de progresso do checklist, com "feitos/total" ao lado. */
+function AnelChecklist({ feitos, total }: { feitos: number; total: number }) {
+  const r = 6;
+  const c = 2 * Math.PI * r;
+  const completo = feitos === total;
+  return (
+    <span className="inline-flex items-center gap-1" title={`Checklist: ${feitos} de ${total} itens feitos`}>
+      <svg viewBox="0 0 16 16" aria-hidden className="size-3.5 -rotate-90">
+        <circle cx="8" cy="8" r={r} fill="none" strokeWidth="2" className="stroke-black/[0.09]" />
+        <circle
+          cx="8"
+          cy="8"
+          r={r}
+          fill="none"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeDasharray={c}
+          strokeDashoffset={c - (c * feitos) / total}
+          className={cn("transition-[stroke-dashoffset] duration-300", completo ? "stroke-emerald-500" : "stroke-[#5F45F4]")}
+        />
+      </svg>
+      <span className={cn("text-[11.5px] tabular-nums", completo ? "text-emerald-600" : "text-neutral-500")}>
+        {feitos}/{total}
+      </span>
+      <span className="sr-only">itens do checklist feitos</span>
     </span>
   );
 }
@@ -76,32 +99,31 @@ type Props = {
 export function CartaoTarefa({ tarefa, href, status, subtarefas, pendente, mover }: Props) {
   const concluida = Boolean(tarefa.concluidaEm);
   const statusConcluido = status.find((s) => s.tipo === "concluido");
-  const selo = SELO_PRIORIDADE[tarefa.prioridade];
   const itens = tarefa.checklist.length;
   const itensFeitos = tarefa.checklist.filter((i) => i.concluido).length;
   const etiquetas = tarefa.etiquetas.map((e) => e.etiqueta);
 
+  const comRodape = Boolean(tarefa.dataEntrega) || itens > 0 || (subtarefas?.total ?? 0) > 0 || concluida || tarefa.responsaveis.length > 0;
+
   return (
     <article
       className={cn(
-        "group bg-card relative grid gap-2.5 rounded-lg border border-l-4 p-3 shadow-xs transition hover:-translate-y-px hover:shadow-md",
-        FAIXA_PRIORIDADE[tarefa.prioridade],
+        "group bg-card relative rounded-xl border border-black/[0.06] p-3 shadow-[0_1px_2px_rgb(0_0_0/0.05)] transition hover:-translate-y-px hover:shadow-[0_8px_20px_-10px_rgb(0_0_0/0.25)]",
         pendente && "opacity-60",
       )}
     >
       <div className="flex items-start gap-2">
-        <Link
-          href={href}
-          scroll={false}
-          className={cn(
-            "line-clamp-3 flex-1 text-sm leading-snug font-medium outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:after:ring-2 focus-visible:after:ring-[#5F45F4]",
-            concluida && "text-muted-foreground line-through",
-          )}
-        >
-          {tarefa.tarefaPaiId && <span className="text-muted-foreground mr-1 font-normal no-underline">↳</span>}
-          {tarefa.titulo}
-        </Link>
-        <div className="relative z-10 -mt-1 -mr-1 flex shrink-0 items-center">
+        <div className="flex min-h-[22px] min-w-0 flex-1 flex-wrap items-center gap-1.5">
+          <span className={cn(SELO, SELO_PRIORIDADE[tarefa.prioridade])}>
+            <FlagIcon className="size-3 shrink-0" strokeWidth={2.25} aria-hidden />
+            {ROTULO_PRIORIDADE[tarefa.prioridade]}
+          </span>
+          {etiquetas.slice(0, 2).map((e) => (
+            <SeloEtiqueta key={e.id} etiqueta={e} className="h-[22px] max-w-28 rounded-[7px] px-2 py-0 text-[11px] leading-none" />
+          ))}
+          {etiquetas.length > 2 && <span className="text-[11px] text-neutral-500">+{etiquetas.length - 2}</span>}
+        </div>
+        <div className="relative z-10 -mt-0.5 -mr-1 flex shrink-0 items-center">
           {statusConcluido && !concluida && (
             <button
               type="button"
@@ -109,9 +131,9 @@ export function CartaoTarefa({ tarefa, href, status, subtarefas, pendente, mover
               title="Concluir"
               disabled={pendente}
               onClick={() => mover(statusConcluido.id)}
-              className="text-muted-foreground rounded-md p-1 opacity-100 hover:bg-green-50 hover:text-green-700 md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
+              className="grid size-6 place-items-center rounded-[7px] text-neutral-400 opacity-100 transition-colors hover:bg-emerald-50 hover:text-emerald-700 md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
             >
-              <CheckIcon className="size-4" />
+              <CheckIcon className="size-3.5" />
             </button>
           )}
           <DropdownMenu>
@@ -120,9 +142,9 @@ export function CartaoTarefa({ tarefa, href, status, subtarefas, pendente, mover
                 type="button"
                 aria-label={`Mover "${tarefa.titulo}"`}
                 disabled={pendente}
-                className="text-muted-foreground hover:bg-muted hover:text-foreground rounded-md p-1"
+                className="grid size-6 place-items-center rounded-[7px] text-neutral-400 transition-colors hover:bg-black/[0.06] hover:text-neutral-800"
               >
-                <MoreHorizontalIcon className="size-4" />
+                <MoreHorizontalIcon className="size-3.5" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
@@ -142,60 +164,43 @@ export function CartaoTarefa({ tarefa, href, status, subtarefas, pendente, mover
         </div>
       </div>
 
-      {etiquetas.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {etiquetas.slice(0, 3).map((e) => (
-            <SeloEtiqueta key={e.id} etiqueta={e} className="max-w-32" />
-          ))}
-          {etiquetas.length > 3 && <span className="text-muted-foreground text-xs">+{etiquetas.length - 3}</span>}
-        </div>
-      )}
-
-      {(selo || tarefa.dataEntrega) && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          {selo && <span className={cn("rounded-md px-1.5 py-0.5 text-xs font-medium", selo)}>{ROTULO_PRIORIDADE[tarefa.prioridade]}</span>}
-          {tarefa.dataEntrega && <Entrega data={tarefa.dataEntrega} concluidaEm={tarefa.concluidaEm} />}
-        </div>
-      )}
-
-      {itens > 0 && (
-        <div className="grid gap-1" title={`Checklist: ${itensFeitos} de ${itens} itens feitos`}>
-          <div className="text-muted-foreground flex items-center justify-between text-xs">
-            <span className="flex items-center gap-1">
-              <ListChecksIcon className="size-3.5" aria-hidden /> Checklist
-            </span>
-            <span className={cn(itensFeitos === itens && "font-medium text-green-700")}>
-              {itensFeitos}/{itens}
-            </span>
-          </div>
-          <div className="bg-muted h-1.5 overflow-hidden rounded-full" aria-hidden>
-            <div
-              className={cn("h-full rounded-full transition-all", itensFeitos === itens ? "bg-green-500" : "bg-[#5F45F4]")}
-              style={{ width: `${(itensFeitos / itens) * 100}%` }}
-            />
-          </div>
-        </div>
-      )}
-
-      <div className="flex items-center justify-between gap-2">
-        <span className="flex items-center gap-2.5 text-xs">
-          {concluida && (
-            <span className="flex items-center gap-1 text-green-700">
-              <CheckCircle2Icon className="size-3.5" aria-hidden /> Concluída
-            </span>
-          )}
-          {subtarefas && subtarefas.total > 0 && (
-            <span className="text-muted-foreground flex items-center gap-1" title={`${subtarefas.concluidas} de ${subtarefas.total} subtarefas concluídas`}>
-              <ListTreeIcon className="size-3.5" aria-hidden /> {subtarefas.concluidas}/{subtarefas.total}
-            </span>
-          )}
-        </span>
-        {tarefa.responsaveis.length > 0 ? (
-          <Avatares pessoas={tarefa.responsaveis.map((r) => r.usuario)} />
-        ) : (
-          <span className="text-muted-foreground text-xs">Sem responsável</span>
+      <Link
+        href={href}
+        scroll={false}
+        className={cn(
+          "mt-2.5 line-clamp-3 block text-sm leading-snug font-medium tracking-[-0.005em] outline-none after:absolute after:inset-0 after:rounded-xl focus-visible:after:ring-2 focus-visible:after:ring-[#5F45F4]",
+          concluida && "text-muted-foreground line-through",
         )}
-      </div>
+      >
+        {tarefa.tarefaPaiId && <span className="text-muted-foreground mr-1 font-normal no-underline">↳</span>}
+        {tarefa.titulo}
+      </Link>
+
+      {comRodape && (
+        <>
+          <div className="mt-3 h-px bg-black/[0.06]" />
+          <div className="mt-2.5 flex items-center justify-between gap-2">
+            <span className="flex flex-wrap items-center gap-2.5">
+              {tarefa.dataEntrega && <Entrega data={tarefa.dataEntrega} concluidaEm={tarefa.concluidaEm} />}
+              {itens > 0 && <AnelChecklist feitos={itensFeitos} total={itens} />}
+              {subtarefas && subtarefas.total > 0 && (
+                <span
+                  className="inline-flex items-center gap-1 text-[11.5px] text-neutral-500 tabular-nums"
+                  title={`${subtarefas.concluidas} de ${subtarefas.total} subtarefas concluídas`}
+                >
+                  <ListTreeIcon className="size-3" strokeWidth={2.25} aria-hidden /> {subtarefas.concluidas}/{subtarefas.total}
+                </span>
+              )}
+              {concluida && (
+                <span className="inline-flex items-center gap-1 text-[11.5px] text-emerald-600">
+                  <CheckCircle2Icon className="size-3" strokeWidth={2.25} aria-hidden /> Concluída
+                </span>
+              )}
+            </span>
+            {tarefa.responsaveis.length > 0 && <Avatares pessoas={tarefa.responsaveis.map((r) => r.usuario)} />}
+          </div>
+        </>
+      )}
     </article>
   );
 }

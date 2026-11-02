@@ -29,7 +29,7 @@ const selecaoResumo = {
   concluidaEm: true,
   statusId: true,
   tarefaPaiId: true,
-  responsaveis: { select: { usuario: { select: { id: true, nome: true } } } },
+  responsaveis: { select: { usuario: { select: { id: true, nome: true, imagem: true } } } },
   _count: { select: { subtarefas: { where: { excluidoEm: null } } } },
   checklist: { select: { concluido: true } },
   etiquetas: { select: { etiqueta: { select: { id: true, nome: true, cor: true } } } },
@@ -82,7 +82,7 @@ export async function obterTarefa(ator: UsuarioAtual, tarefaId: string) {
       lista: { select: { id: true, nome: true, espacoId: true, espaco: { select: { nome: true } } } },
       tarefaPai: { select: { id: true, titulo: true } },
       criadoPor: { select: { nome: true } },
-      responsaveis: { select: { usuario: { select: { id: true, nome: true } } } },
+      responsaveis: { select: { usuario: { select: { id: true, nome: true, imagem: true } } } },
       subtarefas: {
         where: { excluidoEm: null },
         orderBy: [{ ordem: "asc" }, { criadoEm: "asc" }],
