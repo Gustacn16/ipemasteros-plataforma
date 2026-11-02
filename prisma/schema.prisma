@@ -53,9 +53,10 @@ model Usuario {
   tarefasAtribuidas TarefaResponsavel[]
   historicoTarefas  HistoricoTarefa[]
 
-  conteudosResponsavel Conteudo[] @relation("ConteudoResponsavel")
-  conteudosCriados     Conteudo[] @relation("ConteudoCriadoPor")
-  conteudosAprovados   Conteudo[] @relation("ConteudoAprovadoPor")
+  conteudosResponsavel Conteudo[]            @relation("ConteudoResponsavel")
+  conteudosCriados     Conteudo[]            @relation("ConteudoCriadoPor")
+  conteudosAprovados   Conteudo[]            @relation("ConteudoAprovadoPor")
+  eventosCriados       EventoInstitucional[] @relation("EventoCriadoPor")
 
   @@map("usuarios")
 }
@@ -526,4 +527,49 @@ model Publicacao {
   @@unique([conteudoId, canalId])
   @@index([canalId, publicadoEm])
   @@map("publicacoes")
+}
+
+// ─── Agenda ──────────────────────────────────────────────────────────────────
+
+/// Tipo de evento institucional (cor e ordem na agenda). Não há exclusão, só desativação.
+model TipoEvento {
+  id           String   @id @default(cuid())
+  nome         String   @unique @db.VarChar(40)
+  cor          String   @db.VarChar(7)
+  ordem        Int
+  ativo        Boolean  @default(true)
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  eventos EventoInstitucional[]
+
+  @@map("tipos_evento")
+}
+
+/// Evento do calendário institucional. Dias sem fuso; horas "HH:MM" de São Paulo.
+model EventoInstitucional {
+  id                 String    @id @default(cuid())
+  tipoId             String    @map("tipo_id")
+  titulo             String    @db.VarChar(150)
+  turma              String?   @db.VarChar(100)
+  local              String?   @db.VarChar(150)
+  descricao          String?   @db.Text
+  dataInicio         DateTime  @map("data_inicio") @db.Date
+  dataFim            DateTime  @map("data_fim") @db.Date
+  horaInicio         String?   @map("hora_inicio") @db.Char(5)
+  horaFim            String?   @map("hora_fim") @db.Char(5)
+  visivelProfessores Boolean   @default(false) @map("visivel_professores")
+  loteId             String?   @map("lote_id")
+  criadoPorId        String    @map("criado_por_id")
+  excluidoEm         DateTime? @map("excluido_em")
+  criadoEm           DateTime  @default(now()) @map("criado_em")
+  atualizadoEm       DateTime  @updatedAt @map("atualizado_em")
+
+  tipo      TipoEvento @relation(fields: [tipoId], references: [id])
+  criadoPor Usuario    @relation("EventoCriadoPor", fields: [criadoPorId], references: [id])
+
+  @@index([dataInicio, dataFim])
+  @@index([loteId])
+  @@index([tipoId])
+  @@map("eventos_institucionais")
 }
