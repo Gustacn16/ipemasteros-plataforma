@@ -37,11 +37,11 @@ export function VisaoLista({ data, itens, hoje }: Props) {
             {doDia.map((item) => (
               <li key={item.id}>
                 <Clicavel href={item.href} className={cn("flex items-start gap-3 px-3 py-2.5", item.href && "hover:bg-muted/50")}>
-                  <span
-                    aria-hidden
-                    className={cn("mt-1 h-8 w-1 shrink-0 rounded-full", item.tipo === "pessoal" && "opacity-50")}
-                    style={{ backgroundColor: item.cor }}
-                  />
+                  {item.tipo === "pessoal" ? (
+                    <span aria-hidden className="mt-1 h-8 w-0 shrink-0 border-l-[3px] border-dashed" style={{ borderColor: item.cor }} />
+                  ) : (
+                    <span aria-hidden className="mt-1 h-8 w-1 shrink-0 rounded-full" style={{ backgroundColor: item.cor }} />
+                  )}
                   <span className="text-muted-foreground w-24 shrink-0 pt-0.5 text-xs tabular-nums sm:w-32">{rotuloQuando(item)}</span>
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center gap-1.5 font-medium">

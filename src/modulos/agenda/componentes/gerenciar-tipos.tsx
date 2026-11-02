@@ -104,11 +104,12 @@ function LinhaTipo({ tipo, primeiro, ultimo }: { tipo: TipoEventoLinha; primeiro
   );
 }
 
-function SeletorCor({ valor, mudar }: { valor: string; mudar: (cor: string) => void }) {
+/** Botão com a cor atual que abre a paleta. Usado também em Minhas agendas. */
+export function SeletorCor({ valor, mudar, rotulo = "Cor do tipo" }: { valor: string; mudar: (cor: string) => void; rotulo?: string }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button type="button" aria-label="Cor do tipo" className="size-7 shrink-0 rounded-md border-2 border-white shadow ring-1 ring-black/10" style={{ backgroundColor: valor }} />
+        <button type="button" aria-label={rotulo} className="size-7 shrink-0 rounded-md border-2 border-white shadow ring-1 ring-black/10" style={{ backgroundColor: valor }} />
       </DropdownMenuTrigger>
       <DropdownMenuContent className="grid w-auto grid-cols-6 gap-1 p-2">
         {CORES_ESPACO.map((c) => (

@@ -8,6 +8,7 @@ import { exigirPermissaoPagina } from "@/lib/sessao";
 import { BarraCamadas } from "@/modulos/agenda/componentes/barra-camadas";
 import { FormularioEvento } from "@/modulos/agenda/componentes/formulario-evento";
 import { FormularioLote } from "@/modulos/agenda/componentes/formulario-lote";
+import { AvisoAgendasComErro } from "@/modulos/agenda/componentes/minhas-agendas";
 import { PainelEvento, PainelLateral } from "@/modulos/agenda/componentes/painel-evento";
 import { CabecalhoAgenda, VisaoPadraoCelular } from "@/modulos/agenda/componentes/cabecalho-agenda";
 import { lerData, lerFiltro, lerVisao } from "@/modulos/agenda/componentes/filtro";
@@ -17,7 +18,9 @@ import { VisaoMes } from "@/modulos/agenda/componentes/visao-mes";
 import { VisaoSemana } from "@/modulos/agenda/componentes/visao-semana";
 import { intervaloDaVisao, tituloDoPeriodo } from "@/modulos/agenda/regras/disposicao";
 import { navegar } from "@/modulos/agenda/regras/periodo";
+import { itensPessoais } from "@/modulos/agenda/regras/pessoal";
 import { podeVerInstitucional } from "@/modulos/agenda/regras/visibilidade";
+import { eventosDasMinhasAgendas } from "@/modulos/agenda/servicos/agendas-externas";
 import { listarEventos, listarTurmas, obterEvento } from "@/modulos/agenda/servicos/eventos";
 import { listarTarefasComEntrega } from "@/modulos/agenda/servicos/tarefas-na-agenda";
 import { listarTipos } from "@/modulos/agenda/servicos/tipos";
@@ -53,20 +56,27 @@ export default async function PaginaAgenda({ searchParams }: PageProps<"/agenda"
   // Um painel por vez: o evento vence o formulário. Formulário só para quem edita.
   const idEvento = texto(busca.evento);
   const novo = !idEvento && podeEditar && (busca.novo === "evento" || busca.novo === "lote") ? busca.novo : null;
-  const [eventos, tarefas, tipos, turmas, detalhe] = await Promise.all([
+  const [eventos, tarefas, tipos, turmas, detalhe, pessoal] = await Promise.all([
     institucional ? listarEventos(usuario, { de, ate, tipos: filtro.tipos, turma: filtro.turma }) : [],
     comTarefas && filtro.tarefas ? listarTarefasComEntrega(usuario, { de, ate }) : [],
     institucional ? listarTipos(usuario, { incluirInativos: false }) : [],
     institucional ? listarTurmas(usuario) : [],
     idEvento && institucional ? detalheDoEvento(usuario, idEvento) : null,
+    // Sem agendas ligadas, é uma consulta só, sem leitura de iCal. Uma agenda que falha vira aviso.
+    eventosDasMinhasAgendas(usuario, de, ate, filtro.desligadas),
   ]);
 
   // O professor não abre listas: a tarefa leva a Minhas tarefas.
   const abreLista = navegaEmEspacos(usuario);
-  const itens = itensDaAgenda(eventos, tarefas, {
-    evento: (id) => urlAgenda(busca, { evento: id, novo: null }),
-    tarefa: (t) => (abreLista ? `/tarefas/listas/${t.listaId}?tarefa=${t.id}` : "/tarefas/minhas"),
-  });
+  const itens = [
+    ...itensDaAgenda(eventos, tarefas, {
+      evento: (id) => urlAgenda(busca, { evento: id, novo: null }),
+      tarefa: (t) => (abreLista ? `/tarefas/listas/${t.listaId}?tarefa=${t.id}` : "/tarefas/minhas"),
+    }),
+    // Convertidos aqui no servidor: para o navegador vão só textos (dia e hora de São Paulo), sem Date nem URL.
+    ...itensPessoais(pessoal.eventos, pessoal.agendas),
+  ];
+  const agendas = pessoal.agendas.map(({ id, nome, cor }) => ({ id, nome, cor }));
 
   const semEvento = { evento: null, novo: null };
   const consulta = new URLSearchParams(
@@ -103,7 +113,15 @@ export default async function PaginaAgenda({ searchParams }: PageProps<"/agenda"
           </>
         )}
       </CabecalhoAgenda>
-      <BarraCamadas filtro={filtro} tipos={tipos} turmas={turmas} mostrarInstitucional={institucional} mostrarTarefas={comTarefas} />
+      <BarraCamadas
+        filtro={filtro}
+        tipos={tipos}
+        agendas={agendas}
+        turmas={turmas}
+        mostrarInstitucional={institucional}
+        mostrarTarefas={comTarefas}
+      />
+      <AvisoAgendasComErro agendas={pessoal.agendas} />
       {visao === "mes" && <VisaoMes data={data} itens={itens} hoje={hoje} hrefDia={hrefDia} />}
       {visao === "semana" && <VisaoSemana data={data} itens={itens} hoje={hoje} />}
       {visao === "lista" && <VisaoLista data={data} itens={itens} hoje={hoje} />}

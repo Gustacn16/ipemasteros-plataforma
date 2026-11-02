@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import { FIM_GRADE, INICIO_GRADE, raiasDoDia } from "../regras/disposicao";
 import { diasDaSemana, faixasDaSemana } from "../regras/periodo";
-import { Clicavel, FaixaItem, IconeItem, dicaDoItem, estiloDoItem, rotuloHora, type ItemAgenda } from "./item-agenda";
+import { CLASSE_PESSOAL, Clicavel, FaixaItem, IconeItem, dicaDoItem, estiloDoItem, rotuloHora, type ItemAgenda } from "./item-agenda";
 import { DIAS_SEMANA, paraFaixas } from "./visao-mes";
 
 const HORAS = Array.from({ length: (FIM_GRADE - INICIO_GRADE) / 60 }, (_, i) => INICIO_GRADE / 60 + i);
@@ -75,7 +75,7 @@ export function VisaoSemana({ data, itens, hoje }: Props) {
                   title={dicaDoItem(item)}
                   className={cn(
                     "absolute flex flex-col overflow-hidden rounded-md border-l-[3px] px-1.5 py-0.5 text-xs leading-tight hover:brightness-95 dark:hover:brightness-125",
-                    item.tipo === "pessoal" && "border-dashed",
+                    item.tipo === "pessoal" && CLASSE_PESSOAL,
                   )}
                   style={{
                     ...estiloDoItem(item),

@@ -25,6 +25,8 @@ type Tipo = { id: string; nome: string; cor: string };
 type Props = {
   filtro: FiltroAgenda;
   tipos: Tipo[];
+  /** Agendas pessoais da pessoa; cada uma liga e desliga em `filtro.desligadas`. */
+  agendas?: Tipo[];
   turmas: string[];
   mostrarInstitucional: boolean;
   mostrarTarefas: boolean;
@@ -33,13 +35,21 @@ type Props = {
 const chip =
   "inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 outline-none";
 
-/** Camadas da agenda: tipos de evento da IPEMaster, turma e Minhas tarefas. Ficam salvas até Limpar. */
-export function BarraCamadas({ filtro, tipos, turmas, mostrarInstitucional, mostrarTarefas }: Props) {
+/** Camadas da agenda: tipos de evento da IPEMaster, turma, Minhas tarefas e as agendas pessoais. Ficam salvas até Limpar. */
+export function BarraCamadas({ filtro, tipos, agendas = [], turmas, mostrarInstitucional, mostrarTarefas }: Props) {
   const { aplicar, pendente } = useAplicarFiltroAgenda();
   const ids = tipos.map((t) => t.id);
   const ligado = (id: string) => filtro.tipos.length === 0 || filtro.tipos.includes(id);
   const ligados = ids.filter(ligado);
-  const total = (filtro.tipos.length > 0 ? 1 : 0) + (filtro.turma ? 1 : 0) + (filtro.tarefas ? 0 : 1) + filtro.desligadas.length;
+  const idsAgendas = new Set(agendas.map((a) => a.id));
+  // Só contam as desligadas que ainda existem (uma agenda removida pode ter ficado no cookie).
+  const desligadas = filtro.desligadas.filter((id) => idsAgendas.has(id));
+  const total = (filtro.tipos.length > 0 ? 1 : 0) + (filtro.turma ? 1 : 0) + (filtro.tarefas ? 0 : 1) + desligadas.length;
+
+  function alternarAgenda(id: string) {
+    const novas = desligadas.includes(id) ? desligadas.filter((a) => a !== id) : [...desligadas, id];
+    aplicar({ ...filtro, desligadas: novas });
+  }
 
   function alternarTipo(id: string) {
     const novos = ligado(id) ? ligados.filter((t) => t !== id) : [...ligados, id];
@@ -105,6 +115,28 @@ export function BarraCamadas({ filtro, tipos, turmas, mostrarInstitucional, most
           <CheckSquareIcon className="size-3.5" style={{ color: COR_TAREFA }} aria-hidden />
           Minhas tarefas
         </button>
+      )}
+      {agendas.length > 0 && (
+        <>
+          <span className="text-muted-foreground text-xs font-medium">Minhas agendas</span>
+          {agendas.map((a) => {
+            const on = !desligadas.includes(a.id);
+            return (
+              <button
+                key={a.id}
+                type="button"
+                aria-pressed={on}
+                disabled={pendente}
+                onClick={() => alternarAgenda(a.id)}
+                className={cn(chip, "border-dashed", on ? "bg-background" : "text-muted-foreground opacity-70 hover:opacity-100")}
+                style={on ? { borderColor: `color-mix(in oklab, ${a.cor} 55%, var(--border))` } : undefined}
+              >
+                <span className="size-2.5 rounded-full" style={on ? { backgroundColor: a.cor } : { boxShadow: `inset 0 0 0 1.5px ${a.cor}` }} aria-hidden />
+                {a.nome}
+              </button>
+            );
+          })}
+        </>
       )}
       {total > 0 && (
         <Button size="sm" variant="ghost" onClick={() => aplicar(null)} disabled={pendente}>

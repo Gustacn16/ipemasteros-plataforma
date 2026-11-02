@@ -73,11 +73,17 @@ export function itensDaAgenda(
   ];
 }
 
-/** Fundo tingido com a cor do item, legível no claro e no escuro. A agenda pessoal tem traço mais leve. */
+/**
+ * Fundo tingido com a cor do item, legível no claro e no escuro. A agenda pessoal tem traço mais leve:
+ * fundo com 12% da cor e borda tracejada (`CLASSE_PESSOAL`).
+ */
 export function estiloDoItem(item: Pick<ItemAgenda, "tipo" | "cor">): CSSProperties {
-  const tom = item.tipo === "pessoal" ? 8 : 18;
+  const tom = item.tipo === "pessoal" ? 12 : 18;
   return { backgroundColor: `color-mix(in oklab, ${item.cor} ${tom}%, var(--background))`, borderColor: item.cor };
 }
+
+/** Borda tracejada fina em volta do item pessoal; a barra da esquerda continua com 3 px. */
+export const CLASSE_PESSOAL = "border border-dashed border-l-[3px]";
 
 export function Clicavel({ href, className, style, title, children }: { href: string | null; className?: string; style?: CSSProperties; title?: string; children: ReactNode }) {
   if (!href) {
@@ -117,7 +123,7 @@ export function FaixaItem({ item, continuaAntes, continuaDepois, mostrarHora }: 
       style={estiloDoItem(item)}
       className={cn(
         "flex h-full min-w-0 items-center gap-1 overflow-hidden rounded-md border-l-[3px] px-1 text-[11px] leading-tight hover:brightness-95 sm:px-1.5 sm:text-xs dark:hover:brightness-125",
-        item.tipo === "pessoal" && "border-dashed",
+        item.tipo === "pessoal" && CLASSE_PESSOAL,
         continuaAntes && "rounded-l-none border-l-0",
         continuaDepois && "rounded-r-none",
       )}
