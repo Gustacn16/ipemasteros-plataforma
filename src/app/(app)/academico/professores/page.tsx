@@ -1,4 +1,7 @@
+import { PresentationIcon } from "lucide-react";
 import type { Metadata } from "next";
+import { ChipSituacao } from "@/componentes/chip-situacao";
+import { EstadoVazio } from "@/componentes/estado-vazio";
 import Link from "next/link";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/componentes/ui/table";
 import { temPermissao } from "@/lib/permissoes";
@@ -27,7 +30,7 @@ export default async function PaginaProfessores() {
         </div>
       )}
       {professores.length === 0 ? (
-        <p className="text-muted-foreground text-sm">Nenhum professor cadastrado.</p>
+        <EstadoVazio icone={PresentationIcon} titulo="Nenhum professor ainda" descricao="Cadastre os professores no botão “Novo professor”." />
       ) : (
         <Table>
           <TableHeader>
@@ -46,7 +49,11 @@ export default async function PaginaProfessores() {
                   </Link>
                 </TableCell>
                 <TableCell>{p.especialidade ?? "—"}</TableCell>
-                <TableCell>{p.ativo ? "Ativo" : "Inativo"}</TableCell>
+                <TableCell>
+                  <ChipSituacao tom={p.ativo ? "sucesso" : "neutro"} tamanho="sm">
+                    {p.ativo ? "Ativo" : "Inativo"}
+                  </ChipSituacao>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

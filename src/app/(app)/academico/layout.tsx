@@ -1,3 +1,4 @@
+import { CabecalhoPagina } from "@/componentes/cabecalho-pagina";
 import { exigirPermissaoPagina } from "@/lib/sessao";
 import { AbasAcademico } from "@/modulos/academico/componentes/abas-academico";
 
@@ -6,8 +7,8 @@ export default async function LayoutAcademico({ children }: { children: React.Re
   await exigirPermissaoPagina("academico:ver");
   return (
     <div className="grid gap-6">
-      <div className="grid gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">Acadêmico</h1>
+      <div className="grid gap-4">
+        <CabecalhoPagina titulo="Acadêmico" descricao="Alunos, turmas e professores por produto." />
         <AbasAcademico />
       </div>
       {children}

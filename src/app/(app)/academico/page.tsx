@@ -1,30 +1,48 @@
+import { FolderOpenIcon, GraduationCapIcon, LayersIcon, UploadIcon, UsersIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { CartaoNumero } from "@/componentes/cartao-numero";
+import { ChipSituacao } from "@/componentes/chip-situacao";
+import { EstadoVazio } from "@/componentes/estado-vazio";
+import { Button } from "@/componentes/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/componentes/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/componentes/ui/table";
 import { temPermissao } from "@/lib/permissoes";
 import { exigirPermissaoPagina } from "@/lib/sessao";
-import { ROTULO_SITUACAO_MATRICULA, SITUACOES_MATRICULA } from "@/modulos/academico/esquemas/academico";
 import { SeloSituacao } from "@/modulos/academico/componentes/exibicao";
-import { LinhaTurma, SeletorSituacaoTurma } from "@/modulos/academico/componentes/turma-na-lista";
+import { visualSituacao } from "@/modulos/academico/componentes/situacao-visual";
+import { CartaoTurma, LinhaTurma, SeletorSituacaoTurma } from "@/modulos/academico/componentes/turma-na-lista";
+import { SITUACOES_MATRICULA, type SituacaoTurma } from "@/modulos/academico/esquemas/academico";
 import { obterVisaoGeral } from "@/modulos/academico/servicos/visao";
 import { ROTULO_TIPO_PRODUTO, type TipoProduto } from "@/modulos/comercial/esquemas/produto";
 
 export const metadata: Metadata = { title: "Acadêmico — IPEMaster OS" };
 
-function Numero({ rotulo, valor, href }: { rotulo: string; valor: number; href?: string }) {
-  const conteudo = (
-    <>
-      <p className="text-muted-foreground text-xs">{rotulo}</p>
-      <p className="text-3xl font-semibold tabular-nums">{valor}</p>
-    </>
-  );
-  return href ? (
-    <Link href={href} className="hover:bg-muted/50 rounded-lg border px-4 py-3">
-      {conteudo}
-    </Link>
-  ) : (
-    <div className="rounded-lg border px-4 py-3">{conteudo}</div>
+const ROTULO_PLURAL = { ativa: "Ativas", trancada: "Trancadas", concluida: "Concluídas", cancelada: "Canceladas" } as const;
+
+/** Barra "ativos de N alunos", só com tokens. */
+function BarraAtivos({ ativos, total }: { ativos: number; total: number }) {
+  const pct = total > 0 ? Math.round((ativos / total) * 100) : 0;
+  return (
+    <div className="grid gap-1.5">
+      <div className="flex items-baseline justify-between gap-2 text-sm">
+        <span>
+          <span className="text-foreground text-2xl font-semibold tabular-nums">{ativos}</span>{" "}
+          <span className="text-muted-foreground">ativos de {total} alunos</span>
+        </span>
+        <span className="text-muted-foreground tabular-nums">{pct}%</span>
+      </div>
+      <div
+        className="bg-muted h-2 overflow-hidden rounded-full"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={pct}
+        aria-label="Alunos ativos no produto"
+      >
+        <div className="bg-primary h-full rounded-full" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
   );
 }
 
@@ -32,55 +50,72 @@ export default async function PaginaVisaoGeral() {
   const usuario = await exigirPermissaoPagina("academico:ver");
   const visao = await obterVisaoGeral(usuario);
   const podeEditar = temPermissao(usuario.papel, "academico:gerenciar");
+  const podeImportar = temPermissao(usuario.papel, "academico:importar_alunos");
+  const botaoImportar = podeImportar && (
+    <Button variant="outline" asChild>
+      <Link href="/academico/alunos/importar">
+        <UploadIcon /> Importar planilha
+      </Link>
+    </Button>
+  );
 
   if (visao.produtos.length === 0) {
     return (
-      <div className="grid gap-2 text-sm">
-        <p>Ainda não há turmas cadastradas.</p>
-        <p className="text-muted-foreground">
-          Crie uma turma em <Link href="/academico/turmas" className="underline">Turmas</Link>
-          {temPermissao(usuario.papel, "academico:importar_alunos") && (
-            <>
-              {" "}ou{" "}
-              <Link href="/academico/alunos/importar" className="underline">
-                importe a planilha de alunos
-              </Link>
-            </>
-          )}
-          .
-        </p>
-      </div>
+      <EstadoVazio
+        icone={GraduationCapIcon}
+        titulo="Ainda não há turmas"
+        descricao="Crie uma turma em Turmas ou importe a planilha de alunos para ver os números por produto."
+        acao={
+          botaoImportar || (
+            <Button asChild>
+              <Link href="/academico/turmas">Ir para Turmas</Link>
+            </Button>
+          )
+        }
+      />
     );
   }
 
+  const situacao = (t: { id: string; nome: string; situacao: SituacaoTurma }) =>
+    podeEditar ? <SeletorSituacaoTurma id={t.id} situacao={t.situacao} rotulo={t.nome} /> : <SeloSituacao situacao={t.situacao} de="turma" />;
+
   return (
     <div className="grid gap-6">
-      <section aria-label="Totais" className="flex flex-wrap gap-3">
-        <Numero rotulo="Alunos ativos" valor={visao.ativos} />
-        <Numero rotulo="Todos os alunos da base" valor={visao.totalAlunos} href="/academico/alunos" />
-        <Numero rotulo="Produtos com turmas" valor={visao.produtos.length} />
+      {botaoImportar && <div className="flex justify-end">{botaoImportar}</div>}
+
+      <section aria-label="Totais" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <CartaoNumero rotulo="Alunos ativos" icone={GraduationCapIcon} valor={visao.ativos} tom="informacao" />
+        <Link href="/academico/alunos" className="focus-visible:ring-ring rounded-xl transition-opacity hover:opacity-80 focus-visible:ring-2">
+          <CartaoNumero rotulo="Alunos na base" icone={UsersIcon} valor={visao.totalAlunos}>
+            Ver todos →
+          </CartaoNumero>
+        </Link>
+        <CartaoNumero rotulo="Produtos com turmas" icone={FolderOpenIcon} valor={visao.produtos.length} />
+        <CartaoNumero rotulo="Turmas em andamento" icone={LayersIcon} valor={visao.turmasEmAndamento} />
       </section>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 xl:grid-cols-2">
         {visao.produtos.map((p) => (
           <Card key={p.id}>
-            <CardHeader className="flex flex-row items-start justify-between gap-3">
+            <CardHeader className="grid gap-4">
               <div className="grid gap-1">
                 <span className="text-muted-foreground text-xs">{ROTULO_TIPO_PRODUTO[p.tipo as TipoProduto]}</span>
                 <CardTitle className="leading-snug">{p.nome}</CardTitle>
-                <p className="text-muted-foreground text-xs">
-                  {SITUACOES_MATRICULA.filter((s) => s !== "ativa" && p.situacoes[s] > 0)
-                    .map((s) => `${ROTULO_SITUACAO_MATRICULA[s]}: ${p.situacoes[s]}`)
-                    .join(" · ")}
-                </p>
               </div>
-              <div className="text-right">
-                <p className="text-2xl font-semibold tabular-nums">{p.ativos}</p>
-                <p className="text-muted-foreground text-xs">ativos</p>
+              <BarraAtivos ativos={p.ativos} total={p.alunos} />
+              <div className="flex flex-wrap gap-1.5" aria-label="Matrículas por situação">
+                {SITUACOES_MATRICULA.filter((s) => p.situacoes[s] > 0).map((s) => {
+                  const v = visualSituacao(s, "matricula");
+                  return (
+                    <ChipSituacao key={s} tom={v.tom} icone={v.icone} tamanho="sm">
+                      {ROTULO_PLURAL[s]} {p.situacoes[s]}
+                    </ChipSituacao>
+                  );
+                })}
               </div>
             </CardHeader>
             <CardContent>
-              <Table>
+              <Table className="hidden md:table">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Turma</TableHead>
@@ -94,19 +129,20 @@ export default async function PaginaVisaoGeral() {
                   {p.turmas.map((t) => (
                     <LinhaTurma key={t.id} href={`/academico/turmas/${t.id}`}>
                       <TableCell className="font-medium">{t.nome}</TableCell>
-                      <TableCell>
-                        {podeEditar ? (
-                          <SeletorSituacaoTurma id={t.id} situacao={t.situacao} rotulo={t.nome} />
-                        ) : (
-                          <SeloSituacao situacao={t.situacao} de="turma" />
-                        )}
-                      </TableCell>
+                      <TableCell>{situacao(t)}</TableCell>
                       <TableCell className="text-right tabular-nums">{t.ativos}</TableCell>
                       <TableCell className="text-muted-foreground text-right tabular-nums">{t.total}</TableCell>
                     </LinhaTurma>
                   ))}
                 </TableBody>
               </Table>
+              <ul className="grid gap-2 md:hidden">
+                {p.turmas.map((t) => (
+                  <CartaoTurma key={t.id} href={`/academico/turmas/${t.id}`} nome={t.nome} situacao={situacao(t)}>
+                    {t.ativos} ativos · {t.total} no total
+                  </CartaoTurma>
+                ))}
+              </ul>
             </CardContent>
           </Card>
         ))}

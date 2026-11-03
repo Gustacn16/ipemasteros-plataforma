@@ -1,34 +1,23 @@
 import { notFound } from "next/navigation";
+import { ChipSituacao } from "@/componentes/chip-situacao";
 import { ErroNegocio } from "@/lib/erros";
-import { cn } from "@/lib/utils";
 import {
   ROTULO_SITUACAO_MATRICULA,
   ROTULO_SITUACAO_TURMA,
   SITUACOES_MATRICULA,
   SITUACOES_TURMA,
   UFS,
-  type SituacaoMatricula,
-  type SituacaoTurma,
 } from "../esquemas/academico";
+import { visualSituacao } from "./situacao-visual";
 
 // Peças de exibição usadas pelas páginas de servidor (sem "use client").
 
-const COR: Record<SituacaoMatricula | SituacaoTurma, string> = {
-  ativa: "bg-emerald-100 text-emerald-800",
-  em_andamento: "bg-emerald-100 text-emerald-800",
-  planejada: "bg-sky-100 text-sky-800",
-  trancada: "bg-amber-100 text-amber-800",
-  concluida: "bg-neutral-100 text-neutral-700",
-  cancelada: "bg-red-100 text-red-800",
-};
-
 export function SeloSituacao({ situacao, de }: { situacao: string; de: "turma" | "matricula" }) {
-  const rotulo =
-    de === "turma" ? ROTULO_SITUACAO_TURMA[situacao as SituacaoTurma] : ROTULO_SITUACAO_MATRICULA[situacao as SituacaoMatricula];
+  const { tom, icone, rotulo } = visualSituacao(situacao, de);
   return (
-    <span className={cn("inline-flex rounded-full px-2 py-0.5 text-xs font-medium", COR[situacao as SituacaoTurma] ?? "bg-neutral-100")}>
-      {rotulo ?? situacao}
-    </span>
+    <ChipSituacao tom={tom} icone={icone} tamanho="sm">
+      {rotulo}
+    </ChipSituacao>
   );
 }
 
