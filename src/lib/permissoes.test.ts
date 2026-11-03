@@ -212,3 +212,22 @@ describe("permissões do Acadêmico", () => {
     }
   });
 });
+
+describe("Meta Ads", () => {
+  it("admin tem as três permissões; gestor vê e atribui, mas não mexe na integração", () => {
+    for (const p of ["comercial:ver_marketing", "comercial:atribuir_campanhas", "comercial:gerenciar_integracao_meta"] as const) {
+      expect(temPermissao("admin", p)).toBe(true);
+    }
+    expect(temPermissao("gestor", "comercial:ver_marketing")).toBe(true);
+    expect(temPermissao("gestor", "comercial:atribuir_campanhas")).toBe(true);
+    expect(temPermissao("gestor", "comercial:gerenciar_integracao_meta")).toBe(false);
+  });
+
+  it("comercial, colaborador e professor não veem marketing", () => {
+    for (const papel of ["comercial", "colaborador", "professor"] as const) {
+      for (const p of ["comercial:ver_marketing", "comercial:atribuir_campanhas", "comercial:gerenciar_integracao_meta"] as const) {
+        expect(temPermissao(papel, p)).toBe(false);
+      }
+    }
+  });
+});
