@@ -1,7 +1,15 @@
 {
   "data": [
-    { "campaign_id": "c1", "date_start": "2026-11-01", "date_stop": "2026-11-01", "spend": "120.50", "impressions": "1000", "reach": "800", "clicks": "40",
-      "actions": [{ "action_type": "onsite_conversion.lead_grouped", "value": "3" }] }
+    {
+      "campaign_id": "c1",
+      "date_start": "2026-11-01",
+      "date_stop": "2026-11-01",
+      "spend": "120.50",
+      "impressions": "1000",
+      "reach": "800",
+      "clicks": "40",
+      "actions": [{ "action_type": "onsite_conversion.lead_grouped", "value": "3" }]
+    }
   ],
   "paging": { "cursors": { "after": "X" }, "next": "https://graph.facebook.com/v26.0/act_111/insights?after=X&access_token=TOKEN-DE-TESTE" }
 }
