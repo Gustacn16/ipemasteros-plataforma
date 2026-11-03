@@ -79,11 +79,11 @@
   --input: #e6e6eb;
   --ring: #5f45f4;
   /* Situação: cor do texto/ícone e fundo suave de chip. */
-  --sucesso: #16a34a;
+  --sucesso: #15803d;
   --sucesso-suave: #dcfce7;
   --atencao: #b45309;
   --atencao-suave: #fef3c7;
-  --perigo: #dc2626;
+  --perigo: #b91c1c;
   --perigo-suave: #fee2e2;
   --informacao: #5f45f4;
   --informacao-suave: #ede9fe;
@@ -116,7 +116,7 @@
   --card-foreground: #f4f4f5;
   --popover: #16181b;
   --popover-foreground: #f4f4f5;
-  --primary: #7b66f6;
+  --primary: #6a52f5;
   --primary-foreground: #ffffff;
   --secondary: #1e2024;
   --secondary-foreground: #f4f4f5;
@@ -127,7 +127,7 @@
   --destructive: #f87171;
   --border: rgb(255 255 255 / 10%);
   --input: rgb(255 255 255 / 10%);
-  --ring: #7b66f6;
+  --ring: #6a52f5;
   --sucesso: #4ade80;
   --sucesso-suave: rgb(74 222 128 / 14%);
   --atencao: #fbbf24;

@@ -2,7 +2,7 @@
 
 import { MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
 import { useTheme } from "next-themes";
-import { useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,19 +27,37 @@ export function SeletorTema({ compacto }: { compacto: boolean }) {
     () => false,
   );
 
-  const atual = OPCOES.find((o) => o.valor === (montado ? theme : "system")) ?? OPCOES[0];
+  const indice = Math.max(0, OPCOES.findIndex((o) => o.valor === (montado ? theme : "system")));
+  const atual = OPCOES[indice];
   const Icone = atual.Icone;
+  const estilo =
+    "hover:bg-sidebar-accent text-sidebar-foreground/80 hover:text-sidebar-foreground focus-visible:ring-sidebar-ring flex h-10 w-full items-center gap-3 rounded-md px-2.5 text-sm outline-none focus-visible:ring-2";
+
+  // Com o menu do tema aberto, a barra recolhe (o foco vai para o portal); sem esta trava o
+  // gatilho viraria o botão compacto e o menu fecharia no meio da escolha.
+  const [menuAberto, setMenuAberto] = useState(false);
+  // Menu lateral recolhido: um botão só, que alterna Automático → Claro → Escuro sem abrir menu.
+  const usarCompacto = compacto && !menuAberto;
+  const rotuloCompacto = `Tema: ${atual.rotulo}. Clique para trocar`;
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        aria-label="Mudar tema"
-        title={compacto ? `Tema: ${atual.rotulo}` : undefined}
-        className="hover:bg-sidebar-accent text-sidebar-foreground/80 hover:text-sidebar-foreground focus-visible:ring-sidebar-ring flex h-10 w-full items-center gap-3 rounded-md px-2.5 text-sm outline-none focus-visible:ring-2"
-      >
-        <Icone className="size-5 shrink-0" />
-        {!compacto && <span className="truncate whitespace-pre">Tema</span>}
-      </DropdownMenuTrigger>
+    <DropdownMenu open={menuAberto} onOpenChange={setMenuAberto}>
+      {usarCompacto ? (
+        <button
+          type="button"
+          aria-label={rotuloCompacto}
+          title={rotuloCompacto}
+          onClick={() => setTheme(OPCOES[(indice + 1) % OPCOES.length].valor)}
+          className={estilo}
+        >
+          <Icone className="size-5 shrink-0" />
+        </button>
+      ) : (
+        <DropdownMenuTrigger aria-label="Mudar tema" className={estilo}>
+          <Icone className="size-5 shrink-0" />
+          {!compacto && <span className="truncate whitespace-pre">Tema</span>}
+        </DropdownMenuTrigger>
+      )}
       {/* z acima do menu em tela cheia do celular (z-[100]). */}
       <DropdownMenuContent side="top" align="start" className="z-[110] w-44">
         <DropdownMenuRadioGroup value={montado ? theme : undefined} onValueChange={setTheme}>
