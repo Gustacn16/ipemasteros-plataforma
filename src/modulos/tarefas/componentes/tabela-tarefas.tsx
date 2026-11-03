@@ -85,7 +85,7 @@ function CartaoLinha({ tarefa, status, href, sub }: { tarefa: TarefaResumo; stat
       <div className="mt-2 flex min-w-0 items-center justify-between gap-2">
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           <ChipStatus nome={status.nome} cor={status.cor} />
-          <ChipPrazo dataEntrega={tarefa.dataEntrega} concluidaEm={tarefa.concluidaEm} />
+          {tarefa.dataEntrega && <ChipPrazo dataEntrega={tarefa.dataEntrega} concluidaEm={tarefa.concluidaEm} />}
           <ChipPrioridade prioridade={tarefa.prioridade} />
         </div>
         {tarefa.responsaveis.length > 0 && <Avatares pessoas={tarefa.responsaveis.map((r) => r.usuario)} />}
@@ -126,7 +126,14 @@ export function TabelaTarefas({ status, principais, subtarefas, urlTarefa, vazio
               <>
                 <ul className="grid min-w-0 grid-cols-1 gap-2 @2xl:hidden">
                   {linhas.map(({ tarefa, sub }) => (
-                    <CartaoLinha key={tarefa.id} tarefa={tarefa} status={s} href={urlTarefa(tarefa.id)} sub={sub} />
+                    <CartaoLinha
+                      key={tarefa.id}
+                      tarefa={tarefa}
+                      // Subtarefa fica sob o grupo do pai, mas mostra o próprio status.
+                      status={status.find((x) => x.id === tarefa.statusId) ?? s}
+                      href={urlTarefa(tarefa.id)}
+                      sub={sub}
+                    />
                   ))}
                 </ul>
                 <div className="hidden overflow-x-auto rounded-md border @2xl:block">

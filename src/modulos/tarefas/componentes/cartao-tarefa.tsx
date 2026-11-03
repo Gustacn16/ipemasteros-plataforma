@@ -102,7 +102,7 @@ export function CartaoTarefa({ tarefa, href, status, subtarefas, pendente, mover
                 type="button"
                 aria-label={`Mover "${tarefa.titulo}"`}
                 disabled={pendente}
-                className="grid size-6 place-items-center rounded-[7px] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                className="text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring/50 grid size-6 place-items-center rounded-[7px] transition-colors outline-none focus-visible:ring-[3px]"
               >
                 <MoreHorizontalIcon className="size-3.5" />
               </button>
