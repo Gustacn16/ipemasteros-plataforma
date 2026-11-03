@@ -24,9 +24,9 @@ describe("esquemaMetasProduto", () => {
   });
 
   it("valor vazio vira zero", () => {
-    expect(esquemaMetasProduto.parse({ ...base, linhas: [{ vendedorId: "ana", valorAlvo: "", quantidadeAlvo: "3" }] }).linhas[0]?.valorAlvo).toBe(
-      "0.00",
-    );
+    expect(
+      esquemaMetasProduto.parse({ ...base, linhas: [{ vendedorId: "ana", valorAlvo: "", quantidadeAlvo: "3" }] }).linhas[0]?.valorAlvo,
+    ).toBe("0.00");
   });
 
   it("recusa quantidade negativa ou quebrada e valor inválido", () => {
