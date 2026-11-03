@@ -4,10 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-/** Abas do módulo Comercial. O Dashboard entra na próxima entrega. */
+/** Abas do módulo Comercial. */
 export function AbasComercial({ podeGerenciar }: { podeGerenciar: boolean }) {
   const caminho = usePathname();
   const abas = [
+    { href: "/comercial", rotulo: "Dashboard" },
     { href: "/comercial/vendas", rotulo: "Vendas" },
     { href: "/comercial/metas", rotulo: "Metas" },
     { href: "/comercial/produtos", rotulo: "Produtos" },
@@ -16,7 +17,8 @@ export function AbasComercial({ podeGerenciar }: { podeGerenciar: boolean }) {
   return (
     <nav aria-label="Comercial" className="flex gap-1 border-b">
       {abas.map((a) => {
-        const ativa = caminho === a.href || caminho.startsWith(`${a.href}/`);
+        // O Dashboard ("/comercial") só fica ativo na própria página, não nas abas abaixo dele.
+        const ativa = a.href === "/comercial" ? caminho === a.href : caminho === a.href || caminho.startsWith(`${a.href}/`);
         return (
           <Link
             key={a.href}
