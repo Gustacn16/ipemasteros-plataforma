@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/componentes/ui/table";
 import { exigirPermissaoPagina } from "@/lib/sessao";
 import { temPermissao } from "@/lib/permissoes";
@@ -8,6 +7,7 @@ import { FormularioAcao } from "@/modulos/academico/componentes/campos";
 import { Dialogo } from "@/modulos/academico/componentes/dialogo";
 import { SeloSituacao, dataCurta } from "@/modulos/academico/componentes/exibicao";
 import { CamposTurma } from "@/modulos/academico/componentes/formularios";
+import { LinhaTurma, SeletorSituacaoTurma } from "@/modulos/academico/componentes/turma-na-lista";
 import { listarTurmas, type TurmaLista } from "@/modulos/academico/servicos/turmas";
 import { listarProdutosAtivos } from "@/modulos/comercial/servicos/produtos";
 
@@ -16,6 +16,7 @@ export const metadata: Metadata = { title: "Turmas — IPEMaster OS" };
 export default async function PaginaTurmas() {
   const usuario = await exigirPermissaoPagina("academico:ver");
   const [turmas, produtos] = await Promise.all([listarTurmas(usuario), listarProdutosAtivos()]);
+  const podeEditar = temPermissao(usuario.papel, "academico:gerenciar");
   const porProduto = new Map<string, { nome: string; turmas: TurmaLista[] }>();
   for (const t of turmas) {
     const grupo = porProduto.get(t.produto.id) ?? { nome: t.produto.nome, turmas: [] };
@@ -25,7 +26,7 @@ export default async function PaginaTurmas() {
 
   return (
     <div className="grid gap-6">
-      {temPermissao(usuario.papel, "academico:gerenciar") && (
+      {podeEditar && (
         <div>
           <Dialogo rotuloBotao="Nova turma" titulo="Nova turma">
             <FormularioAcao acao={criarTurmaAcao} rotuloBotao="Criar turma" irPara="/academico/turmas/">
@@ -50,25 +51,26 @@ export default async function PaginaTurmas() {
                 <TableHead>Início</TableHead>
                 <TableHead>Fim</TableHead>
                 <TableHead className="text-right">Ativos</TableHead>
-                <TableHead className="text-right">Matrículas</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+                <TableHead className="w-0" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {grupo.turmas.map((t) => (
-                <TableRow key={t.id}>
+                <LinhaTurma key={t.id} href={`/academico/turmas/${t.id}`}>
+                  <TableCell className="font-medium">{t.nome}</TableCell>
                   <TableCell>
-                    <Link href={`/academico/turmas/${t.id}`} className="font-medium hover:underline">
-                      {t.nome}
-                    </Link>
-                  </TableCell>
-                  <TableCell>
-                    <SeloSituacao situacao={t.situacao} de="turma" />
+                    {podeEditar ? (
+                      <SeletorSituacaoTurma id={t.id} situacao={t.situacao} rotulo={t.nome} />
+                    ) : (
+                      <SeloSituacao situacao={t.situacao} de="turma" />
+                    )}
                   </TableCell>
                   <TableCell>{t.ciclica ? "Contínua" : dataCurta(t.dataInicio)}</TableCell>
                   <TableCell>{t.ciclica ? "—" : dataCurta(t.dataFim)}</TableCell>
                   <TableCell className="text-right tabular-nums">{t.ativos}</TableCell>
                   <TableCell className="text-muted-foreground text-right tabular-nums">{t.totalMatriculas}</TableCell>
-                </TableRow>
+                </LinhaTurma>
               ))}
             </TableBody>
           </Table>

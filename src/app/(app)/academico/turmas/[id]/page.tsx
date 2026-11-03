@@ -10,6 +10,7 @@ import { Dialogo } from "@/modulos/academico/componentes/dialogo";
 import { SeloSituacao, ou404 } from "@/modulos/academico/componentes/exibicao";
 import { CamposMatricula, CamposTurma } from "@/modulos/academico/componentes/formularios";
 import { TabelaMatriculas } from "@/modulos/academico/componentes/matriculas";
+import { SeletorSituacaoTurma } from "@/modulos/academico/componentes/turma-na-lista";
 import { listarOpcoesAluno } from "@/modulos/academico/servicos/alunos";
 import { obterTurma } from "@/modulos/academico/servicos/turmas";
 import { listarProdutosAtivos } from "@/modulos/comercial/servicos/produtos";
@@ -39,7 +40,12 @@ export default async function PaginaTurma({ params }: PageProps<"/academico/turm
         <div className="grid gap-1">
           <span className="text-muted-foreground text-sm">{turma.produto.nome}</span>
           <h2 className="flex items-center gap-2 text-xl font-semibold">
-            {turma.nome} <SeloSituacao situacao={turma.situacao} de="turma" />
+            {turma.nome}{" "}
+            {podeEditar ? (
+              <SeletorSituacaoTurma id={turma.id} situacao={turma.situacao} rotulo={turma.nome} />
+            ) : (
+              <SeloSituacao situacao={turma.situacao} de="turma" />
+            )}
           </h2>
           <p className="text-muted-foreground text-sm">
             {ativos} ativos · {turma.matriculas.length} matrículas

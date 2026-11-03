@@ -2,7 +2,7 @@ import "server-only";
 import { ErroNegocio } from "@/lib/erros";
 import { prisma } from "@/lib/prisma";
 import type { UsuarioAtual } from "@/lib/sessao";
-import type { DadosTurma } from "../esquemas/academico";
+import type { DadosTurma, SituacaoTurma } from "../esquemas/academico";
 import { nomeBusca } from "../regras/normalizar";
 import { MENSAGEM_NAO_ENCONTRADO, deDia, exigirPermissaoAcademico, paraDia } from "./acesso";
 
@@ -127,4 +127,11 @@ export async function excluirTurma(ator: UsuarioAtual, id: string) {
       throw new ErroNegocio("A turma tem matrículas. Mude a situação para Cancelada ou Concluída em vez de excluir.");
     await tx.turma.update({ where: { id }, data: { excluidoEm: new Date() } });
   });
+}
+
+/** Troca só a situação, direto da lista (ex.: marcar a turma como concluída). */
+export async function definirSituacaoTurma(ator: UsuarioAtual, id: string, situacao: SituacaoTurma) {
+  exigirPermissaoAcademico(ator, "academico:gerenciar");
+  const { count } = await prisma.turma.updateMany({ where: { id, excluidoEm: null }, data: { situacao } });
+  if (count === 0) throw new ErroNegocio(MENSAGEM_NAO_ENCONTRADO);
 }

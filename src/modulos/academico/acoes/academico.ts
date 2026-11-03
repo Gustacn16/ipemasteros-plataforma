@@ -3,10 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { dadosDoFormulario, tratarErroAcao, type EstadoAcao } from "@/lib/acoes";
 import { exigirPermissao } from "@/lib/sessao";
-import { esquemaAluno, esquemaMatricula, esquemaProfessor, esquemaTurma } from "../esquemas/academico";
+import { z } from "zod";
+import { SITUACOES_TURMA, esquemaAluno, esquemaMatricula, esquemaProfessor, esquemaTurma } from "../esquemas/academico";
 import { criarAluno, editarAluno, editarMatricula, matricularAluno } from "../servicos/alunos";
 import { criarProfessor, definirAtivoProfessor, editarProfessor } from "../servicos/professores";
-import { criarTurma, editarTurma, excluirTurma } from "../servicos/turmas";
+import { criarTurma, definirSituacaoTurma, editarTurma, excluirTurma } from "../servicos/turmas";
 
 const revalidarAcademico = () => revalidatePath("/academico", "layout");
 
@@ -34,6 +35,17 @@ export async function editarTurmaAcao(_: EstadoAcao, formData: FormData): Promis
     await editarTurma(ator, campo(formData, "id"), esquemaTurma.parse(dadosDoFormulario(formData)));
     revalidarAcademico();
     return { ok: true, mensagem: "Turma atualizada." };
+  } catch (erro) {
+    return tratarErroAcao(erro);
+  }
+}
+
+export async function definirSituacaoTurmaAcao(id: string, situacao: string): Promise<EstadoAcao> {
+  try {
+    const ator = await exigirPermissao("academico:gerenciar");
+    await definirSituacaoTurma(ator, id, z.enum(SITUACOES_TURMA).parse(situacao));
+    revalidarAcademico();
+    return { ok: true, mensagem: "Situação da turma atualizada." };
   } catch (erro) {
     return tratarErroAcao(erro);
   }
