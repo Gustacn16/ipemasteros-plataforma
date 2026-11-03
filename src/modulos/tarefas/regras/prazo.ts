@@ -1,5 +1,6 @@
 // Datas de tarefas. A entrega é um dia (sem hora); "hoje" e "atrasada" são
 // decididos pelo calendário de São Paulo.
+import type { Tom } from "@/componentes/regras-visuais";
 import { FUSO_PADRAO } from "@/lib/datas";
 
 const formatoDia = new Intl.DateTimeFormat("en-CA", {
@@ -69,4 +70,29 @@ export function situacaoEntrega(dataEntrega: Date, concluidaEm: Date | null, ago
   if (dias === 0) return { tom: "hoje", dias };
   if (dias === 1) return { tom: "amanha", dias };
   return { tom: dias <= 7 ? "proxima" : "futura", dias };
+}
+
+/** Texto e tom do chip de prazo (spec, seção 5). `dataEntrega` só é usada na data curta. */
+export function rotuloChipPrazo(
+  s: { tom: TomEntrega; dias: number },
+  dataEntrega: Date,
+): { texto: string; tom: Tom } {
+  switch (s.tom) {
+    case "concluida":
+      return { texto: "Concluída", tom: "sucesso" };
+    case "atrasada": {
+      const n = Math.abs(s.dias);
+      return { texto: `Atrasada ${n} ${n === 1 ? "dia" : "dias"}`, tom: "perigo" };
+    }
+    case "hoje":
+      return { texto: "Vence hoje", tom: "atencao" };
+    case "amanha":
+      return { texto: "Vence amanhã", tom: "atencao" };
+    case "proxima":
+      return { texto: `Em ${s.dias} dias`, tom: "informacao" };
+    case "futura": {
+      const iso = diaDaDataEntrega(dataEntrega);
+      return { texto: `${iso.slice(8, 10)}/${iso.slice(5, 7)}`, tom: "neutro" };
+    }
+  }
 }

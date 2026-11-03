@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { datasValidas, diaDaDataEntrega, diaEmSaoPaulo, grupoDaEntrega, situacaoEntrega } from "./prazo";
+import { datasValidas, diaDaDataEntrega, diaEmSaoPaulo, grupoDaEntrega, rotuloChipPrazo, situacaoEntrega } from "./prazo";
 
 // Datas @db.Date chegam do Prisma como meia-noite UTC do dia.
 const dia = (iso: string) => new Date(`${iso}T00:00:00Z`);
@@ -67,5 +67,33 @@ describe("situacaoEntrega (cartão)", () => {
 
   it("tarefa concluída nunca fica atrasada", () => {
     expect(situacaoEntrega(dia("2026-10-30"), agora, agora).tom).toBe("concluida");
+  });
+});
+
+describe("rotuloChipPrazo", () => {
+  const agora = new Date("2026-11-27T15:00:00Z");
+  const rotulo = (entrega: string, concluida: Date | null = null) =>
+    rotuloChipPrazo(situacaoEntrega(dia(entrega), concluida, agora), dia(entrega));
+
+  it("atrasada 1 dia (singular)", () => {
+    expect(rotulo("2026-11-26")).toEqual({ texto: "Atrasada 1 dia", tom: "perigo" });
+  });
+  it("atrasada 3 dias (plural)", () => {
+    expect(rotulo("2026-11-24")).toEqual({ texto: "Atrasada 3 dias", tom: "perigo" });
+  });
+  it("hoje", () => {
+    expect(rotulo("2026-11-27")).toEqual({ texto: "Vence hoje", tom: "atencao" });
+  });
+  it("amanhã", () => {
+    expect(rotulo("2026-11-28")).toEqual({ texto: "Vence amanhã", tom: "atencao" });
+  });
+  it("próxima, em 4 dias", () => {
+    expect(rotulo("2026-12-01")).toEqual({ texto: "Em 4 dias", tom: "informacao" });
+  });
+  it("futura mostra a data curta", () => {
+    expect(rotulo("2026-12-20")).toEqual({ texto: "20/12", tom: "neutro" });
+  });
+  it("concluída vence o atraso", () => {
+    expect(rotulo("2026-11-24", new Date("2026-11-25T12:00:00Z"))).toEqual({ texto: "Concluída", tom: "sucesso" });
   });
 });
