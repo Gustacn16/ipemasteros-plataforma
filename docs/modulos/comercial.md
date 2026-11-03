@@ -18,7 +18,7 @@ Especificação: `docs/superpowers/specs/2026-11-02-comercial-design.md`.
 O catálogo é **único no sistema**: o Acadêmico vai usar os mesmos produtos (o `Curso` de `academico.md` passa a ser o `Produto`). Dinheiro em `Decimal(12,2)`; entre servidor e tela trafega como string `"3300.00"` (`src/lib/dinheiro.ts`).
 
 ## Telas
-- `/comercial`: por enquanto leva a Vendas (o dashboard chega na entrega 4).
+- `/comercial` (Dashboard): tema escuro só nesta tela (fundo grafite #111416 com brilho roxo #5F45F4, cartões translúcidos). Filtros na URL: `mes=AAAA-MM` (padrão: atual), `produto`, `vendedor` (só para quem vê a equipe). Cartões: vendido no mês com variação contra o mês anterior (sem selo se o anterior for zero), vendas, ticket médio e % da meta (verde ≥ 100%, amarelo 70–99%, vermelho < 70%, "—" sem meta). Gráfico Vendido × Meta (Recharts) com 6M/12M e o resumo "R$ X em N meses · K de M bateram a meta". Ranking de vendedores (só admin e gestor), por produto, as 6 vendas mais recentes e o cartão "Funil do Kommo — em breve". O vendedor vê só os próprios números.
 - `/comercial/vendas`: lista com filtros na URL (`periodo=semana|mes|mes_passado|intervalo` com `de`/`ate`, `produto`, `vendedor` só para quem vê a equipe, `canal`) e rodapé com quantidade e valor total. "Registrar venda" abre o formulário na ordem que a equipe já usava: produto, data, vendedor, data do lead, cliente, WhatsApp, canal, data de entrega, forma de pagamento (oferta, método, entrada, parcelas, valor da parcela, 1º vencimento e total ao vivo) e observações. Clicar numa venda abre a edição, ou só a leitura quando a pessoa não pode mais editar.
 - `/comercial/produtos`: estante com uma prateleira por tipo (Pós-Graduação, Curso Livre, Paciente Modelo) e um cartão por produto (área, nome, preço e parcelas da oferta padrão, número de ofertas e links). Produto inativo aparece apagado, com borda tracejada. A lixeira no cartão aparece só para o admin. Filtros na URL: `busca` (nome), `tipo`, `area`, `situacao=ativos|inativos|todos`. Botão "+ Novo produto".
 - `/comercial/produtos/[id]`: ofertas e preços, links, dados gerais, carga horária, comissão, descrição, ementa e observações. Ações "Desativar/Ativar" e "Excluir". O papel `comercial` vê a ficha só para leitura.
@@ -51,4 +51,6 @@ Os 12 produtos de 02/11/2026 ficam em `src/modulos/comercial/dados/catalogo-prod
 
 **Entrega 3 (feito):** metas do mês por produto e vendedor, com totais e cópia do mês anterior.
 
-**Próxima:** entrega 4 (dashboard). Depois, cada uma com especificação própria: integração com o Kommo, parcelas e MRR, e cálculo de comissão.
+**Entrega 4 (feito):** dashboard escuro com números do mês, gráfico, ranking, por produto e vendas recentes.
+
+**Próximas, cada uma com especificação própria:** integração com o Kommo (funil de leads), parcelas e MRR dos alunos, e cálculo de comissão. Depois, cada uma com especificação própria: integração com o Kommo, parcelas e MRR, e cálculo de comissão.
