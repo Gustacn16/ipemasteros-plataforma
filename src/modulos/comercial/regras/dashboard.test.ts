@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { faixaMeta, mesesDaJanela, percentualMeta, resumoSerie, ticketMedio, variacao } from "./dashboard";
+import { faixaMeta, mesesDaJanela, percentualMeta, resumoSerie, ticketMedio, tomVariacao, variacao } from "./dashboard";
 
 describe("variacao", () => {
   it("compara com o mês anterior em % inteiro", () => {
@@ -56,5 +56,14 @@ describe("resumoSerie", () => {
         { mes: "2026-11", vendido: "30.00", meta: "0.00" },
       ]),
     ).toEqual({ total: "180.00", comMeta: 2, bateram: 1 });
+  });
+});
+
+describe("tomVariacao", () => {
+  it("verde só quando subiu, vermelho quando caiu, neutro quando ficou igual", () => {
+    expect(tomVariacao(12)).toBe("subiu");
+    expect(tomVariacao(-5)).toBe("caiu");
+    expect(tomVariacao(0)).toBe("igual");
+    expect(tomVariacao(null)).toBeNull();
   });
 });

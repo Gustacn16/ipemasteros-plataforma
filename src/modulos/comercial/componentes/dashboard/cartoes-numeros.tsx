@@ -1,8 +1,14 @@
 import { formatarReais } from "@/lib/dinheiro";
 import { cn } from "@/lib/utils";
-import { faixaMeta } from "../../regras/dashboard";
+import { faixaMeta, tomVariacao } from "../../regras/dashboard";
 import type { DadosDashboard } from "../../servicos/dashboard";
 import { COR_FAIXA, cartao, textoApagado } from "./estilos";
+
+const COR_VARIACAO = {
+  subiu: "bg-emerald-400/20 text-emerald-300",
+  caiu: "bg-rose-400/20 text-rose-300",
+  igual: "bg-white/10 text-white/70",
+} as const;
 
 function Numero({ rotulo, valor, children }: { rotulo: string; valor: React.ReactNode; children?: React.ReactNode }) {
   return (
@@ -21,13 +27,8 @@ export function CartoesNumeros({ numeros }: { numeros: DadosDashboard["numeros"]
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <Numero rotulo="Vendido no mês" valor={formatarReais(numeros.vendido)}>
         {numeros.variacao !== null && (
-          <span
-            className={cn(
-              "rounded-full px-2.5 py-0.5 text-xs font-medium",
-              numeros.variacao >= 0 ? "bg-emerald-400/20 text-emerald-300" : "bg-rose-400/20 text-rose-300",
-            )}
-          >
-            {numeros.variacao >= 0 ? "+" : ""}
+          <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-medium", COR_VARIACAO[tomVariacao(numeros.variacao)!])}>
+            {numeros.variacao > 0 ? "+" : ""}
             {numeros.variacao}% vs mês passado
           </span>
         )}

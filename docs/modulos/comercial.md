@@ -53,4 +53,4 @@ Os 12 produtos de 02/11/2026 ficam em `src/modulos/comercial/dados/catalogo-prod
 
 **Entrega 4 (feito):** dashboard escuro com números do mês, gráfico, ranking, por produto e vendas recentes.
 
-**Próximas, cada uma com especificação própria:** integração com o Kommo (funil de leads), parcelas e MRR dos alunos, e cálculo de comissão. Depois, cada uma com especificação própria: integração com o Kommo, parcelas e MRR, e cálculo de comissão.
+**Próximas, cada uma com especificação própria:** integração com o Kommo (funil de leads), parcelas e MRR dos alunos, e cálculo de comissão.

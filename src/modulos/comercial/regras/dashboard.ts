@@ -47,3 +47,9 @@ export function resumoSerie(serie: { mes: string; vendido: string; meta: string 
     bateram: comMeta.filter((m) => centavos(m.vendido) >= centavos(m.meta)).length,
   };
 }
+
+/** Cor do selo de variação: verde se subiu, vermelho se caiu, neutro se ficou igual. */
+export function tomVariacao(v: number | null): "subiu" | "caiu" | "igual" | null {
+  if (v === null) return null;
+  return v > 0 ? "subiu" : v < 0 ? "caiu" : "igual";
+}
