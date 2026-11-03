@@ -187,3 +187,28 @@ describe("apagar produtos", () => {
     }
   });
 });
+
+describe("permissões do Acadêmico", () => {
+  it("admin e gestor fazem tudo, inclusive importar alunos", () => {
+    for (const papel of ["admin", "gestor"] as const) {
+      expect(temPermissao(papel, "academico:ver")).toBe(true);
+      expect(temPermissao(papel, "academico:gerenciar")).toBe(true);
+      expect(temPermissao(papel, "academico:importar_alunos")).toBe(true);
+    }
+  });
+
+  it("colaborador e comercial gerenciam, mas não importam", () => {
+    for (const papel of ["colaborador", "comercial"] as const) {
+      expect(temPermissao(papel, "academico:ver")).toBe(true);
+      expect(temPermissao(papel, "academico:gerenciar")).toBe(true);
+      expect(temPermissao(papel, "academico:importar_alunos")).toBe(false);
+    }
+  });
+
+  it("professor e aluno ainda não entram no módulo", () => {
+    for (const papel of ["professor", "aluno"] as const) {
+      expect(temPermissao(papel, "academico:ver")).toBe(false);
+      expect(temPermissao(papel, "academico:gerenciar")).toBe(false);
+    }
+  });
+});

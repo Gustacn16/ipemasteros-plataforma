@@ -39,7 +39,10 @@ export type Permissao =
   | "comercial:gerenciar_vendas"
   | "comercial:gerenciar_metas"
   | "comercial:gerenciar_produtos"
-  | "comercial:excluir_produtos";
+  | "comercial:excluir_produtos"
+  | "academico:ver"
+  | "academico:gerenciar"
+  | "academico:importar_alunos";
 
 // Colaborador e professor têm regras por registro (membro do espaço, tarefas
 // atribuídas) em src/modulos/tarefas/servicos/acesso.ts.
@@ -71,6 +74,9 @@ const COMERCIAL_GESTAO: readonly Permissao[] = [
   "comercial:gerenciar_produtos",
 ];
 
+// Importar a planilha grava dados pessoais em lote: só admin e gestor.
+const ACADEMICO_GESTAO: readonly Permissao[] = ["academico:ver", "academico:gerenciar", "academico:importar_alunos"];
+
 const PERMISSOES_COLABORADOR: readonly Permissao[] = [
   "tarefas:gerenciar_listas",
   "tarefas:usar",
@@ -78,6 +84,8 @@ const PERMISSOES_COLABORADOR: readonly Permissao[] = [
   "agenda:usar",
   "agenda:ver_institucional",
   "agenda:editar_institucional",
+  "academico:ver",
+  "academico:gerenciar",
 ];
 
 const PERMISSOES_POR_PAPEL: Record<Papel, readonly Permissao[]> = {
@@ -91,6 +99,7 @@ const PERMISSOES_POR_PAPEL: Record<Papel, readonly Permissao[]> = {
     ...CONTEUDO_GESTAO,
     ...AGENDA_GESTAO,
     ...COMERCIAL_GESTAO,
+    ...ACADEMICO_GESTAO,
     // Só o admin apaga produtos do catálogo.
     "comercial:excluir_produtos",
   ],
@@ -102,6 +111,7 @@ const PERMISSOES_POR_PAPEL: Record<Papel, readonly Permissao[]> = {
     ...CONTEUDO_GESTAO,
     ...AGENDA_GESTAO,
     ...COMERCIAL_GESTAO,
+    ...ACADEMICO_GESTAO,
   ],
   colaborador: PERMISSOES_COLABORADOR,
   comercial: [...PERMISSOES_COLABORADOR, "comercial:ver", "comercial:registrar_venda"],

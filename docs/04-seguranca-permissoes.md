@@ -47,6 +47,15 @@ Legenda: ✅ total · 👁 só leitura · 🔸 restrito ao que é seu · — sem
 | **Conteúdo:** contas, canais e conexões | ✅ | ✅ | — | — |
 | **Integrações** (Meta, Kommo) | ✅ | — | — | — |
 
+### Acadêmico (entrega 1)
+Enquanto não há aulas nem ligação do professor com as turmas, valem estas permissões:
+
+| Permissão | admin | gestor | colaborador | comercial | professor |
+|---|---|---|---|---|---|
+| `academico:ver` (entrar no módulo e consultar turmas, alunos e professores) | ✅ | ✅ | ✅ | ✅ | — |
+| `academico:gerenciar` (turmas, alunos, matrículas e professores) | ✅ | ✅ | ✅ | ✅ | — |
+| `academico:importar_alunos` (importar a planilha de alunos) | ✅ | ✅ | — | — | — |
+
 ### Comercial
 O papel `comercial` tem, nos outros módulos, as mesmas permissões do colaborador. Colaborador e professor não entram no Comercial.
 
