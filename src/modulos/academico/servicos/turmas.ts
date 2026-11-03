@@ -88,6 +88,9 @@ export async function obterTurma(ator: UsuarioAtual, id: string) {
       situacao: m.situacao,
       dataInicio: deDia(m.dataInicio),
       dataFormatura: deDia(m.dataFormatura),
+      vigencia: m.vigencia,
+      plano: m.plano,
+      observacoes: m.observacoes,
       aluno: m.aluno,
     })),
   };

@@ -2,10 +2,6 @@ import { ROTULO_PAPEL, temPermissao } from "@/lib/permissoes";
 import { exigirUsuario } from "@/lib/sessao";
 import { MenuNavegacao, type ItemMenu } from "./menu-navegacao";
 
-const MODULOS_FUTUROS: ItemMenu[] = [
-  { href: "/academico", rotulo: "Acadêmico", icone: "academico", emBreve: true },
-];
-
 export default async function LayoutApp({ children }: { children: React.ReactNode }) {
   const usuario = await exigirUsuario();
   const modulos: ItemMenu[] = [
@@ -13,8 +9,8 @@ export default async function LayoutApp({ children }: { children: React.ReactNod
     ...(temPermissao(usuario.papel, "tarefas:usar") ? [{ href: "/tarefas", rotulo: "Tarefas", icone: "tarefas" } as const] : []),
     ...(temPermissao(usuario.papel, "conteudo:usar") ? [{ href: "/conteudo", rotulo: "Conteúdo", icone: "conteudo" } as const] : []),
     ...(temPermissao(usuario.papel, "agenda:usar") ? [{ href: "/agenda", rotulo: "Agenda", icone: "agenda" } as const] : []),
+    ...(temPermissao(usuario.papel, "academico:ver") ? [{ href: "/academico", rotulo: "Acadêmico", icone: "academico" } as const] : []),
     ...(temPermissao(usuario.papel, "comercial:ver") ? [{ href: "/comercial", rotulo: "Comercial", icone: "comercial" } as const] : []),
-    ...MODULOS_FUTUROS,
   ];
 
   const admin: ItemMenu[] = [

@@ -6,7 +6,7 @@ Gerenciar a operação acadêmica: cursos, turmas, aulas, professores, alunos, m
 ## Entidades
 | Entidade | Campos principais |
 |---|---|
-| `Curso` | **Será o `Produto` do módulo Comercial (catálogo único, `modulos/comercial.md`).** Campos acadêmicos que faltarem entram no `Produto`. Referência original: id, nome, tipo (`pos_graduacao`/`curso_livre`), area, cargaHorariaTotal, frequenciaMinimaPct (padrão 75), ativo |
+| `Curso` | **É o `Produto` do módulo Comercial (catálogo único, `modulos/comercial.md`).** Campos acadêmicos que faltarem entram no `Produto`. Referência original: id, nome, tipo (`pos_graduacao`/`curso_livre`), area, cargaHorariaTotal, frequenciaMinimaPct (padrão 75), ativo |
 | `Turma` | id, cursoId, codigo (ex.: `DERM-2026-1`), dataInicio, dataFim, modalidade (`presencial`/`online`/`hibrida`), local, status (`planejada`/`em_andamento`/`concluida`/`cancelada`), vagas |
 | `Disciplina` | id, cursoId, nome, cargaHoraria, ordem |
 | `Aula` | id, turmaId, disciplinaId?, professorId, inicio, fim, local, status (`agendada`/`realizada`/`cancelada`), tokenPresenca, tokenAvaliacao, janelaPresencaInicio, janelaPresencaFim, avaliacaoAberta (bool) |
@@ -71,6 +71,34 @@ Gerenciar a operação acadêmica: cursos, turmas, aulas, professores, alunos, m
 
 ## Fora do escopo (v1)
 Login do aluno, certificados, notas e provas, financeiro de matrícula, pagamento a fornecedores e professores.
+
+## Situação da implementação
+Especificação da entrega 1: `docs/superpowers/specs/2026-11-02-academico-1-design.md`.
+
+**Entrega 1 (feito):**
+- Turmas por produto do Comercial, incluindo a turma **Cíclica** (entrada contínua, sem datas).
+- Alunos e matrículas.
+- Cadastro de professores, ainda sem ligação com turmas.
+- **Visão geral** com os alunos ativos por produto e por turma.
+- Importação da planilha `.xlsx` em `/academico/alunos/importar`.
+
+Nesta entrega:
+- O aluno e o professor ainda **não têm CPF**. O CPF entra com a presença por QR (regra 11 adiada).
+- CRM pode ser informado sem UF (regra 12 adiada).
+- A busca de alunos é por nome e feita na própria tela.
+- Rotas: `/academico` (Visão geral), `/academico/turmas`, `/academico/alunos` e `/academico/professores`.
+
+**Contagem.** Ativo é a matrícula com situação `ativa`. Na planilha, "Ativo" e "Finalizou as práticas" (aguardando formatura) viram `ativa`. No produto, cada aluno conta uma vez, mesmo estando em duas turmas.
+
+**Importação da planilha:**
+- Lê as abas com as colunas Nome, Curso e Turma.
+- Para cada valor de "Curso", o usuário escolhe o produto ou marca "ignorar".
+- As turmas que não existem são criadas.
+- O aluno é encontrado pelo nome sem acento. Se o telefone for diferente, é outra pessoa.
+- Grava tudo ou nada.
+- Reimportar não duplica.
+
+**Próximas:** aulas e presença por QR (com CPF), avaliações, fornecedores, professor ligado às turmas, e anonimização e exportação de alunos.
 
 ## Dúvidas em aberto
 - Identificação no formulário de presença: **CPF** foi a opção assumida. Alternativas: e-mail, ou QR individual por aluno (o aluno apresenta, a equipe escaneia). Confirmar.
