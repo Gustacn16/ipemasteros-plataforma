@@ -4,7 +4,7 @@ import { temPermissao } from "@/lib/permissoes";
 import { prisma } from "@/lib/prisma";
 import type { UsuarioAtual } from "@/lib/sessao";
 import type { DadosMetasProduto } from "../esquemas/meta";
-import { type MetaChave, mesAnterior, metaVazia, metasParaCopiar, primeiroDiaDoMes } from "../regras/meta";
+import { type MetaChave, mesAnterior, metaVazia, metasParaCopiar, primeiroDiaDoMes, vendedoresParaValidar } from "../regras/meta";
 import { MENSAGEM_NAO_ENCONTRADO, exigirPermissaoComercial } from "./acesso";
 import { listarVendedores } from "./vendas";
 
@@ -73,7 +73,7 @@ export async function salvarMetasProduto(ator: UsuarioAtual, dados: DadosMetasPr
     if (!produto) throw new ErroNegocio(MENSAGEM_NAO_ENCONTRADO);
 
     // Vendedor precisa ser válido (regra 5) ou já ter meta neste produto e mês.
-    const ids = [...new Set(dados.linhas.map((l) => l.vendedorId))];
+    const ids = vendedoresParaValidar(dados.linhas);
     const [validos, comMeta] = await Promise.all([
       tx.usuario.findMany({
         where: { id: { in: ids }, ativo: true, papel: { in: ["comercial", "gestor", "admin"] } },

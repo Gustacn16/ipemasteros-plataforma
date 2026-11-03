@@ -35,8 +35,8 @@ O catálogo é **único no sistema**: o Acadêmico vai usar os mesmos produtos (
 7. Escolher produto e oferta preenche o pagamento: à vista, a entrada é o preço inteiro; parcelado, a entrada é a matrícula e o valor da parcela é o da oferta ou, se ele for 0, `(preço − matrícula) ÷ parcelas`. Tudo pode ser alterado.
 8. Vendedor é um usuário ativo com papel `comercial`, `gestor` ou `admin`. O papel `comercial` só registra vendas em seu nome e edita ou exclui as próprias até 7 dias depois de registrar; admin e gestor, qualquer uma a qualquer tempo.
 9. Criar, editar e excluir venda gera auditoria (`venda.criada`, `venda.editada`, `venda.excluida`) só com nomes de campos e valor total, nunca nome ou WhatsApp do cliente. Excluir é lógico.
-10. A data em que o lead entrou não pode ser depois da data da venda.
-11. **Metas:** "Copiar do mês anterior" cria só as metas que ainda não existem no mês, com os valores do mês anterior, sem sobrescrever; produtos e vendedores inativos não são copiados. Produto desativado com meta no mês continua aparecendo naquele mês. Produto e canal precisam estar ativos, exceto ao editar uma venda antiga sem trocá-los.
+10. A data em que o lead entrou não pode ser depois da data da venda. Produto e canal precisam estar ativos, exceto ao editar uma venda antiga sem trocá-los.
+11. **Metas:** "Copiar do mês anterior" cria só as metas que ainda não existem no mês, com os valores do mês anterior, sem sobrescrever; produtos e vendedores inativos não são copiados. Produto desativado com meta no mês continua aparecendo naquele mês.
 
 ## Permissões
 Ver `docs/04-seguranca-permissoes.md` (papel `comercial` e permissões `comercial:*`). Admin e gestor gerenciam tudo; o papel `comercial` (vendedor) consulta o catálogo e, nas próximas entregas, registra as próprias vendas e vê os próprios números.

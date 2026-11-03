@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { mesAnterior, mesAtual, mesSeguinte, metaVazia, metasParaCopiar, primeiroDiaDoMes, rotuloMes, totaisMetas } from "./meta";
+import {
+  mesAnterior,
+  mesAtual,
+  mesSeguinte,
+  metaVazia,
+  metasParaCopiar,
+  primeiroDiaDoMes,
+  rotuloMes,
+  totaisMetas,
+  vendedoresParaValidar,
+} from "./meta";
 
 describe("meses", () => {
   it("anterior e seguinte atravessam o ano", () => {
@@ -55,5 +65,17 @@ describe("totaisMetas", () => {
     expect(t.porProduto.p1).toEqual({ valor: "0.30", quantidade: 3 });
     expect(t.porVendedor.ana).toEqual({ valor: "1.10", quantidade: 4 });
     expect(t.geral).toEqual({ valor: "1.30", quantidade: 6 });
+  });
+});
+
+describe("vendedoresParaValidar", () => {
+  it("só confere vendedores das linhas preenchidas (linha vazia de quem saiu não trava o salvar)", () => {
+    expect(
+      vendedoresParaValidar([
+        { vendedorId: "ana", valorAlvo: "100.00", quantidadeAlvo: 1 },
+        { vendedorId: "saiu", valorAlvo: "0.00", quantidadeAlvo: 0 },
+        { vendedorId: "ana", valorAlvo: "0.00", quantidadeAlvo: 2 },
+      ]),
+    ).toEqual(["ana"]);
   });
 });

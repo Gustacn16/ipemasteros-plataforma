@@ -32,6 +32,11 @@ export function metaVazia(l: { valorAlvo: string; quantidadeAlvo: number }): boo
   return Number(l.valorAlvo) === 0 && l.quantidadeAlvo === 0;
 }
 
+/** Vendedores a conferir ao salvar: só os das linhas preenchidas (linha vazia só apaga). */
+export function vendedoresParaValidar(linhas: { vendedorId: string; valorAlvo: string; quantidadeAlvo: number }[]): string[] {
+  return [...new Set(linhas.filter((l) => !metaVazia(l)).map((l) => l.vendedorId))];
+}
+
 /**
  * "Copiar do mês anterior" (regra 9): as metas do mês anterior que ainda não
  * existem no mês, só de produtos e vendedores ativos. Nunca sobrescreve.
