@@ -9,7 +9,10 @@ export default async function LayoutComercial({ children }: { children: React.Re
     <div className="grid gap-6">
       <div className="grid gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">Comercial</h1>
-        <AbasComercial podeGerenciar={temPermissao(usuario.papel, "comercial:gerenciar_produtos")} />
+        <AbasComercial
+          podeGerenciar={temPermissao(usuario.papel, "comercial:gerenciar_produtos")}
+          podeIntegrarMeta={temPermissao(usuario.papel, "comercial:gerenciar_integracao_meta")}
+        />
       </div>
       {children}
     </div>
