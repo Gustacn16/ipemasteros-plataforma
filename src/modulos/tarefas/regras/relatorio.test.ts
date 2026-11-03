@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  baldesDoIntervalo,
+  distribuirPorBalde,
   faixaPercentual,
+  intervaloAnterior,
+  podio,
+  variacao,
+  variacaoPontos,
+  linhaVazia,
   fimDoDiaEntrega,
   intervaloDoPeriodo,
   percentualNoPrazo,
@@ -160,5 +167,125 @@ describe("resumirPorPessoa", () => {
   it("entregues só sem data deixam o percentual vazio", () => {
     const entregues = [{ dataEntrega: null, concluidaEm: brasilia("2026-11-09T10:00:00"), responsaveis: [ana] }];
     expect(resumirPorPessoa([], entregues, agora)[0]?.percentual).toBeNull();
+  });
+});
+
+describe("intervaloAnterior", () => {
+  const dias = (i: { periodo: string; primeiroDia: string; ultimoDia: string }) => [i.periodo, i.primeiroDia, i.ultimoDia];
+  const agora = brasilia("2026-11-04T10:00:00");
+
+  it("semana: os 7 dias antes", () => {
+    const i = intervaloDoPeriodo({ periodo: "semana" }, brasilia("2026-11-02T10:00:00"));
+    expect(dias(intervaloAnterior(i))).toEqual(["semana", "2026-10-26", "2026-11-01"]);
+  });
+
+  it("mes: o mês anterior inteiro", () => {
+    expect(dias(intervaloAnterior(intervaloDoPeriodo({ periodo: "mes" }, agora)))).toEqual(["mes", "2026-10-01", "2026-10-31"]);
+  });
+
+  it("mes em janeiro: dezembro do ano anterior", () => {
+    const i = intervaloDoPeriodo({ periodo: "mes" }, brasilia("2027-01-15T10:00:00"));
+    expect(dias(intervaloAnterior(i))).toEqual(["mes", "2026-12-01", "2026-12-31"]);
+  });
+
+  it("mes_passado: o mês antes dele", () => {
+    const i = intervaloDoPeriodo({ periodo: "mes_passado" }, agora);
+    expect(dias(intervaloAnterior(i))).toEqual(["mes_passado", "2026-09-01", "2026-09-30"]);
+  });
+
+  it("intervalo: os N dias imediatamente antes", () => {
+    const i = intervaloDoPeriodo({ periodo: "intervalo", de: "2026-11-10", ate: "2026-11-19" }, agora);
+    const a = intervaloAnterior(i);
+    expect(dias(a)).toEqual(["intervalo", "2026-10-31", "2026-11-09"]);
+    expect(a.inicio.toISOString()).toBe("2026-10-31T03:00:00.000Z");
+    expect(a.fim.toISOString()).toBe("2026-11-10T03:00:00.000Z");
+  });
+});
+
+describe("variacao", () => {
+  it("calcula a variação percentual inteira", () => {
+    expect(variacao(12, 10)).toBe(20);
+    expect(variacao(0, 4)).toBe(-100);
+  });
+  it("devolve null sem base de comparação", () => {
+    expect(variacao(5, 0)).toBeNull();
+  });
+});
+
+describe("variacaoPontos", () => {
+  it("diferença em pontos percentuais", () => {
+    expect(variacaoPontos(80, 75)).toBe(5);
+  });
+  it("null se algum lado é null", () => {
+    expect(variacaoPontos(null, 75)).toBeNull();
+    expect(variacaoPontos(80, null)).toBeNull();
+  });
+});
+
+describe("baldesDoIntervalo", () => {
+  it("novembro de 2026 dá 6 semanas recortadas ao mês", () => {
+    const baldes = baldesDoIntervalo(intervaloDoPeriodo({ periodo: "mes" }, brasilia("2026-11-04T10:00:00")));
+    expect(baldes).toHaveLength(6);
+    expect(baldes[0]).toEqual({ inicio: "2026-11-01", fim: "2026-11-01", rotulo: "01/11" });
+    expect(baldes[1]).toEqual({ inicio: "2026-11-02", fim: "2026-11-08", rotulo: "02/11" });
+    expect(baldes[5]).toEqual({ inicio: "2026-11-30", fim: "2026-11-30", rotulo: "30/11" });
+  });
+
+  it("acima de 13 semanas agrupa por mês", () => {
+    const i = intervaloDoPeriodo({ periodo: "intervalo", de: "2026-01-01", ate: "2026-12-31" }, brasilia("2026-12-31T10:00:00"));
+    const baldes = baldesDoIntervalo(i);
+    expect(baldes).toHaveLength(12);
+    expect(baldes[0]).toEqual({ inicio: "2026-01-01", fim: "2026-01-31", rotulo: "jan/26" });
+    expect(baldes[11]).toEqual({ inicio: "2026-12-01", fim: "2026-12-31", rotulo: "dez/26" });
+  });
+
+  it("recorta o primeiro e o último mês ao intervalo", () => {
+    const i = intervaloDoPeriodo({ periodo: "intervalo", de: "2026-01-15", ate: "2027-01-10" }, brasilia("2027-01-10T10:00:00"));
+    const baldes = baldesDoIntervalo(i);
+    expect(baldes[0]).toEqual({ inicio: "2026-01-15", fim: "2026-01-31", rotulo: "jan/26" });
+    expect(baldes.at(-1)).toEqual({ inicio: "2027-01-01", fim: "2027-01-10", rotulo: "jan/27" });
+  });
+});
+
+describe("distribuirPorBalde", () => {
+  const baldes = baldesDoIntervalo(intervaloDoPeriodo({ periodo: "mes" }, brasilia("2026-11-04T10:00:00")));
+
+  it("decide o balde pelo dia de São Paulo, não pelo dia UTC", () => {
+    // 23h de 08/11 em Brasília já é 09/11 em UTC.
+    const r = distribuirPorBalde([{ dataEntrega: dia("2026-11-08"), concluidaEm: brasilia("2026-11-08T23:00:00") }], baldes);
+    expect(r.find((b) => b.rotulo === "02/11")).toEqual({ rotulo: "02/11", noPrazo: 1, atrasadas: 0, semData: 0 });
+    expect(r.find((b) => b.rotulo === "09/11")).toEqual({ rotulo: "09/11", noPrazo: 0, atrasadas: 0, semData: 0 });
+  });
+
+  it("separa no prazo, atrasadas e sem data", () => {
+    const r = distribuirPorBalde(
+      [
+        { dataEntrega: dia("2026-11-09"), concluidaEm: brasilia("2026-11-10T10:00:00") },
+        { dataEntrega: null, concluidaEm: brasilia("2026-11-10T10:00:00") },
+        { dataEntrega: dia("2026-11-10"), concluidaEm: brasilia("2026-11-10T10:00:00") },
+      ],
+      baldes,
+    );
+    expect(r.find((b) => b.rotulo === "09/11")).toEqual({ rotulo: "09/11", noPrazo: 1, atrasadas: 1, semData: 1 });
+  });
+});
+
+describe("podio", () => {
+  const linha = (nome: string, noPrazo: number, percentual: number | null) => ({ ...linhaVazia({ id: nome, nome }), noPrazo, percentual });
+
+  it("empate em noPrazo desempata por percentual", () => {
+    expect(podio([linha("Ana", 5, 70), linha("Bia", 5, 90)]).map((l) => l.pessoa.nome)).toEqual(["Bia", "Ana"]);
+  });
+  it("percentual null fica por último", () => {
+    expect(podio([linha("Ana", 5, null), linha("Bia", 5, 10)]).map((l) => l.pessoa.nome)).toEqual(["Bia", "Ana"]);
+  });
+  it("empate total ordena por nome", () => {
+    expect(podio([linha("Carla", 4, 80), linha("Ana", 4, 80), linha("Bia", 4, 80)]).map((l) => l.pessoa.nome)).toEqual(["Ana", "Bia", "Carla"]);
+  });
+  it("deixa de fora quem tem noPrazo 0", () => {
+    expect(podio([linha("Ana", 0, null), linha("Bia", 1, 100)]).map((l) => l.pessoa.nome)).toEqual(["Bia"]);
+  });
+  it("devolve no máximo 3", () => {
+    expect(podio([1, 2, 3, 4, 5].map((n) => linha(`P${n}`, n, 50)))).toHaveLength(3);
   });
 });

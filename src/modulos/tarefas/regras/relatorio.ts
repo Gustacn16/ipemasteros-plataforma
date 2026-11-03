@@ -157,3 +157,87 @@ export function resumirPorPessoa(abertas: TarefaContada[], entregues: TarefaCont
     .map((l) => ({ ...l, percentual: percentualNoPrazo(l.noPrazo, l.entreguesComData) }))
     .sort((a, b) => a.pessoa.nome.localeCompare(b.pessoa.nome, "pt-BR"));
 }
+
+function diasEntre(primeiroDia: string, ultimoDia: string): number {
+  return Math.round((Date.parse(`${ultimoDia}T00:00:00Z`) - Date.parse(`${primeiroDia}T00:00:00Z`)) / 86_400_000) + 1;
+}
+
+/** Intervalo imediatamente anterior, do mesmo tipo, para comparar com o atual. */
+export function intervaloAnterior(i: Intervalo): Intervalo {
+  if (i.periodo === "mes" || i.periodo === "mes_passado") {
+    const inicio = primeiroDiaDoMes(i.primeiroDia, -1);
+    return intervaloDeDias(i.periodo, inicio, somarDias(i.primeiroDia, -1));
+  }
+  const n = i.periodo === "semana" ? 7 : diasEntre(i.primeiroDia, i.ultimoDia);
+  return intervaloDeDias(i.periodo, somarDias(i.primeiroDia, -n), somarDias(i.primeiroDia, -1));
+}
+
+/** Variação percentual inteira; `null` sem base de comparação. */
+export function variacao(atual: number, anterior: number): number | null {
+  return anterior === 0 ? null : Math.round(((atual - anterior) / anterior) * 100);
+}
+
+/** Diferença em pontos percentuais; `null` se faltar algum dos lados. */
+export function variacaoPontos(atual: number | null, anterior: number | null): number | null {
+  return atual === null || anterior === null ? null : atual - anterior;
+}
+
+export type Balde = { inicio: string; fim: string; rotulo: string };
+
+const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+const MAXIMO_SEMANAS = 13;
+
+/** Semanas (seg–dom) recortadas ao intervalo; acima de 13 semanas, meses. */
+export function baldesDoIntervalo(i: Intervalo): Balde[] {
+  const semanas: Balde[] = [];
+  const recuo = (new Date(`${i.primeiroDia}T00:00:00Z`).getUTCDay() + 6) % 7;
+  for (let segunda = somarDias(i.primeiroDia, -recuo); segunda <= i.ultimoDia; segunda = somarDias(segunda, 7)) {
+    const inicio = segunda < i.primeiroDia ? i.primeiroDia : segunda;
+    const domingo = somarDias(segunda, 6);
+    const fim = domingo > i.ultimoDia ? i.ultimoDia : domingo;
+    semanas.push({ inicio, fim, rotulo: `${inicio.slice(8, 10)}/${inicio.slice(5, 7)}` });
+  }
+  if (semanas.length <= MAXIMO_SEMANAS) return semanas;
+
+  const meses: Balde[] = [];
+  for (let mes = primeiroDiaDoMes(i.primeiroDia, 0); mes <= i.ultimoDia; mes = primeiroDiaDoMes(mes, 1)) {
+    const ultimoDoMes = somarDias(primeiroDiaDoMes(mes, 1), -1);
+    meses.push({
+      inicio: mes < i.primeiroDia ? i.primeiroDia : mes,
+      fim: ultimoDoMes > i.ultimoDia ? i.ultimoDia : ultimoDoMes,
+      rotulo: `${MESES[Number(mes.slice(5, 7)) - 1]}/${mes.slice(2, 4)}`,
+    });
+  }
+  return meses;
+}
+
+/** Conta as entregas por balde (dia de conclusão em São Paulo) e situação do prazo. */
+export function distribuirPorBalde(
+  entregues: { dataEntrega: Date | null; concluidaEm: Date }[],
+  baldes: Balde[],
+): { rotulo: string; noPrazo: number; atrasadas: number; semData: number }[] {
+  const resultado = baldes.map((b) => ({ rotulo: b.rotulo, noPrazo: 0, atrasadas: 0, semData: 0 }));
+  for (const e of entregues) {
+    const diaConclusao = diaEmSaoPaulo(e.concluidaEm);
+    const posicao = baldes.findIndex((b) => b.inicio <= diaConclusao && diaConclusao <= b.fim);
+    if (posicao < 0) continue;
+    const situacao = situacaoPrazo(e.dataEntrega, e.concluidaEm, e.concluidaEm);
+    if (situacao === "no_prazo") resultado[posicao].noPrazo++;
+    else if (situacao === "atrasada") resultado[posicao].atrasadas++;
+    else resultado[posicao].semData++;
+  }
+  return resultado;
+}
+
+/** Até 3 pessoas com mais entregas no prazo; desempata por percentual e nome. */
+export function podio(linhas: LinhaRelatorio[]): LinhaRelatorio[] {
+  return linhas
+    .filter((l) => l.noPrazo > 0)
+    .sort(
+      (a, b) =>
+        b.noPrazo - a.noPrazo ||
+        (b.percentual ?? -1) - (a.percentual ?? -1) ||
+        a.pessoa.nome.localeCompare(b.pessoa.nome, "pt-BR"),
+    )
+    .slice(0, 3);
+}
