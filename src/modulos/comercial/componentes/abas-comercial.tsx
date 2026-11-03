@@ -4,11 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-/** Abas do módulo Comercial. Dashboard e Metas entram nas próximas entregas. */
+/** Abas do módulo Comercial. O Dashboard entra na próxima entrega. */
 export function AbasComercial({ podeGerenciar }: { podeGerenciar: boolean }) {
   const caminho = usePathname();
   const abas = [
     { href: "/comercial/vendas", rotulo: "Vendas" },
+    { href: "/comercial/metas", rotulo: "Metas" },
     { href: "/comercial/produtos", rotulo: "Produtos" },
     ...(podeGerenciar ? [{ href: "/comercial/canais", rotulo: "Canais" }] : []),
   ];
