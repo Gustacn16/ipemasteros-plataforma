@@ -68,3 +68,8 @@ export function podeIniciarImportacao(emAndamento: { iniciadoEm: Date } | null, 
   const expirada = agora.getTime() - emAndamento.iniciadoEm.getTime() > LIMITE_EM_ANDAMENTO_MS;
   return { pode: expirada, expirada };
 }
+
+/** Se há uma importação rodando agora, para a tela se atualizar sozinha (some depois de 30 minutos). */
+export function importacaoRodando(importacoes: { status: string; iniciadoEm: string }[], agora: Date): boolean {
+  return importacoes.some((i) => i.status === "em_andamento" && agora.getTime() - Date.parse(i.iniciadoEm) < LIMITE_EM_ANDAMENTO_MS);
+}

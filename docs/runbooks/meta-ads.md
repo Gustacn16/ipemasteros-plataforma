@@ -38,7 +38,7 @@ O Claude confere pelo conector da Hostinger se existe `CRON_SECRET` (só o nome;
 ```
 
 ## 6. Primeira carga
-1. No sistema, abra **Comercial → Meta Ads** e clique em **Atualizar agora**. A primeira vez traz tudo desde 1º de janeiro de 2026 e pode levar alguns minutos.
+1. No sistema, abra **Comercial → Meta Ads** e clique em **Atualizar agora**. A primeira vez traz tudo desde 1º de janeiro de 2026 e pode levar alguns minutos: a importação roda no servidor e a tela se atualiza sozinha até terminar. Se a página der erro ou você fechar a aba, a importação continua; volte depois e confira o histórico.
 2. Confira as contas encontradas e desligue as que não devem entrar nos números.
 3. A situação deve mostrar **Conectada**.
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { centavosDoGasto, lerLeads, mensagemErroMeta, periodosImportacao, podeIniciarImportacao } from "./meta-ads";
+import { centavosDoGasto, importacaoRodando, lerLeads, mensagemErroMeta, periodosImportacao, podeIniciarImportacao } from "./meta-ads";
 
 describe("lerLeads", () => {
   it("conta os três tipos e lista os ignorados, sem contar o agregado 'lead'", () => {
@@ -68,5 +68,16 @@ describe("podeIniciarImportacao", () => {
   it("em andamento há 10 minutos, não pode; há 40, a antiga expirou", () => {
     expect(podeIniciarImportacao(ha(10), agora)).toEqual({ pode: false, expirada: false });
     expect(podeIniciarImportacao(ha(40), agora)).toEqual({ pode: true, expirada: true });
+  });
+});
+
+describe("importacaoRodando", () => {
+  const agora = new Date("2026-11-03T07:00:00Z");
+  const ha = (min: number) => new Date(agora.getTime() - min * 60_000).toISOString();
+
+  it("só com uma em andamento há menos de 30 minutos", () => {
+    expect(importacaoRodando([{ status: "em_andamento", iniciadoEm: ha(2) }], agora)).toBe(true);
+    expect(importacaoRodando([{ status: "em_andamento", iniciadoEm: ha(40) }], agora)).toBe(false);
+    expect(importacaoRodando([{ status: "concluida", iniciadoEm: ha(2) }], agora)).toBe(false);
   });
 });

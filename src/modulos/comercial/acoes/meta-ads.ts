@@ -1,19 +1,24 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { tratarErroAcao, type EstadoAcao } from "@/lib/acoes";
 import { exigirPermissao } from "@/lib/sessao";
-import { definirContaAtiva, importarMetaAds } from "../servicos/importacao-meta";
+import { definirContaAtiva, executarImportacao, iniciarImportacao } from "../servicos/importacao-meta";
 
-/** "Atualizar agora": importa os últimos 7 dias (ou o histórico, na primeira vez). */
+/**
+ * "Atualizar agora": importa os últimos 7 dias (ou o histórico, na primeira vez).
+ * A importação roda depois da resposta (`after`), porque a primeira carga pode
+ * levar minutos e a conexão com o navegador cairia antes; a tela acompanha sozinha.
+ */
 export async function atualizarMetaAgoraAcao(): Promise<EstadoAcao> {
   try {
     const ator = await exigirPermissao("comercial:gerenciar_integracao_meta");
-    const r = await importarMetaAds({ origem: "manual", usuarioId: ator.id });
+    const inicio = await iniciarImportacao({ origem: "manual", usuarioId: ator.id });
     revalidatePath("/comercial", "layout");
-    if (r.status === "recusada") return { ok: false, mensagem: r.erro };
-    if (r.status === "falhou") return { ok: false, mensagem: r.erro ?? "A importação falhou." };
-    return { ok: true, mensagem: `Importação concluída: ${r.registros} ${r.registros === 1 ? "registro" : "registros"}.` };
+    if (inicio.status !== "iniciada") return { ok: false, mensagem: inicio.erro ?? "A importação falhou." };
+    after(() => executarImportacao(inicio));
+    return { ok: true, mensagem: "Importação iniciada. Esta tela se atualiza sozinha." };
   } catch (erro) {
     return tratarErroAcao(erro);
   }

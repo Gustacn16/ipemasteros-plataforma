@@ -906,15 +906,17 @@ enum StatusImportacao {
 
 /// Conta de anúncio da Meta vista pela chave do usuário do sistema.
 model ContaAnuncio {
-  id           String   @id @default(cuid())
+  id                  String    @id @default(cuid())
   /// Ex.: "act_123".
-  idExterno    String   @unique @map("id_externo") @db.VarChar(40)
-  nome         String   @db.VarChar(255)
-  moeda        String   @db.VarChar(3)
+  idExterno           String    @unique @map("id_externo") @db.VarChar(40)
+  nome                String    @db.VarChar(255)
+  moeda               String    @db.VarChar(3)
   /// Contas desligadas não são importadas.
-  ativa        Boolean  @default(true)
-  criadoEm     DateTime @default(now()) @map("criado_em")
-  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+  ativa               Boolean   @default(true)
+  /// Quando a carga do histórico desde 2026-01-01 terminou sem erro. Até lá, cada importação refaz o histórico da conta.
+  historicoCompletoEm DateTime? @map("historico_completo_em")
+  criadoEm            DateTime  @default(now()) @map("criado_em")
+  atualizadoEm        DateTime  @updatedAt @map("atualizado_em")
 
   campanhas CampanhaAnuncio[]
 

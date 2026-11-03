@@ -1,7 +1,7 @@
 // Cliente de leitura da Graph API (Marketing API) da Meta. Só leitura; sem
 // "server-only" para poder ser testado com respostas gravadas (fetch injetável).
-// A chave vai na query `access_token` (padrão da Meta): por isso nenhuma URL nem
-// erro original é logado ou repassado — só mensagens em português.
+// A chave vai no header Authorization, nunca na URL (assim a Meta também a tira dos
+// links de paginação). Nenhum erro original é logado ou repassado: só mensagens em português.
 import { mensagemErroMeta } from "../regras/meta-ads";
 
 /** Versão da Graph API (changelog da Meta: v26.0, de 29/07/2026). Revisar uma vez por ano. */
@@ -36,9 +36,9 @@ export function criarClienteMeta(token: string, fetchFn: typeof fetch = fetch) {
   async function pedir<T>(url: string): Promise<Pagina<T>> {
     let resposta: Response;
     try {
-      resposta = await fetchFn(url, { cache: "no-store" });
+      resposta = await fetchFn(url, { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
     } catch {
-      // O erro original pode conter a URL com a chave: não é repassado.
+      // O erro original não é repassado: só a mensagem em português.
       throw new ErroMeta("Não foi possível falar com a Meta.");
     }
     const corpo = (await resposta.json().catch(() => ({}))) as Pagina<T>;
@@ -51,7 +51,7 @@ export function criarClienteMeta(token: string, fetchFn: typeof fetch = fetch) {
   /** Segue `paging.next` até a última página. */
   async function todas<T>(caminho: string, parametros: Record<string, string>): Promise<T[]> {
     const url = new URL(`${BASE}/${caminho}`);
-    for (const [chave, valor] of Object.entries({ ...parametros, access_token: token })) url.searchParams.set(chave, valor);
+    for (const [chave, valor] of Object.entries(parametros)) url.searchParams.set(chave, valor);
     const itens: T[] = [];
     let proxima: string | undefined = url.toString();
     while (proxima) {

@@ -1,0 +1,176 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ClienteMeta, InsightMeta } from "./meta-graph";
+import { ErroMeta } from "./meta-graph";
+
+// Banco em memória só com o que a importação usa.
+const banco = vi.hoisted(() => {
+  type Linha = Record<string, unknown> & { id: string };
+  const estado = {
+    contas: [] as Linha[],
+    campanhas: [] as Linha[],
+    metricas: [] as Linha[],
+    importacoes: [] as Linha[],
+    seq: 0,
+  };
+  const novoId = () => `id${++estado.seq}`;
+  const upsertPor = (lista: Linha[], achar: (l: Linha) => boolean, create: Record<string, unknown>, update: Record<string, unknown>) => {
+    const atual = lista.find(achar);
+    if (atual) return Object.assign(atual, update);
+    const nova = { id: novoId(), ...create };
+    lista.push(nova);
+    return nova;
+  };
+  const prisma = {
+    importacaoAnuncios: {
+      create: async ({ data }: { data: Record<string, unknown> }) => {
+        const l = { id: novoId(), status: "em_andamento", iniciadoEm: new Date(), registros: 0, ...data };
+        estado.importacoes.push(l);
+        return l;
+      },
+      findFirst: async ({ where }: { where: { status: string } }) =>
+        estado.importacoes.filter((i) => i.status === where.status).sort((a, b) => +(b.iniciadoEm as Date) - +(a.iniciadoEm as Date))[0] ??
+        null,
+      update: async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) =>
+        Object.assign(
+          estado.importacoes.find((i) => i.id === where.id)!,
+          data,
+        ),
+      updateMany: async ({ where, data }: { where: { status: string; iniciadoEm: { lt: Date } }; data: Record<string, unknown> }) => {
+        const alvo = estado.importacoes.filter((i) => i.status === where.status && (i.iniciadoEm as Date) < where.iniciadoEm.lt);
+        for (const i of alvo) Object.assign(i, data);
+        return { count: alvo.length };
+      },
+    },
+    contaAnuncio: {
+      upsert: async ({
+        where,
+        create,
+        update,
+      }: {
+        where: { idExterno: string };
+        create: Record<string, unknown>;
+        update: Record<string, unknown>;
+      }) => upsertPor(estado.contas, (c) => c.idExterno === where.idExterno, { ativa: true, historicoCompletoEm: null, ...create }, update),
+      findMany: async ({ where }: { where: { ativa: boolean; idExterno: { in: string[] } } }) =>
+        estado.contas.filter((c) => c.ativa === where.ativa && where.idExterno.in.includes(c.idExterno as string)),
+      update: async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) =>
+        Object.assign(
+          estado.contas.find((c) => c.id === where.id)!,
+          data,
+        ),
+    },
+    campanhaAnuncio: {
+      upsert: async ({
+        where,
+        create,
+        update,
+      }: {
+        where: { idExterno: string };
+        create: Record<string, unknown>;
+        update: Record<string, unknown>;
+      }) => upsertPor(estado.campanhas, (c) => c.idExterno === where.idExterno, create, update),
+    },
+    metricaDiariaAnuncio: {
+      upsert: async ({
+        where,
+        create,
+        update,
+      }: {
+        where: { campanhaId_data: { campanhaId: string; data: Date } };
+        create: Record<string, unknown>;
+        update: Record<string, unknown>;
+      }) =>
+        upsertPor(
+          estado.metricas,
+          (m) => m.campanhaId === where.campanhaId_data.campanhaId && +(m.data as Date) === +where.campanhaId_data.data,
+          create,
+          update,
+        ),
+    },
+  };
+  return { estado, prisma };
+});
+
+vi.mock("server-only", () => ({}));
+vi.mock("@/lib/prisma", () => ({ prisma: banco.prisma }));
+
+const { importarMetaAds } = await import("./importacao-meta");
+
+const AGORA = new Date("2026-03-05T07:00:00Z"); // 04h em São Paulo
+const contas = [
+  { id: "act_A", name: "Conta A", currency: "BRL", account_status: 1 },
+  { id: "act_B", name: "Conta B", currency: "BRL", account_status: 1 },
+];
+
+/** Cliente falso: um dia de números por período pedido, por conta. */
+function clienteFalso(o: { falharInsights?: (conta: string, desde: string) => boolean; pedidos?: string[] } = {}): ClienteMeta {
+  return {
+    listarContas: async () => contas,
+    listarCampanhas: async (conta) => [{ id: `camp_${conta}`, name: `Campanha ${conta}`, status: "ACTIVE" }],
+    listarInsights: async (conta, desde) => {
+      o.pedidos?.push(`${conta}:${desde}`);
+      if (o.falharInsights?.(conta, desde)) throw new ErroMeta("A Meta limitou as consultas. Tente de novo em alguns minutos.", 17);
+      const linha: InsightMeta = { campaign_id: `camp_${conta}`, date_start: desde, spend: "10.00", actions: [] };
+      return [linha];
+    },
+  };
+}
+
+beforeEach(() => {
+  banco.estado.contas.length = 0;
+  banco.estado.campanhas.length = 0;
+  banco.estado.metricas.length = 0;
+  banco.estado.importacoes.length = 0;
+});
+
+describe("importarMetaAds", () => {
+  it("rodar duas vezes o mesmo período não duplica números", async () => {
+    await importarMetaAds({ origem: "manual", agora: AGORA, cliente: clienteFalso() });
+    const depoisDaPrimeira = banco.estado.metricas.length;
+    await importarMetaAds({ origem: "manual", agora: AGORA, cliente: clienteFalso() });
+    expect(banco.estado.metricas.length).toBe(depoisDaPrimeira + 2); // só o dia novo dos "últimos 7 dias" de cada conta
+    const segunda = await importarMetaAds({ origem: "manual", agora: AGORA, cliente: clienteFalso() });
+    expect(segunda.status).toBe("concluida");
+    expect(banco.estado.metricas.length).toBe(depoisDaPrimeira + 2);
+  });
+
+  it("erro numa conta não impede a outra e fica anotado", async () => {
+    const r = await importarMetaAds({
+      origem: "manual",
+      agora: AGORA,
+      cliente: clienteFalso({ falharInsights: (conta) => conta === "act_B" }),
+    });
+    expect(r.status).toBe("concluida");
+    expect(banco.estado.importacoes.at(-1)?.erro).toContain("Conta B (act_B)");
+    expect(banco.estado.metricas.some((m) => m.campanhaId === banco.estado.campanhas.find((c) => c.idExterno === "camp_act_A")?.id)).toBe(
+      true,
+    );
+  });
+
+  it("carga inicial interrompida numa conta é refeita inteira na próxima vez", async () => {
+    // A conta B falha no segundo bloco do histórico.
+    await importarMetaAds({
+      origem: "manual",
+      agora: AGORA,
+      cliente: clienteFalso({ falharInsights: (conta, desde) => conta === "act_B" && desde > "2026-01-01" }),
+    });
+    const pedidos: string[] = [];
+    await importarMetaAds({ origem: "agendada", agora: AGORA, cliente: clienteFalso({ pedidos }) });
+    expect(pedidos).toContain("act_B:2026-01-01"); // B volta a pedir desde o início
+    expect(pedidos).not.toContain("act_A:2026-01-01"); // A já tem o histórico completo: só os últimos 7 dias
+  });
+
+  it("recusa enquanto outra importação roda; depois de 30 minutos, a antiga vira interrompida", async () => {
+    banco.estado.importacoes.push({
+      id: "antiga",
+      status: "em_andamento",
+      iniciadoEm: new Date(AGORA.getTime() - 10 * 60_000),
+      registros: 0,
+    });
+    expect((await importarMetaAds({ origem: "manual", agora: AGORA, cliente: clienteFalso() })).status).toBe("recusada");
+
+    banco.estado.importacoes[0]!.iniciadoEm = new Date(AGORA.getTime() - 40 * 60_000);
+    expect((await importarMetaAds({ origem: "manual", agora: AGORA, cliente: clienteFalso() })).status).toBe("concluida");
+    expect(banco.estado.importacoes[0]).toMatchObject({ status: "falhou", erro: "Interrompida." });
+  });
+});

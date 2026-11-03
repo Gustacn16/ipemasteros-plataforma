@@ -45,6 +45,17 @@ describe("cliente da Graph API", () => {
     expect(JSON.parse(url.searchParams.get("time_range")!)).toEqual({ since: "2026-11-01", until: "2026-11-02" });
   });
 
+  it("manda a chave no header Authorization, nunca na URL", async () => {
+    const pedidos: { url: string; auth: string | null }[] = [];
+    const espiao = (async (entrada: string | URL | Request, init?: RequestInit) => {
+      pedidos.push({ url: String(entrada), auth: new Headers(init?.headers).get("authorization") });
+      return resposta(contas);
+    }) as typeof fetch;
+    await criarClienteMeta(TOKEN, espiao).listarContas();
+    expect(pedidos[0]?.auth).toBe(`Bearer ${TOKEN}`);
+    expect(pedidos[0]?.url).not.toContain(TOKEN);
+  });
+
   it("erro da Meta vira ErroMeta em português, sem a chave nem a URL", async () => {
     const falha = (async () => resposta(erro190, 400)) as typeof fetch;
     const erro = await criarClienteMeta(TOKEN, falha)

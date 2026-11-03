@@ -5,6 +5,7 @@ CREATE TABLE `contas_anuncio` (
     `nome` VARCHAR(255) NOT NULL,
     `moeda` VARCHAR(3) NOT NULL,
     `ativa` BOOLEAN NOT NULL DEFAULT true,
+    `historico_completo_em` DATETIME(3) NULL,
     `criado_em` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `atualizado_em` DATETIME(3) NOT NULL,
 

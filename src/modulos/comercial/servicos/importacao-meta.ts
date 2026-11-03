@@ -5,24 +5,36 @@ import { centavosDoGasto, lerLeads, periodosImportacao, podeIniciarImportacao } 
 import { type ClienteMeta, ErroMeta, criarClienteMeta } from "./meta-graph";
 
 const MAX_TIPOS_IGNORADOS = 20;
+const LIMITE_EM_ANDAMENTO_MS = 30 * 60_000;
 const dataDoDia = (dia: string) => new Date(`${dia}T00:00:00Z`);
 const inteiro = (v: string | undefined) => Math.trunc(Number(v ?? 0)) || 0;
+/** Período coberto pela importação (do dia mais antigo ao mais recente pedido). */
+const periodoDe = (dias: string[]) =>
+  dias.length ? { desde: dataDoDia([...dias].sort()[0]!), ate: dataDoDia([...dias].sort().at(-1)!) } : {};
 
 type Resultado = { status: "concluida" | "falhou" | "recusada"; registros: number; erro?: string };
 
 /** Mensagem segura para guardar: só `ErroMeta` (já em português, sem a chave); o resto vira genérico. */
 const mensagemDe = (erro: unknown) => (erro instanceof ErroMeta ? erro.message : "Erro inesperado na importação.");
 
+type Opcoes = { origem: "agendada" | "manual"; usuarioId?: string; agora?: Date; cliente?: ClienteMeta };
+type Inicio = { status: "iniciada"; importacaoId: string; cliente: ClienteMeta; agora: Date } | Resultado;
+
 /**
  * Importa contas, campanhas e números diários do Meta Ads (spec Meta Ads, seção 5).
  * Idempotente: tudo é `upsert`. Um erro numa conta não impede as outras.
  */
-export async function importarMetaAds(o: {
-  origem: "agendada" | "manual";
-  usuarioId?: string;
-  agora?: Date;
-  cliente?: ClienteMeta;
-}): Promise<Resultado> {
+export async function importarMetaAds(o: Opcoes): Promise<Resultado> {
+  const inicio = await iniciarImportacao(o);
+  return inicio.status === "iniciada" ? executarImportacao(inicio) : inicio;
+}
+
+/**
+ * Parte rápida: confere a configuração e a regra de uma por vez e cria o registro
+ * "em andamento". "Atualizar agora" chama só esta parte na resposta e roda
+ * `executarImportacao` depois (`after`), porque a primeira carga pode levar minutos.
+ */
+export async function iniciarImportacao(o: Opcoes): Promise<Inicio> {
   const agora = o.agora ?? new Date();
   const token = process.env.META_ACCESS_TOKEN;
   if (!o.cliente && !token) {
@@ -37,23 +49,31 @@ export async function importarMetaAds(o: {
   const emAndamento = await prisma.importacaoAnuncios.findFirst({ where: { status: "em_andamento" }, orderBy: { iniciadoEm: "desc" } });
   const vez = podeIniciarImportacao(emAndamento, agora);
   if (!vez.pode) return { status: "recusada", registros: 0, erro: "Já existe uma importação em andamento." };
-  if (vez.expirada && emAndamento) {
-    await prisma.importacaoAnuncios.update({
-      where: { id: emAndamento.id },
+  if (vez.expirada) {
+    // Todas as que ficaram presas (processo reiniciado no meio, por exemplo).
+    await prisma.importacaoAnuncios.updateMany({
+      where: { status: "em_andamento", iniciadoEm: { lt: new Date(agora.getTime() - LIMITE_EM_ANDAMENTO_MS) } },
       data: { status: "falhou", finalizadoEm: agora, erro: "Interrompida." },
     });
   }
 
-  const temDados = (await prisma.metricaDiariaAnuncio.count({ take: 1 })) > 0;
-  const periodos = periodosImportacao({ temDados, hoje: diaEmSaoPaulo(agora) });
-  const importacao = await prisma.importacaoAnuncios.create({
-    data: {
-      origem: o.origem,
-      iniciadaPorId: o.usuarioId,
-      desde: periodos[0] ? dataDoDia(periodos[0].desde) : null,
-      ate: periodos.at(-1) ? dataDoDia(periodos.at(-1)!.ate) : null,
-    },
-  });
+  const importacao = await prisma.importacaoAnuncios.create({ data: { origem: o.origem, iniciadaPorId: o.usuarioId } });
+  return { status: "iniciada", importacaoId: importacao.id, cliente, agora };
+}
+
+/** Parte lenta: lê a Meta e grava tudo, fechando o registro criado em `iniciarImportacao`. */
+export async function executarImportacao({
+  importacaoId,
+  cliente,
+  agora,
+}: {
+  importacaoId: string;
+  cliente: ClienteMeta;
+  agora: Date;
+}): Promise<Resultado> {
+  const importacao = { id: importacaoId };
+  const hoje = diaEmSaoPaulo(agora);
+  const dias: string[] = [];
 
   let registros = 0;
   const erros: string[] = [];
@@ -71,6 +91,10 @@ export async function importarMetaAds(o: {
     const ativas = await prisma.contaAnuncio.findMany({ where: { ativa: true, idExterno: { in: contas.map((c) => c.id) } } });
 
     for (const conta of ativas) {
+      // Cada conta refaz o histórico desde 2026-01-01 até terminar uma carga completa sem erro;
+      // depois, só os últimos 7 dias. Conta nova também recebe o histórico.
+      const periodos = periodosImportacao({ temDados: conta.historicoCompletoEm !== null, hoje });
+      for (const p of periodos) dias.push(p.desde, p.ate);
       try {
         const campanhas = await cliente.listarCampanhas(conta.idExterno);
         const idPorExterno = new Map<string, string>();
@@ -120,6 +144,9 @@ export async function importarMetaAds(o: {
             registros++;
           }
         }
+        if (conta.historicoCompletoEm === null) {
+          await prisma.contaAnuncio.update({ where: { id: conta.id }, data: { historicoCompletoEm: agora } });
+        }
       } catch (erro) {
         erros.push(`${conta.nome} (${conta.idExterno}): ${mensagemDe(erro)}`);
       }
@@ -128,7 +155,7 @@ export async function importarMetaAds(o: {
     const mensagem = mensagemDe(erro);
     await prisma.importacaoAnuncios.update({
       where: { id: importacao.id },
-      data: { status: "falhou", finalizadoEm: new Date(), registros, erro: mensagem },
+      data: { status: "falhou", finalizadoEm: new Date(), registros, erro: mensagem, ...periodoDe(dias) },
     });
     return { status: "falhou", registros, erro: mensagem };
   }
@@ -137,7 +164,13 @@ export async function importarMetaAds(o: {
   const detalhes = [...erros, ...(tipos.length ? [`Tipos de resultado não contados como lead: ${tipos.join(", ")}`] : [])];
   await prisma.importacaoAnuncios.update({
     where: { id: importacao.id },
-    data: { status: "concluida", finalizadoEm: new Date(), registros, erro: detalhes.length ? detalhes.join("\n") : null },
+    data: {
+      status: "concluida",
+      finalizadoEm: new Date(),
+      registros,
+      erro: detalhes.length ? detalhes.join("\n") : null,
+      ...periodoDe(dias),
+    },
   });
   return { status: "concluida", registros, erro: erros.length ? erros.join("\n") : undefined };
 }

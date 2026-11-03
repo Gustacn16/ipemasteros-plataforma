@@ -2,7 +2,7 @@
 
 import { RefreshCwIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useEffect, useTransition } from "react";
 import { Button } from "@/componentes/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/componentes/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/componentes/ui/table";
@@ -39,11 +39,21 @@ function situacao(s: SituacaoIntegracao): { rotulo: string; cor: string; detalhe
   return { rotulo: "Configurada", cor: "bg-amber-100 text-amber-800", detalhe: 'Clique em "Atualizar agora" para a primeira carga.' };
 }
 
-export function IntegracaoMeta({ situacao: s }: { situacao: SituacaoIntegracao }) {
+const INTERVALO_ATUALIZACAO_MS = 5000;
+
+/** `rodando`: há uma importação em andamento; a tela se atualiza a cada 5 segundos até ela terminar. */
+export function IntegracaoMeta({ situacao: s, rodando }: { situacao: SituacaoIntegracao; rodando: boolean }) {
   const router = useRouter();
-  const [importando, iniciarImportacao] = useTransition();
+  const [iniciando, iniciarImportacao] = useTransition();
   const [alterando, iniciarAlteracao] = useTransition();
   const atual = situacao(s);
+  const importando = iniciando || rodando;
+
+  useEffect(() => {
+    if (!rodando) return;
+    const id = setInterval(() => router.refresh(), INTERVALO_ATUALIZACAO_MS);
+    return () => clearInterval(id);
+  }, [rodando, router]);
 
   return (
     <div className="grid max-w-5xl gap-4">
@@ -59,14 +69,22 @@ export function IntegracaoMeta({ situacao: s }: { situacao: SituacaoIntegracao }
             disabled={importando || !s.configurada}
             onClick={() =>
               iniciarImportacao(async () => {
-                avisar(await atualizarMetaAgoraAcao());
-                // Atualiza também quando falha, para mostrar o erro no histórico.
+                try {
+                  avisar(await atualizarMetaAgoraAcao());
+                } catch {
+                  // Conexão caiu: a importação pode continuar no servidor.
+                  avisar({
+                    ok: false,
+                    mensagem: "A conexão caiu. Se a importação começou, ela continua no servidor; recarregue em alguns minutos.",
+                  });
+                }
+                // Atualiza também quando falha, para mostrar o histórico.
                 router.refresh();
               })
             }
           >
             <RefreshCwIcon className={cn(importando && "animate-spin")} />
-            {importando ? "Importando… pode levar alguns minutos na primeira vez" : "Atualizar agora"}
+            {importando ? "Importando… a primeira vez pode levar alguns minutos" : "Atualizar agora"}
           </Button>
         </CardHeader>
         <CardContent className="text-muted-foreground text-sm">
