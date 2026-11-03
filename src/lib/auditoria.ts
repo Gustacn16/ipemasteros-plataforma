@@ -32,7 +32,9 @@ export type AcaoAuditoria =
   | "aluno.editado"
   | "matricula.criada"
   | "matricula.editada"
-  | "alunos.importados";
+  | "alunos.importados"
+  | "professor.criado"
+  | "professor.editado";
 
 type DadosAuditoria = {
   usuarioId: string | null;
