@@ -61,6 +61,7 @@ model Usuario {
   agendasExternas      AgendaExterna[]
   vendasDoVendedor     Venda[]               @relation("VendasDoVendedor")
   vendasRegistradas    Venda[]               @relation("VendasRegistradas")
+  metasDoVendedor      MetaVenda[]           @relation("MetasDoVendedor")
   assinaturaAgenda     AssinaturaAgenda?
 
   @@map("usuarios")
@@ -658,6 +659,7 @@ model Produto {
   ofertas OfertaProduto[]
   links   LinkProduto[]
   vendas  Venda[]
+  metas   MetaVenda[]
 
   @@index([sku])
   @@index([tipo, ativo])
@@ -763,4 +765,24 @@ model Venda {
   @@index([vendedorId, dataVenda])
   @@index([produtoId, dataVenda])
   @@map("vendas")
+}
+
+/// Meta mensal de um vendedor para um produto. A meta do produto no mês é a soma das metas dos vendedores.
+model MetaVenda {
+  id             String   @id @default(cuid())
+  /// Sempre o dia 1 do mês.
+  mes            DateTime @db.Date
+  produtoId      String   @map("produto_id")
+  vendedorId     String   @map("vendedor_id")
+  valorAlvo      Decimal  @default(0) @map("valor_alvo") @db.Decimal(12, 2)
+  quantidadeAlvo Int      @default(0) @map("quantidade_alvo")
+  criadoEm       DateTime @default(now()) @map("criado_em")
+  atualizadoEm   DateTime @updatedAt @map("atualizado_em")
+
+  produto  Produto @relation(fields: [produtoId], references: [id])
+  vendedor Usuario @relation("MetasDoVendedor", fields: [vendedorId], references: [id])
+
+  @@unique([mes, produtoId, vendedorId])
+  @@index([vendedorId, mes])
+  @@map("metas_venda")
 }

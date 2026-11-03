@@ -148,9 +148,12 @@ export async function excluirProduto(ator: UsuarioAtual, id: string) {
   await prisma.$transaction(async (tx) => {
     await exigirProduto(tx, id);
     // Conta também vendas excluídas: o histórico continua apontando para o produto.
-    // Metas entram na entrega 3, que passa a contar aqui.
-    const vendas = await tx.venda.count({ where: { produtoId: id } });
-    if (!podeExcluirProduto({ vendas, metas: 0 })) {
+
+    const [vendas, metas] = await Promise.all([
+      tx.venda.count({ where: { produtoId: id } }),
+      tx.metaVenda.count({ where: { produtoId: id } }),
+    ]);
+    if (!podeExcluirProduto({ vendas, metas })) {
       throw new ErroNegocio("Este produto tem vendas ou metas. Desative em vez de excluir.");
     }
     await tx.produto.update({
