@@ -40,6 +40,9 @@ export type Permissao =
   | "comercial:gerenciar_metas"
   | "comercial:gerenciar_produtos"
   | "comercial:excluir_produtos"
+  | "comercial:ver_marketing"
+  | "comercial:atribuir_campanhas"
+  | "comercial:gerenciar_integracao_meta"
   | "academico:ver"
   | "academico:gerenciar"
   | "academico:importar_alunos";
@@ -72,6 +75,8 @@ const COMERCIAL_GESTAO: readonly Permissao[] = [
   "comercial:gerenciar_vendas",
   "comercial:gerenciar_metas",
   "comercial:gerenciar_produtos",
+  "comercial:ver_marketing",
+  "comercial:atribuir_campanhas",
 ];
 
 // Importar a planilha grava dados pessoais em lote: só admin e gestor.
@@ -102,6 +107,8 @@ const PERMISSOES_POR_PAPEL: Record<Papel, readonly Permissao[]> = {
     ...ACADEMICO_GESTAO,
     // Só o admin apaga produtos do catálogo.
     "comercial:excluir_produtos",
+    // Só o admin mexe na integração com a Meta (chave e importação).
+    "comercial:gerenciar_integracao_meta",
   ],
   gestor: [
     "core:ver_usuarios",
