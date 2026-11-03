@@ -35,7 +35,7 @@ Especificação da F1a: `docs/superpowers/specs/2026-11-02-f1a-tarefas-design.md
   - A escolha Lista/Quadro fica salva no cookie `tarefas_visao` (por navegador, vale para todas as listas).
   - **Calendário:** por data de entrega.
 - **Minhas tarefas** (`/tarefas/minhas`): tudo atribuído a mim, agrupado em "Atrasadas", "Hoje", "Próximos 7 dias" e "Sem data".
-- **Relatório** (`/tarefas/relatorio`): no topo, os números do próprio usuário (abertas, atrasadas agora, entregues no período e % no prazo); embaixo, uma tabela por pessoa com as mesmas colunas. Admin e gestor (`tarefas:ver_relatorio_equipe`) veem a equipe toda (usuários ativos com tarefa no filtro); os demais veem só a própria linha. Filtros na URL: período (`periodo=semana|mes|mes_passado|intervalo`, com `de` e `ate` no intervalo livre; padrão este mês; semana de segunda a domingo) e espaço (`espaco`, padrão todos os visíveis). Clicar numa pessoa (`?pessoa=id`) lista as tarefas dela que entraram na conta, com o selo "No prazo", "Atrasada" ou "Sem data".
+- **Relatório** (`/tarefas/relatorio`): no topo, quatro cartões com os números do próprio usuário (abertas, atrasadas agora, entregues no período e % no prazo em anel); entregues e % no prazo mostram a variação contra o período anterior de mesma duração (em % e em pontos percentuais; some sem base de comparação). Abaixo, o pódio do período (só para quem vê a equipe: até 3 pessoas com mais entregas no prazo, desempate por % e nome; some se ninguém entregou no prazo) e o gráfico de entregas por semana (seg–dom; acima de 13 semanas, por mês) em colunas empilhadas no prazo / com atraso / sem data, no mesmo escopo da tabela e contando cada tarefa uma vez. Por fim, uma tabela por pessoa com as mesmas colunas (no celular, um cartão por pessoa). Admin e gestor (`tarefas:ver_relatorio_equipe`) veem a equipe toda (usuários ativos com tarefa no filtro); os demais veem só a própria linha. Filtros na URL: período (`periodo=semana|mes|mes_passado|intervalo`, com `de` e `ate` no intervalo livre; padrão este mês; semana de segunda a domingo) e espaço (`espaco`, padrão todos os visíveis). Clicar numa pessoa (`?pessoa=id`) lista as tarefas dela que entraram na conta, com o selo "No prazo", "Atrasada" ou "Sem data".
 - **Detalhe da tarefa** (painel lateral ou modal): descrição, subtarefas, checklist, responsáveis, datas, prioridade, etiquetas, anexos, comentários e histórico.
 - **Configurações do espaço/lista:** membros, status e etiquetas.
 
@@ -58,6 +58,8 @@ Especificação da F1a: `docs/superpowers/specs/2026-11-02-f1a-tarefas-design.md
 - **No prazo:** entregues com `concluidaEm` ≤ 23:59:59.999 do dia da entrega em São Paulo (UTC−3 fixo).
 - **% no prazo:** no prazo ÷ entregues com data, arredondado. "—" se não houver entregue com data. Verde ≥ 80%, amarelo 60–79%, vermelho < 60%.
 - Tarefa com vários responsáveis conta para cada um; subtarefa conta como tarefa; tarefas, listas e espaços excluídos ficam de fora.
+- **Variação:** compara com o período imediatamente anterior (mês com o mês anterior inteiro, semana com a semana anterior, intervalo livre com os N dias antes dele). Abertas e atrasadas agora não têm variação.
+- **Gráfico:** cada tarefa entra uma vez no balde do dia de conclusão (São Paulo), mesmo com vários responsáveis.
 - Regras em `src/modulos/tarefas/regras/relatorio.ts` (testes em `relatorio.test.ts`); consulta em `servicos/relatorio.ts`.
 
 ## Integrações

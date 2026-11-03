@@ -4,7 +4,16 @@ import { temPermissao } from "@/lib/permissoes";
 import { prisma } from "@/lib/prisma";
 import type { UsuarioAtual } from "@/lib/sessao";
 import type { FiltrosRelatorio } from "../esquemas/relatorio";
-import { intervaloDoPeriodo, linhaVazia, resumirPorPessoa, situacaoPrazo } from "../regras/relatorio";
+import {
+  baldesDoIntervalo,
+  distribuirPorBalde,
+  intervaloAnterior,
+  intervaloDoPeriodo,
+  linhaVazia,
+  podio,
+  resumirPorPessoa,
+  situacaoPrazo,
+} from "../regras/relatorio";
 import { exigirPermissaoTarefas, filtroEspacosVisiveis, filtroTarefasVisiveis } from "./acesso";
 
 /** Admin e gestor veem a equipe toda; os demais, só a própria linha. */
@@ -21,6 +30,7 @@ export async function obterRelatorio(ator: UsuarioAtual, filtros: FiltrosRelator
   exigirPermissaoTarefas(ator, "tarefas:usar");
   const agora = new Date();
   const intervalo = intervaloDoPeriodo(filtros, agora);
+  const anteriorIntervalo = intervaloAnterior(intervalo);
   const equipe = veRelatorioEquipe(ator);
 
   // Só usuários ativos entram; sem a permissão de equipe, só o próprio ator.
@@ -41,10 +51,10 @@ export async function obterRelatorio(ator: UsuarioAtual, filtros: FiltrosRelator
     dataEntrega: true,
     concluidaEm: true,
     lista: { select: { id: true, nome: true, espaco: { select: { nome: true, cor: true } } } },
-    responsaveis: { where: filtroResponsavel, select: { usuario: { select: { id: true, nome: true } } } },
+    responsaveis: { where: filtroResponsavel, select: { usuario: { select: { id: true, nome: true, imagem: true } } } },
   } satisfies Prisma.TarefaSelect;
 
-  const [abertas, entregues, espacos] = await Promise.all([
+  const [abertas, entregues, entreguesAntes, espacos] = await Promise.all([
     prisma.tarefa.findMany({
       where: { AND: [base, { concluidaEm: null }] },
       orderBy: [{ dataEntrega: "asc" }, { criadoEm: "asc" }],
@@ -54,6 +64,11 @@ export async function obterRelatorio(ator: UsuarioAtual, filtros: FiltrosRelator
       where: { AND: [base, { concluidaEm: { gte: intervalo.inicio, lt: intervalo.fim } }] },
       orderBy: { concluidaEm: "asc" },
       select: selecao,
+    }),
+    // Só para a variação dos números do próprio usuário: entregues no período anterior.
+    prisma.tarefa.findMany({
+      where: { AND: [base, { concluidaEm: { gte: anteriorIntervalo.inicio, lt: anteriorIntervalo.fim } }] },
+      select: { dataEntrega: true, concluidaEm: true, responsaveis: selecao.responsaveis },
     }),
     prisma.espaco.findMany({
       where: filtroEspacosVisiveis(ator),
@@ -69,6 +84,25 @@ export async function obterRelatorio(ator: UsuarioAtual, filtros: FiltrosRelator
   const linhas = resumirPorPessoa(abertas.map(comPessoas), entregues.map(comPessoas), agora);
   const minhaLinha = linhas.find((l) => l.pessoa.id === ator.id) ?? linhaVazia({ id: ator.id, nome: ator.nome });
 
+  // Período anterior: abertas não se recalculam (são fotos de agora), só as entregas.
+  const linhasAntes = resumirPorPessoa([], entreguesAntes.map(comPessoas), agora);
+  const anterior = {
+    minhaLinha: linhasAntes.find((l) => l.pessoa.id === ator.id) ?? linhaVazia({ id: ator.id, nome: ator.nome }),
+  };
+
+  // Gráfico: mesmo escopo da tabela (já filtrado pelos responsáveis), cada tarefa conta uma vez.
+  const serie = distribuirPorBalde(
+    entregues.flatMap((t) => (t.concluidaEm ? [{ dataEntrega: t.dataEntrega, concluidaEm: t.concluidaEm }] : [])),
+    baldesDoIntervalo(intervalo),
+  );
+
+  // Pódio só para quem vê a equipe; a foto vem do próprio select dos responsáveis.
+  const fotos = new Map<string, string | null>();
+  for (const t of entregues) for (const r of t.responsaveis) fotos.set(r.usuario.id, r.usuario.imagem);
+  const podioDoPeriodo = equipe
+    ? podio(linhas).map((l) => ({ ...l, foto: fotos.get(l.pessoa.id) ?? null }))
+    : [];
+
   // Detalhe de uma pessoa: as tarefas que entraram na conta dela.
   const idPessoa = filtros.pessoa && (equipe || filtros.pessoa === ator.id) ? filtros.pessoa : null;
   const linhaPessoa = idPessoa ? (linhas.find((l) => l.pessoa.id === idPessoa) ?? null) : null;
@@ -82,5 +116,5 @@ export async function obterRelatorio(ator: UsuarioAtual, filtros: FiltrosRelator
     ? { linha: linhaPessoa, entregues: daPessoa(entregues), abertas: daPessoa(abertas) }
     : null;
 
-  return { intervalo, equipe, espacos, linhas, minhaLinha, detalhe };
+  return { intervalo, equipe, espacos, linhas, minhaLinha, anterior, serie, podio: podioDoPeriodo, detalhe };
 }

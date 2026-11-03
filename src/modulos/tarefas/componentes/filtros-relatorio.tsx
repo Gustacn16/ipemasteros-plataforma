@@ -3,7 +3,7 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PERIODOS, ROTULO_PERIODO, type Periodo } from "../regras/relatorio";
 
-const estiloCampo = "border-input bg-background h-9 rounded-md border px-2 text-sm";
+const estiloCampo = "border-input bg-background text-foreground h-9 rounded-md border px-2 text-sm";
 
 type Props = {
   periodo: Periodo;

@@ -46,7 +46,10 @@ export function Podio({ itens }: { itens: ItemPodio[] }) {
             <span className="text-foreground w-full truncate text-center text-sm font-medium" title={item.nome}>
               {item.nome}
             </span>
-            <span className="text-muted-foreground text-xs tabular-nums">
+            <span
+              className="text-muted-foreground w-full truncate text-center text-xs tabular-nums"
+              title={`${degrau.rotulo} · ${item.valor}`}
+            >
               {degrau.rotulo} · {item.valor}
             </span>
             <div
