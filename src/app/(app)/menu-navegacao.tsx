@@ -14,6 +14,7 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { SeletorTema } from "@/componentes/seletor-tema";
 import { BarraLateral, ItemBarraLateral, TextoBarra, useBarraLateral } from "@/componentes/ui/barra-lateral";
 import { sairAcao } from "@/modulos/core/acoes/autenticacao";
 
@@ -62,6 +63,7 @@ function Rodape({ nome, papel }: { nome: string; papel: string }) {
           <span className="text-sidebar-foreground/60 truncate text-xs">{papel}</span>
         </TextoBarra>
       </div>
+      <SeletorTema compacto={!aberta} />
       <form action={sairAcao}>
         <button
           type="submit"

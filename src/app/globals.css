@@ -18,6 +18,17 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
+  --color-sucesso: var(--sucesso);
+  --color-sucesso-suave: var(--sucesso-suave);
+  --color-atencao: var(--atencao);
+  --color-atencao-suave: var(--atencao-suave);
+  --color-perigo: var(--perigo);
+  --color-perigo-suave: var(--perigo-suave);
+  --color-informacao: var(--informacao);
+  --color-informacao-suave: var(--informacao-suave);
+  --color-podio-ouro: var(--podio-ouro);
+  --color-podio-prata: var(--podio-prata);
+  --color-podio-bronze: var(--podio-bronze);
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
@@ -49,29 +60,43 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --background: #f7f7f9;
+  --foreground: #111416;
+  --card: #ffffff;
+  --card-foreground: #111416;
+  --popover: #ffffff;
+  --popover-foreground: #111416;
+  --primary: #5f45f4;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f1f4;
+  --secondary-foreground: #111416;
+  --muted: #f1f1f4;
+  --muted-foreground: #62656b;
+  --accent: #f0edfe;
+  --accent-foreground: #111416;
+  --destructive: #dc2626;
+  --border: #e6e6eb;
+  --input: #e6e6eb;
+  --ring: #5f45f4;
+  /* Situação: cor do texto/ícone e fundo suave de chip. */
+  --sucesso: #16a34a;
+  --sucesso-suave: #dcfce7;
+  --atencao: #b45309;
+  --atencao-suave: #fef3c7;
+  --perigo: #dc2626;
+  --perigo-suave: #fee2e2;
+  --informacao: #5f45f4;
+  --informacao-suave: #ede9fe;
+  /* Pódio. */
+  --podio-ouro: #d97706;
+  --podio-prata: #94a3b8;
+  --podio-bronze: #b45309;
+  /* Gráficos: roxo, ciano, âmbar, verde e rosa. */
+  --chart-1: #5f45f4;
+  --chart-2: #06b6d4;
+  --chart-3: #f59e0b;
+  --chart-4: #22c55e;
+  --chart-5: #ec4899;
   --radius: 0.625rem;
   /* Barra lateral nas cores da marca: preto chumbo #111416 e roxo #5F45F4. */
   --sidebar: #111416;
@@ -85,29 +110,41 @@
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --background: #0b0c0e;
+  --foreground: #f4f4f5;
+  --card: #16181b;
+  --card-foreground: #f4f4f5;
+  --popover: #16181b;
+  --popover-foreground: #f4f4f5;
+  --primary: #7b66f6;
+  --primary-foreground: #ffffff;
+  --secondary: #1e2024;
+  --secondary-foreground: #f4f4f5;
+  --muted: #1e2024;
+  --muted-foreground: #9a9ca3;
+  --accent: rgb(123 102 246 / 14%);
+  --accent-foreground: #f4f4f5;
+  --destructive: #f87171;
+  --border: rgb(255 255 255 / 10%);
+  --input: rgb(255 255 255 / 10%);
+  --ring: #7b66f6;
+  --sucesso: #4ade80;
+  --sucesso-suave: rgb(74 222 128 / 14%);
+  --atencao: #fbbf24;
+  --atencao-suave: rgb(251 191 36 / 14%);
+  --perigo: #f87171;
+  --perigo-suave: rgb(248 113 113 / 14%);
+  --informacao: #a594f9;
+  --informacao-suave: rgb(123 102 246 / 16%);
+  --podio-ouro: #f59e0b;
+  --podio-prata: #cbd5e1;
+  --podio-bronze: #d97706;
+  /* Um tom mais claro que no tema claro. */
+  --chart-1: #7b66f6;
+  --chart-2: #22d3ee;
+  --chart-3: #fbbf24;
+  --chart-4: #4ade80;
+  --chart-5: #f472b6;
   /* Barra lateral nas cores da marca: preto chumbo #111416 e roxo #5F45F4. */
   --sidebar: #111416;
   --sidebar-foreground: oklch(0.97 0 0);
