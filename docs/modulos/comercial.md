@@ -14,6 +14,10 @@ Especificação: `docs/superpowers/specs/2026-11-02-comercial-design.md`.
 | `CanalVenda` | id, nome (único), ativo, ordem |
 | `Venda` | id, produtoId, ofertaId?, vendedorId, dataVenda, dataEntradaLead?, nomeCliente, whatsappCliente? (só dígitos, sem o 55), canalId?, dataEntrega?, metodoPagamento (`pix`/`cartao`/`boleto`/`transferencia`), entrada, numeroParcelas, valorParcela, primeiroVencimento?, valorTotal, observacoes?, criadoPorId, excluidoEm |
 | `MetaVenda` | id, mes (dia 1), produtoId, vendedorId, valorAlvo, quantidadeAlvo. Única por mês, produto e vendedor; a meta do produto no mês é a soma das metas dos vendedores |
+| `ContaAnuncio` | id, idExterno (`act_…`), nome, moeda, ativa (entra ou não na importação) |
+| `CampanhaAnuncio` | id, contaId, idExterno, nome, status, objetivo, atribuicao (`produto`/`institucional`/`sem_produto`), produtoId? |
+| `MetricaDiariaAnuncio` | campanha e dia: investimento, impressões, alcance, cliques, leadsFormulario, leadsSite, conversasIniciadas (único por campanha e dia) |
+| `ImportacaoAnuncios` | histórico: origem (`agendada`/`manual`), status, período, registros e erro (nunca a chave) |
 
 O catálogo é **único no sistema**: o Acadêmico vai usar os mesmos produtos (o `Curso` de `academico.md` passa a ser o `Produto`). Dinheiro em `Decimal(12,2)`; entre servidor e tela trafega como string `"3300.00"` (`src/lib/dinheiro.ts`).
 
@@ -23,6 +27,7 @@ O catálogo é **único no sistema**: o Acadêmico vai usar os mesmos produtos (
 - `/comercial/produtos`: estante com uma prateleira por tipo (Pós-Graduação, Curso Livre, Paciente Modelo) e um cartão por produto (área, nome, preço e parcelas da oferta padrão, número de ofertas e links). Produto inativo aparece apagado, com borda tracejada. A lixeira no cartão aparece só para o admin. Filtros na URL: `busca` (nome), `tipo`, `area`, `situacao=ativos|inativos|todos`. Botão "+ Novo produto".
 - `/comercial/produtos/[id]`: ofertas e preços, links, dados gerais, carga horária, comissão, descrição, ementa e observações. Ações "Desativar/Ativar" e "Excluir". O papel `comercial` vê a ficha só para leitura.
 - `/comercial/metas`: mês escolhido com "◀ ▶" (`?mes=AAAA-MM`, padrão: mês atual), total do mês e "Copiar do mês anterior". Um cartão por produto, nas prateleiras da estante, com uma linha por vendedor (valor em R$ e quantidade), total do produto e "Salvar". No fim, o total por vendedor. Deixar valor e quantidade vazios apaga a meta. Quem não gerencia metas vê só as próprias, sem editar.
+- `/comercial/integracao-meta` (só admin): situação da conexão com a Meta, contas de anúncio (liga/desliga na importação; moeda diferente de BRL fica fora dos totais), últimas 10 importações e "Atualizar agora". Configuração em `docs/runbooks/meta-ads.md`.
 - `/comercial/canais`: lista de canais de venda (adicionar, renomear e ativar/desativar).
 
 ## Regras de negócio
@@ -52,5 +57,7 @@ Os 12 produtos de 02/11/2026 ficam em `src/modulos/comercial/dados/catalogo-prod
 **Entrega 3 (feito):** metas do mês por produto e vendedor, com totais e cópia do mês anterior.
 
 **Entrega 4 (feito):** dashboard escuro com números do mês, gráfico, ranking, por produto e vendas recentes.
+
+**Meta Ads, entrega 1 (feito):** importação diária (4h, refaz os últimos 7 dias; a primeira carga vai desde 2026-01-01) e manual, pela chave de um usuário do sistema (`META_ACCESS_TOKEN`), via `GET /api/cron/importar-meta-ads`. Leads = formulário da Meta + site (pixel) + conversas iniciadas. Spec: `docs/superpowers/specs/2026-11-02-meta-ads-design.md`. Próximas: atribuição de campanhas a produtos e indicadores no dashboard.
 
 **Próximas, cada uma com especificação própria:** integração com o Kommo (funil de leads), parcelas e MRR dos alunos, e cálculo de comissão.

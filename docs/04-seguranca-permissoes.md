@@ -68,6 +68,9 @@ O papel `comercial` tem, nos outros módulos, as mesmas permissões do colaborad
 | `comercial:gerenciar_metas` | ✅ | ✅ | — |
 | `comercial:gerenciar_produtos` (produtos, ofertas, links e canais) | ✅ | ✅ | — |
 | `comercial:excluir_produtos` (apagar produto do catálogo) | ✅ | — | — |
+| `comercial:ver_marketing` (investimento, leads, CPL, CAC e ROAS) | ✅ | ✅ | — |
+| `comercial:atribuir_campanhas` (ligar campanha da Meta a produto) | ✅ | ✅ | — |
+| `comercial:gerenciar_integracao_meta` (tela da integração e "Atualizar agora") | ✅ | — | — |
 
 Admin e gestor convidam usuários com o papel `comercial`.
 
