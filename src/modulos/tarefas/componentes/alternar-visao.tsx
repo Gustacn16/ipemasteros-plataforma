@@ -23,7 +23,7 @@ export function AlternarVisao({ visao }: { visao: Visao }) {
   }
 
   return (
-    <div role="group" aria-label="Visualização" className={cn("bg-muted inline-flex rounded-lg p-0.5", pendente && "opacity-60")}>
+    <div role="group" aria-label="Visualização" className={cn("bg-muted inline-flex shrink-0 rounded-lg p-0.5", pendente && "opacity-60")}>
       {OPCOES.map(({ valor, rotulo, icone: Icone }) => (
         <button
           key={valor}
@@ -31,8 +31,8 @@ export function AlternarVisao({ visao }: { visao: Visao }) {
           aria-pressed={visao === valor}
           onClick={() => escolher(valor)}
           className={cn(
-            "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm",
-            visao === valor ? "bg-background font-medium shadow-xs" : "text-muted-foreground hover:text-foreground",
+            "focus-visible:ring-ring/50 flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm outline-none focus-visible:ring-[3px]",
+            visao === valor ? "bg-background text-foreground font-medium shadow-xs" : "text-muted-foreground hover:text-foreground",
           )}
         >
           <Icone className="size-4" aria-hidden />

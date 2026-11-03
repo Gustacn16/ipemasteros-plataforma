@@ -1,6 +1,7 @@
 "use client";
 
 import { useOptimistic, useState, useTransition } from "react";
+import { ChipSituacao } from "@/componentes/chip-situacao";
 import { mudarStatusAcao } from "../acoes/tarefas";
 import { ERRO_SUBTAREFAS_ABERTAS } from "../regras/status";
 import type { TarefaResumo } from "../servicos/tarefas";
@@ -55,7 +56,7 @@ export function QuadroTarefas({ status, principais, subtarefas, modeloUrlTarefa 
   }
 
   return (
-    <div className="-mx-4 overflow-x-auto px-4 pb-4 md:-mx-8 md:px-8">
+    <div className="relative -mx-4 overflow-x-auto px-4 pb-4 md:-mx-8 md:px-8">
       <div className="flex snap-x snap-mandatory items-start gap-3 md:snap-none">
         {status.map((s) => {
           const daColuna = cartoes.filter((t) => (movidas.get(t.id) ?? t.statusId) === s.id);
@@ -63,18 +64,19 @@ export function QuadroTarefas({ status, principais, subtarefas, modeloUrlTarefa 
             <section
               key={s.id}
               aria-labelledby={`coluna-${s.id}`}
-              className="flex max-h-[calc(100svh-15rem)] w-[min(18rem,85vw)] shrink-0 snap-start flex-col rounded-2xl bg-neutral-100/70"
+              className="relative flex max-h-[calc(100svh-15rem)] w-[min(18rem,85vw)] shrink-0 snap-start flex-col rounded-2xl border border-border bg-muted/60"
             >
-              <h2 id={`coluna-${s.id}`} className="flex items-center gap-2 px-4 pt-3.5 pb-1 text-[13px] font-medium tracking-[-0.005em]">
+              <h2 id={`coluna-${s.id}`} className="text-foreground flex min-w-0 items-center gap-2 px-4 pt-3.5 pb-1 text-[13px] font-medium tracking-[-0.005em]">
                 <PontoCor cor={s.cor} className="size-2" />
-                <span className="truncate">{s.nome}</span>
-                <span className="grid h-[18px] min-w-[18px] place-items-center rounded-[6px] bg-black/[0.06] px-1 text-[11px] font-medium text-neutral-500 tabular-nums">
-                  {daColuna.length}
-                </span>
+                <span className="min-w-0 truncate">{s.nome}</span>
+                <ChipSituacao tom="neutro" tamanho="sm">
+                  <span className="tabular-nums">{daColuna.length}</span>
+                  <span className="sr-only"> {daColuna.length === 1 ? "tarefa" : "tarefas"}</span>
+                </ChipSituacao>
               </h2>
               <div className="grid content-start gap-2 overflow-y-auto p-3 pt-2">
                 {daColuna.length === 0 ? (
-                  <p className="rounded-xl border border-dashed border-neutral-300 bg-black/[0.02] px-3 py-6 text-center text-xs text-neutral-500">Nenhuma tarefa</p>
+                  <p className="border-border bg-background/40 text-muted-foreground rounded-xl border border-dashed px-3 py-6 text-center text-xs">Nenhuma tarefa</p>
                 ) : (
                   daColuna.map((t) => (
                     <CartaoTarefa

@@ -1,6 +1,9 @@
+import { FilterXIcon, ListTodoIcon } from "lucide-react";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
+import { CabecalhoPagina } from "@/componentes/cabecalho-pagina";
+import { EstadoVazio } from "@/componentes/estado-vazio";
 import { ErroNegocio } from "@/lib/erros";
 import { temPermissao } from "@/lib/permissoes";
 import { exigirUsuario } from "@/lib/sessao";
@@ -67,31 +70,41 @@ export default async function PaginaLista({ params, searchParams }: PageProps<"/
     return `${urlBase}?${p}`;
   };
 
-  return (
-    <div className="grid gap-5">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-muted-foreground flex items-center gap-1.5 text-sm">
-            <span className="size-2.5 rounded-full" style={{ backgroundColor: dados.lista.espaco.cor }} aria-hidden />
-            {dados.lista.espaco.nome}
-          </p>
-          <h1 className="text-2xl font-semibold tracking-tight">{dados.lista.nome}</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <AlternarVisao visao={visao} />
-          {podeGerenciar && <ConfigurarStatus listaId={listaId} status={dados.status} />}
-        </div>
-      </header>
+  const semTarefas = dados.principais.length === 0 && dados.subtarefas.length === 0;
+  const filtrando = paramsFiltros.size > 0;
+  // Na Lista vazia e sem filtro, o campo de criar fica dentro do estado vazio.
+  const criarNoVazio = visao === "lista" && semTarefas && !filtrando;
+  const vazio = filtrando ? (
+    <EstadoVazio icone={FilterXIcon} titulo="Nenhuma tarefa com estes filtros" descricao="Mude ou limpe os filtros para ver mais tarefas." />
+  ) : (
+    <EstadoVazio
+      icone={ListTodoIcon}
+      titulo="Crie a primeira tarefa desta lista"
+      descricao="Dê um título; prazo, responsáveis e o resto você preenche depois."
+      acao={<NovaTarefaRapida listaId={listaId} />}
+    />
+  );
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <NovaTarefaRapida listaId={listaId} />
-        <FiltrosDaLista pessoas={dados.atribuiveis} etiquetas={dados.etiquetas} />
-      </div>
+  return (
+    <div className="grid min-w-0 grid-cols-1 gap-5">
+      <CabecalhoPagina
+        titulo={dados.lista.nome}
+        descricao={dados.lista.espaco.nome}
+        acoes={
+          <>
+            <AlternarVisao visao={visao} />
+            <FiltrosDaLista pessoas={dados.atribuiveis} etiquetas={dados.etiquetas} />
+            {podeGerenciar && <ConfigurarStatus listaId={listaId} status={dados.status} />}
+          </>
+        }
+      />
+
+      {!criarNoVazio && <NovaTarefaRapida listaId={listaId} />}
 
       {visao === "quadro" ? (
         <QuadroTarefas status={dados.status} principais={dados.principais} subtarefas={dados.subtarefas} modeloUrlTarefa={urlTarefa(ID_MODELO)} />
       ) : (
-        <TabelaTarefas status={dados.status} principais={dados.principais} subtarefas={dados.subtarefas} urlTarefa={urlTarefa} />
+        <TabelaTarefas status={dados.status} principais={dados.principais} subtarefas={dados.subtarefas} urlTarefa={urlTarefa} vazio={vazio} />
       )}
 
       {detalhe && detalhe.tarefa.listaId === listaId && (

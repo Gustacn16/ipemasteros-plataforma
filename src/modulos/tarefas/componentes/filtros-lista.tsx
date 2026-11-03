@@ -3,7 +3,8 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PRIORIDADES, ROTULO_PRIORIDADE } from "../esquemas/tarefa";
 
-const estiloSelect = "border-input bg-background h-9 rounded-md border px-2 text-sm";
+const estiloSelect =
+  "border-input bg-background text-foreground focus-visible:ring-ring/50 h-9 max-w-full min-w-0 rounded-md border px-2 text-sm outline-none focus-visible:ring-[3px]";
 
 /** Filtros da lista guardados na URL (responsável, prioridade, etiqueta, atrasadas). */
 export function FiltrosDaLista({ pessoas, etiquetas }: { pessoas: { id: string; nome: string }[]; etiquetas: { id: string; nome: string }[] }) {
@@ -20,7 +21,7 @@ export function FiltrosDaLista({ pessoas, etiquetas }: { pessoas: { id: string; 
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 text-sm">
+    <div className="text-foreground flex min-w-0 flex-wrap items-center gap-2 text-sm">
       <select
         aria-label="Filtrar por responsável"
         className={estiloSelect}
@@ -62,9 +63,10 @@ export function FiltrosDaLista({ pessoas, etiquetas }: { pessoas: { id: string; 
           ))}
         </select>
       )}
-      <label className="flex items-center gap-1.5">
+      <label className="flex h-9 items-center gap-1.5 whitespace-nowrap">
         <input
           type="checkbox"
+          className="accent-primary size-4"
           checked={busca.get("atrasadas") === "1"}
           onChange={(e) => definir("atrasadas", e.target.checked ? "1" : null)}
         />
