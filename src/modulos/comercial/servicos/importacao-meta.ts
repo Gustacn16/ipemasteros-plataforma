@@ -7,7 +7,7 @@ import { type ClienteMeta, ErroMeta, criarClienteMeta } from "./meta-graph";
 /** A chave funciona, mas o usuário do sistema não tem contas de anúncio atribuídas. */
 export const MENSAGEM_SEM_CONTAS =
   "Nenhuma conta de anúncio encontrada para esta chave. No Business Manager, atribua as contas de anúncio ao usuário do sistema.";
-const MAX_TIPOS_IGNORADOS = 20;
+const MAX_TIPOS_IGNORADOS = 60;
 const LIMITE_EM_ANDAMENTO_MS = 30 * 60_000;
 const dataDoDia = (dia: string) => new Date(`${dia}T00:00:00Z`);
 const inteiro = (v: string | undefined) => Math.trunc(Number(v ?? 0)) || 0;
