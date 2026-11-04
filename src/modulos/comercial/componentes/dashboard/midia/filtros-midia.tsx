@@ -19,6 +19,7 @@ export function FiltrosMidia({ contas, campanhas }: { contas: Conta[]; campanhas
   const [aberto, setAberto] = useState(false);
   const [procura, setProcura] = useState("");
   const espera = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const campoBusca = useRef<HTMLInputElement>(null);
   useEffect(() => () => clearTimeout(espera.current), []);
 
   const conta = busca.get("conta") ?? "";
@@ -50,7 +51,7 @@ export function FiltrosMidia({ contas, campanhas }: { contas: Conta[]; campanhas
         aria-label="Conta de anúncio"
         className={cn(pilula, "max-w-56")}
         value={conta}
-        onChange={(e) => definir({ conta: e.target.value || null })}
+        onChange={(e) => definir({ conta: e.target.value || null, campanhas: null })}
       >
         <option value="" className={opcao}>
           Todas as contas
@@ -103,6 +104,7 @@ export function FiltrosMidia({ contas, campanhas }: { contas: Conta[]; campanhas
         type="search"
         placeholder="Buscar pelo nome"
         aria-label="Buscar campanhas pelo nome"
+        ref={campoBusca}
         defaultValue={busca.get("busca") ?? ""}
         className={cn(pilula, "w-48 placeholder:text-white/40")}
         onChange={(e) => {
@@ -133,7 +135,11 @@ export function FiltrosMidia({ contas, campanhas }: { contas: Conta[]; campanhas
         <button
           type="button"
           className="flex h-10 items-center gap-1 rounded-full px-3 text-sm text-white/70 hover:text-white"
-          onClick={() => definir(Object.fromEntries(CHAVES.map((c) => [c, null])))}
+          onClick={() => {
+            clearTimeout(espera.current);
+            if (campoBusca.current) campoBusca.current.value = "";
+            definir(Object.fromEntries(CHAVES.map((c) => [c, null])));
+          }}
         >
           <XIcon className="size-4" aria-hidden /> Limpar filtros
         </button>

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import type { UsuarioAtual } from "@/lib/sessao";
 import { mesesDaJanela, variacao } from "../regras/dashboard";
 import { mesAnterior, mesSeguinte, primeiroDiaDoMes } from "../regras/meta";
-import { type FiltroCampanhas, cac, custoPorLead, filtrandoCampanhas, roas, totalLeads } from "../regras/midia";
+import { type FiltroCampanhas, cac, custoPorLead, filtrandoCampanhas, filtrosValidos, roas, totalLeads } from "../regras/midia";
 import { exigirPermissaoComercial } from "./acesso";
 
 const MESES_DA_SERIE = 12;
@@ -27,28 +27,13 @@ export async function obterMidia(ator: UsuarioAtual, filtros: FiltroCampanhas & 
   const inicioJanela = dataDoMes(meses[0]!);
   const fimJanela = dataDoMes(mesSeguinte(mes));
 
-  const filtroCampanha: Prisma.CampanhaAnuncioWhereInput = {
-    conta: CONTA_VALIDA,
-    ...(filtros.conta ? { contaId: filtros.conta } : {}),
-    ...(filtros.busca ? { nome: { contains: filtros.busca } } : {}),
-    ...(filtros.situacao === "ativas" ? { status: "ACTIVE" } : filtros.situacao === "pausadas" ? { status: { not: "ACTIVE" } } : {}),
-  };
-
-  const [metricas, ultima, vendasDoMes, contas, campanhasOpcoes] = await Promise.all([
-    prisma.metricaDiariaAnuncio.findMany({
-      where: {
-        data: { gte: inicioJanela, lt: fimJanela },
-        campanha: filtroCampanha,
-        ...(filtros.campanhas.length ? { campanhaId: { in: filtros.campanhas } } : {}),
-      },
-      select: {
-        campanhaId: true,
-        data: true,
-        investimento: true,
-        leadsFormulario: true,
-        leadsSite: true,
-        conversasIniciadas: true,
-      },
+  // Primeiro as opções dos filtros: com elas, conta e campanhas inválidas na URL são descartadas.
+  const [contas, campanhasOpcoes, ultima, vendasDoMes] = await Promise.all([
+    prisma.contaAnuncio.findMany({ where: CONTA_VALIDA, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
+    prisma.campanhaAnuncio.findMany({
+      where: { conta: CONTA_VALIDA },
+      orderBy: { nome: "asc" },
+      select: { id: true, nome: true, contaId: true, status: true, conta: { select: { nome: true } } },
     }),
     prisma.importacaoAnuncios.findFirst({
       where: { status: "concluida" },
@@ -60,13 +45,23 @@ export async function obterMidia(ator: UsuarioAtual, filtros: FiltroCampanhas & 
       _sum: { valorTotal: true },
       _count: true,
     }),
-    prisma.contaAnuncio.findMany({ where: CONTA_VALIDA, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
-    prisma.campanhaAnuncio.findMany({
-      where: { conta: CONTA_VALIDA },
-      orderBy: { nome: "asc" },
-      select: { id: true, nome: true, contaId: true, status: true, conta: { select: { nome: true } } },
-    }),
   ]);
+  const f = filtrosValidos(filtros, { contas: contas.map((c) => c.id), campanhas: campanhasOpcoes });
+
+  const filtroCampanha: Prisma.CampanhaAnuncioWhereInput = {
+    conta: CONTA_VALIDA,
+    ...(f.conta ? { contaId: f.conta } : {}),
+    ...(f.busca ? { nome: { contains: f.busca } } : {}),
+    ...(f.situacao === "ativas" ? { status: "ACTIVE" } : f.situacao === "pausadas" ? { status: { not: "ACTIVE" } } : {}),
+  };
+  const metricas = await prisma.metricaDiariaAnuncio.findMany({
+    where: {
+      data: { gte: inicioJanela, lt: fimJanela },
+      campanha: filtroCampanha,
+      ...(f.campanhas.length ? { campanhaId: { in: f.campanhas } } : {}),
+    },
+    select: { campanhaId: true, data: true, investimento: true, leadsFormulario: true, leadsSite: true, conversasIniciadas: true },
+  });
 
   // Série mês a mês (zero nos meses sem investimento) e totais por campanha no mês do filtro.
   const porMes = new Map(meses.map((m) => [m, { investimento: 0, leads: 0 }]));
@@ -96,7 +91,7 @@ export async function obterMidia(ator: UsuarioAtual, filtros: FiltroCampanhas & 
   const leads = totalLeads(atual);
   const vendas = vendasDoMes._count;
   const vendido = centavos(vendasDoMes._sum.valorTotal);
-  const semTotais = filtrandoCampanhas(filtros);
+  const semTotais = filtrandoCampanhas(f);
   const nomePorCampanha = new Map(campanhasOpcoes.map((c) => [c.id, c]));
 
   return {

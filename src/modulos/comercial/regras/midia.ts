@@ -36,3 +36,16 @@ export function formatarRoas(r: number | null): string {
 export function totalLeads(l: { leadsFormulario: number; leadsSite: number; conversasIniciadas: number }): number {
   return l.leadsFormulario + l.leadsSite + l.conversasIniciadas;
 }
+
+/**
+ * Descarta conta e campanhas que não existem mais, são de conta desligada ou não
+ * pertencem à conta escolhida (link antigo, por exemplo), em vez de zerar tudo.
+ */
+export function filtrosValidos<F extends FiltroCampanhas>(
+  f: F,
+  validos: { contas: string[]; campanhas: { id: string; contaId: string }[] },
+): F {
+  const conta = f.conta && validos.contas.includes(f.conta) ? f.conta : undefined;
+  const permitidas = new Set(validos.campanhas.filter((c) => !conta || c.contaId === conta).map((c) => c.id));
+  return { ...f, conta, campanhas: f.campanhas.filter((id) => permitidas.has(id)) };
+}
