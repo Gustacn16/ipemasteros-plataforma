@@ -8,7 +8,8 @@ import { pilula } from "./estilos";
 type Opcao = { id: string; nome: string };
 
 /** Mês (◀ ▶), produto e vendedor na URL, em pílulas escuras. */
-export function FiltrosDashboard({ mes, produtos, vendedores }: { mes: string; produtos: Opcao[]; vendedores: Opcao[] | null }) {
+/** `produtos` e `vendedores` nulos escondem o filtro (a visão Mídia só usa o mês). */
+export function FiltrosDashboard({ mes, produtos, vendedores }: { mes: string; produtos: Opcao[] | null; vendedores: Opcao[] | null }) {
   const router = useRouter();
   const caminho = usePathname();
   const busca = useSearchParams();
@@ -51,7 +52,7 @@ export function FiltrosDashboard({ mes, produtos, vendedores }: { mes: string; p
           <ChevronRightIcon className="size-4" />
         </button>
       </div>
-      {seletor("produto", "Produto", "Todos os produtos", produtos)}
+      {produtos && seletor("produto", "Produto", "Todos os produtos", produtos)}
       {vendedores && seletor("vendedor", "Vendedor", "Todos os vendedores", vendedores)}
     </div>
   );
