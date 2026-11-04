@@ -160,6 +160,15 @@ describe("importarMetaAds", () => {
     expect(pedidos).not.toContain("act_A:2026-01-01"); // A já tem o histórico completo: só os últimos 7 dias
   });
 
+  it("chave sem contas atribuídas: conclui com o aviso do que fazer", async () => {
+    const semContas: ClienteMeta = { ...clienteFalso(), listarContas: async () => [] };
+    const r = await importarMetaAds({ origem: "manual", agora: AGORA, cliente: semContas });
+    expect(r.status).toBe("concluida");
+    expect(banco.estado.importacoes.at(-1)?.erro).toBe(
+      "Nenhuma conta de anúncio encontrada para esta chave. No Business Manager, atribua as contas de anúncio ao usuário do sistema.",
+    );
+  });
+
   it("recusa enquanto outra importação roda; depois de 30 minutos, a antiga vira interrompida", async () => {
     banco.estado.importacoes.push({
       id: "antiga",

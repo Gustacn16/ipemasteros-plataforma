@@ -27,6 +27,14 @@ function situacao(s: SituacaoIntegracao): { rotulo: string; cor: string; detalhe
       detalhe: "Falta colocar a chave META_ACCESS_TOKEN na Hostinger.",
     };
   const ultima = s.importacoes.find((i) => i.status !== "em_andamento");
+  if (ultima?.status === "concluida" && s.contas.length === 0) {
+    return {
+      rotulo: "Sem contas",
+      cor: "bg-amber-100 text-amber-800",
+      detalhe:
+        'A chave funciona, mas não enxerga nenhuma conta de anúncio. Atribua as contas ao usuário do sistema no Business Manager e clique em "Atualizar agora".',
+    };
+  }
   if (ultima?.status === "falhou" && ultima.erro?.includes("chave de acesso")) {
     return {
       rotulo: "Chave inválida",

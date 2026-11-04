@@ -4,6 +4,9 @@ import { diaEmSaoPaulo } from "@/modulos/tarefas/regras/prazo";
 import { centavosDoGasto, lerLeads, periodosImportacao, podeIniciarImportacao } from "../regras/meta-ads";
 import { type ClienteMeta, ErroMeta, criarClienteMeta } from "./meta-graph";
 
+/** A chave funciona, mas o usuário do sistema não tem contas de anúncio atribuídas. */
+export const MENSAGEM_SEM_CONTAS =
+  "Nenhuma conta de anúncio encontrada para esta chave. No Business Manager, atribua as contas de anúncio ao usuário do sistema.";
 const MAX_TIPOS_IGNORADOS = 20;
 const LIMITE_EM_ANDAMENTO_MS = 30 * 60_000;
 const dataDoDia = (dia: string) => new Date(`${dia}T00:00:00Z`);
@@ -80,6 +83,7 @@ export async function executarImportacao({
   const ignorados = new Set<string>();
   try {
     const contas = await cliente.listarContas();
+    if (contas.length === 0) erros.push(MENSAGEM_SEM_CONTAS);
     for (const c of contas) {
       await prisma.contaAnuncio.upsert({
         where: { idExterno: c.id },
