@@ -102,3 +102,9 @@ Cada entrega é publicada na branch `teste` e validada pelo usuário antes da se
 - **Nomes de `actions` que mudam:** se a Meta renomear um tipo de lead, os leads caem para zero sem erro. A tela da integração mostra, da última importação, os tipos de `actions` recebidos que não foram contados, para facilitar o ajuste.
 - **Segredo do cron no comando:** o comando do cron guarda o `CRON_SECRET` em texto no painel da Hostinger. Quem acessa o painel já acessa as variáveis de ambiente, então o risco não aumenta. O segredo pode ser trocado a qualquer momento.
 - **CAC e ROAS distorcidos:** vendas registradas fora do sistema não entram. A regra de corte em 2026-11-01 e o "—" evitam números enganosos no histórico.
+
+## 12. Mudanças de 2026-11-04 (pedidas pelo usuário)
+- A entrega 3 virou uma **visão Mídia** própria no dashboard (seletor "Vendas | Mídia"), em vez de uma faixa de cartões na visão de vendas.
+- **Filtros de campanha** na visão Mídia: conta de anúncio, uma ou mais campanhas, busca pelo nome e situação (ativas ou pausadas). Com filtro de campanha, CAC e ROAS mostram "—".
+- A entrega 2 (atribuição a produto) foi adiada; até lá, a tabela da visão Mídia é por campanha e o filtro por produto não vale para a mídia.
+- Plano: `docs/superpowers/plans/2026-11-04-meta-ads-3-dashboard-midia.md`.
