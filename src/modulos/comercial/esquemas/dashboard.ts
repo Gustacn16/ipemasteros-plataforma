@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CATEGORIAS_CAMPANHA } from "../regras/midia";
 import { esquemaMes } from "./meta";
 
 const filtroOpcional = z
@@ -39,5 +40,6 @@ export const esquemaFiltrosDashboard = (agora: Date) =>
       .catch(undefined)
       .transform((v) => v?.trim() || undefined),
     situacao: z.enum(["todas", "ativas", "pausadas"]).catch("todas"),
+    categoria: z.enum(CATEGORIAS_CAMPANHA).optional().catch(undefined),
   });
 export type FiltrosDashboard = z.infer<ReturnType<typeof esquemaFiltrosDashboard>>;

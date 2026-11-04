@@ -4,7 +4,19 @@ import { prisma } from "@/lib/prisma";
 import type { UsuarioAtual } from "@/lib/sessao";
 import { mesesDaJanela, variacao } from "../regras/dashboard";
 import { mesAnterior, mesSeguinte, primeiroDiaDoMes } from "../regras/meta";
-import { type FiltroCampanhas, cac, custoPorLead, filtrandoCampanhas, filtrosValidos, roas, totalLeads } from "../regras/midia";
+import {
+  CATEGORIAS_CAMPANHA,
+  type FiltroCampanhas,
+  cac,
+  categoriaDaCampanha,
+  cpc,
+  ctr,
+  custoPorLead,
+  filtrandoCampanhas,
+  filtrosValidos,
+  roas,
+  totalLeads,
+} from "../regras/midia";
 import { exigirPermissaoComercial } from "./acesso";
 
 const MESES_DA_SERIE = 12;
@@ -60,15 +72,42 @@ export async function obterMidia(ator: UsuarioAtual, filtros: FiltroCampanhas & 
       campanha: filtroCampanha,
       ...(f.campanhas.length ? { campanhaId: { in: f.campanhas } } : {}),
     },
-    select: { campanhaId: true, data: true, investimento: true, leadsFormulario: true, leadsSite: true, conversasIniciadas: true },
+    select: {
+      campanhaId: true,
+      data: true,
+      investimento: true,
+      impressoes: true,
+      cliquesLink: true,
+      visitasPerfil: true,
+      leadsFormulario: true,
+      leadsSite: true,
+      conversasIniciadas: true,
+    },
   });
+
+  // Categoria pelo nome. O bloco "Por categoria" mostra todas (com os demais filtros);
+  // o resto da tela respeita a categoria escolhida.
+  const categoriaPorCampanha = new Map(campanhasOpcoes.map((c) => [c.id, categoriaDaCampanha(c.nome)]));
+  const porCategoria = new Map(
+    CATEGORIAS_CAMPANHA.map((c) => [c, { investimento: 0, leads: 0, impressoes: 0, cliquesLink: 0, visitasPerfil: 0 }]),
+  );
+  for (const m of metricas) {
+    if (mesDaData(m.data) !== mes) continue;
+    const g = porCategoria.get(categoriaPorCampanha.get(m.campanhaId) ?? "outras")!;
+    g.investimento += centavos(m.investimento);
+    g.leads += totalLeads(m);
+    g.impressoes += m.impressoes;
+    g.cliquesLink += m.cliquesLink;
+    g.visitasPerfil += m.visitasPerfil;
+  }
+  const daCategoria = f.categoria ? metricas.filter((m) => categoriaPorCampanha.get(m.campanhaId) === f.categoria) : metricas;
 
   // Série mês a mês (zero nos meses sem investimento) e totais por campanha no mês do filtro.
   const porMes = new Map(meses.map((m) => [m, { investimento: 0, leads: 0 }]));
   const atual = { investimento: 0, leadsFormulario: 0, leadsSite: 0, conversasIniciadas: 0 };
   let investimentoAnterior = 0;
   const porCampanha = new Map<string, { investimento: number; leads: number }>();
-  for (const m of metricas) {
+  for (const m of daCategoria) {
     const mesDaMetrica = mesDaData(m.data);
     const investimento = centavos(m.investimento);
     const leads = totalLeads(m);
@@ -125,6 +164,21 @@ export async function obterMidia(ator: UsuarioAtual, filtros: FiltroCampanhas & 
         cpl: custoPorLead(c.investimento, c.leads),
       }))
       .sort((a, b) => Number(b.investimento) - Number(a.investimento) || a.nome.localeCompare(b.nome, "pt-BR")),
+    categoria: f.categoria ?? null,
+    porCategoria: CATEGORIAS_CAMPANHA.map((categoria) => {
+      const g = porCategoria.get(categoria)!;
+      return {
+        categoria,
+        investimento: reais(g.investimento),
+        leads: g.leads,
+        cpl: custoPorLead(g.investimento, g.leads),
+        impressoes: g.impressoes,
+        cliquesLink: g.cliquesLink,
+        ctr: ctr(g.cliquesLink, g.impressoes),
+        cpc: cpc(g.investimento, g.cliquesLink),
+        visitasPerfil: g.visitasPerfil,
+      };
+    }).filter((g) => Number(g.investimento) > 0 || g.leads > 0 || g.impressoes > 0),
     opcoes: { contas, campanhas: campanhasOpcoes.map((c) => ({ id: c.id, nome: c.nome, contaId: c.contaId, status: c.status })) },
   };
 }

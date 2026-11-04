@@ -2,11 +2,12 @@ import Link from "next/link";
 import { formatarReais } from "@/lib/dinheiro";
 import { cn } from "@/lib/utils";
 import { tomVariacao } from "../../../regras/dashboard";
-import { formatarRoas } from "../../../regras/midia";
+import { ROTULO_CATEGORIA, formatarRoas, type CategoriaCampanha } from "../../../regras/midia";
 import type { DadosMidia } from "../../../servicos/dashboard-midia";
 import { cartao, textoApagado, tituloCartao } from "../estilos";
 import { FiltrosMidia } from "./filtros-midia";
 import { GraficoMidia } from "./grafico-midia";
+import { PorCategoria } from "./por-categoria";
 
 const formatoDataHora = new Intl.DateTimeFormat("pt-BR", {
   timeZone: "America/Sao_Paulo",
@@ -33,7 +34,15 @@ function Numero({ rotulo, valor, children }: { rotulo: string; valor: React.Reac
 }
 
 /** Visão Mídia do dashboard: números do Meta Ads no mês, gráfico e tabela por campanha. */
-export function PainelMidia({ dados, hrefCampanha }: { dados: DadosMidia; hrefCampanha: (id: string) => string }) {
+export function PainelMidia({
+  dados,
+  hrefCampanha,
+  hrefCategoria,
+}: {
+  dados: DadosMidia;
+  hrefCampanha: (id: string) => string;
+  hrefCategoria: (categoria: CategoriaCampanha | null) => string;
+}) {
   const n = dados.numeros;
   const tom = tomVariacao(n.variacaoInvestimento);
   const dicaTotais = dados.filtrando ? "Só no total, sem filtro de campanha" : undefined;
@@ -55,6 +64,14 @@ export function PainelMidia({ dados, hrefCampanha }: { dados: DadosMidia; hrefCa
           O filtro por produto chega com a ligação de campanhas a produtos.
         </p>
         <FiltrosMidia contas={dados.opcoes.contas} campanhas={dados.opcoes.campanhas} />
+        {dados.categoria && (
+          <p className="text-sm text-white">
+            Categoria: <strong>{ROTULO_CATEGORIA[dados.categoria]}</strong>{" "}
+            <Link href={hrefCategoria(null)} scroll={false} className="text-white/70 underline hover:text-white">
+              tirar
+            </Link>
+          </p>
+        )}
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
@@ -126,6 +143,8 @@ export function PainelMidia({ dados, hrefCampanha }: { dados: DadosMidia; hrefCa
           </div>
         )}
       </section>
+
+      <PorCategoria dados={dados} hrefCategoria={hrefCategoria} />
     </div>
   );
 }

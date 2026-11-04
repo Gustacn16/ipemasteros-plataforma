@@ -20,6 +20,7 @@ describe("filtrandoCampanhas", () => {
     expect(filtrandoCampanhas({ campanhas: ["x"], situacao: "todas" })).toBe(true);
     expect(filtrandoCampanhas({ busca: "capilar", campanhas: [], situacao: "todas" })).toBe(true);
     expect(filtrandoCampanhas({ campanhas: [], situacao: "ativas" })).toBe(true);
+    expect(filtrandoCampanhas({ campanhas: [], situacao: "todas", categoria: "psiquiatria" })).toBe(true);
   });
 });
 

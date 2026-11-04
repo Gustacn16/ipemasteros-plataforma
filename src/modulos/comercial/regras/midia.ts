@@ -3,11 +3,17 @@
 /** Mês em que as vendas passaram a ser registradas no sistema: antes dele, CAC e ROAS não fazem sentido. */
 export const INICIO_VENDAS_NO_SISTEMA = "2026-11";
 
-export type FiltroCampanhas = { conta?: string; campanhas: string[]; busca?: string; situacao: "todas" | "ativas" | "pausadas" };
+export type FiltroCampanhas = {
+  conta?: string;
+  campanhas: string[];
+  busca?: string;
+  situacao: "todas" | "ativas" | "pausadas";
+  categoria?: CategoriaCampanha;
+};
 
 /** Com filtro de campanha, CAC e ROAS ficam de fora: as vendas não estão ligadas a uma campanha. */
 export function filtrandoCampanhas(f: FiltroCampanhas): boolean {
-  return Boolean(f.conta) || f.campanhas.length > 0 || Boolean(f.busca) || f.situacao !== "todas";
+  return Boolean(f.conta) || f.campanhas.length > 0 || Boolean(f.busca) || f.situacao !== "todas" || Boolean(f.categoria);
 }
 
 const reais = (c: number) => (c / 100).toFixed(2);

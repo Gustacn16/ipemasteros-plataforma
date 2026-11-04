@@ -10,7 +10,7 @@ import { pilula } from "../estilos";
 type Conta = { id: string; nome: string };
 type Campanha = { id: string; nome: string; contaId: string; status: string };
 
-const CHAVES = ["conta", "campanhas", "busca", "situacao"] as const;
+const CHAVES = ["conta", "campanhas", "busca", "situacao", "categoria"] as const;
 
 /** Filtros de campanha da visão Mídia, na URL: conta, campanhas (lista), busca pelo nome e situação. */
 export function FiltrosMidia({ contas, campanhas }: { contas: Conta[]; campanhas: Campanha[] }) {

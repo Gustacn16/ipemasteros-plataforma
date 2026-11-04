@@ -23,6 +23,7 @@ export default async function PaginaDashboard({ searchParams }: PageProps<"/come
     campanhas: texto(busca.campanhas),
     busca: texto(busca.busca),
     situacao: texto(busca.situacao),
+    categoria: texto(busca.categoria),
   });
   // Mídia só para quem vê marketing; os demais ficam sempre na visão de vendas.
   const veMidia = temPermissao(usuario.papel, "comercial:ver_marketing");
@@ -34,8 +35,22 @@ export default async function PaginaDashboard({ searchParams }: PageProps<"/come
     naMidia ? obterMidia(usuario, filtros) : Promise.resolve(null),
   ]);
   const comMes = (extra: Record<string, string>) => `/comercial?${new URLSearchParams({ mes: filtros.mes, ...extra })}`;
+  // Link de categoria mantém os outros filtros da mídia na URL.
+  const filtrosMidia = Object.fromEntries(
+    Object.entries({
+      conta: filtros.conta,
+      campanhas: filtros.campanhas.join(","),
+      busca: filtros.busca,
+      situacao: filtros.situacao === "todas" ? undefined : filtros.situacao,
+    }).filter((e): e is [string, string] => Boolean(e[1])),
+  );
   const links = veMidia
-    ? { vendas: comMes({}), midia: comMes({ visao: "midia" }), campanha: (id: string) => comMes({ visao: "midia", campanhas: id }) }
+    ? {
+        vendas: comMes({}),
+        midia: comMes({ visao: "midia" }),
+        campanha: (id: string) => comMes({ visao: "midia", campanhas: id }),
+        categoria: (categoria: string | null) => comMes({ visao: "midia", ...filtrosMidia, ...(categoria ? { categoria } : {}) }),
+      }
     : null;
   return (
     <PainelDashboard

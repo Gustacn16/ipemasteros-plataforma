@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import type { DadosDashboard } from "../../servicos/dashboard";
+import type { CategoriaCampanha } from "../../regras/midia";
 import type { DadosMidia } from "../../servicos/dashboard-midia";
 import { CartoesNumeros } from "./cartoes-numeros";
 import { FiltrosDashboard } from "./filtros-dashboard";
@@ -21,7 +22,12 @@ type Props = {
   /** Só chega preenchido para quem tem `comercial:ver_marketing` e está na visão Mídia. */
   midia: DadosMidia | null;
   /** Links do seletor "Vendas | Mídia"; `null` quando a pessoa não vê mídia. */
-  links: { vendas: string; midia: string; campanha: (id: string) => string } | null;
+  links: {
+    vendas: string;
+    midia: string;
+    campanha: (id: string) => string;
+    categoria: (categoria: CategoriaCampanha | null) => string;
+  } | null;
 };
 
 export function PainelDashboard({ dados, produtos, vendedores, midia, links }: Props) {
@@ -52,7 +58,11 @@ export function PainelDashboard({ dados, produtos, vendedores, midia, links }: P
           </div>
           <FiltrosDashboard mes={dados.mes} produtos={midia ? null : produtos} vendedores={!midia && dados.equipe ? vendedores : null} />
         </div>
-        {midia && links ? <PainelMidia dados={midia} hrefCampanha={links.campanha} /> : <ConteudoVendas dados={dados} />}
+        {midia && links ? (
+          <PainelMidia dados={midia} hrefCampanha={links.campanha} hrefCategoria={links.categoria} />
+        ) : (
+          <ConteudoVendas dados={dados} />
+        )}
       </div>
     </div>
   );

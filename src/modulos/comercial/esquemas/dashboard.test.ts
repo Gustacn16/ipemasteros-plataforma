@@ -42,3 +42,11 @@ describe("filtros da visão Mídia", () => {
     expect(ler({ busca: " Capilar " }).busca).toBe("Capilar");
   });
 });
+
+describe("filtro de categoria", () => {
+  it("aceita as categorias conhecidas e ignora o resto", () => {
+    expect(esquemaFiltrosDashboard(agora).parse({ categoria: "psiquiatria" }).categoria).toBe("psiquiatria");
+    expect(esquemaFiltrosDashboard(agora).parse({ categoria: "xyz" }).categoria).toBeUndefined();
+    expect(esquemaFiltrosDashboard(agora).parse({}).categoria).toBeUndefined();
+  });
+});
