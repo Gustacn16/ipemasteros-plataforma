@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cac, custoPorLead, filtrandoCampanhas, filtrosValidos, formatarRoas, roas, totalLeads } from "./midia";
+import { cac, campanhasDaLista, custoPorLead, filtrandoCampanhas, filtrosValidos, formatarRoas, roas, totalLeads } from "./midia";
 
 describe("filtrandoCampanhas", () => {
   it("só quando algum filtro de campanha está ativo", () => {
@@ -55,5 +55,23 @@ describe("filtrosValidos", () => {
 
   it("com conta escolhida, só ficam as campanhas dela", () => {
     expect(filtrosValidos({ conta: "a2", campanhas: ["c1", "c2"], situacao: "todas" }, validos).campanhas).toEqual(["c2"]);
+  });
+});
+
+describe("campanhasDaLista", () => {
+  const campanhas = [
+    { id: "1", nome: "Zeta", status: "PAUSED" },
+    { id: "2", nome: "Beta", status: "ACTIVE" },
+    { id: "3", nome: "Alfa", status: "PAUSED" },
+    { id: "4", nome: "Gama", status: "ACTIVE" },
+  ];
+
+  it("ativas primeiro, depois as pausadas, cada grupo em ordem de nome", () => {
+    expect(campanhasDaLista(campanhas, "todas").map((c) => c.nome)).toEqual(["Beta", "Gama", "Alfa", "Zeta"]);
+  });
+
+  it("respeita a situação escolhida", () => {
+    expect(campanhasDaLista(campanhas, "ativas").map((c) => c.nome)).toEqual(["Beta", "Gama"]);
+    expect(campanhasDaLista(campanhas, "pausadas").map((c) => c.nome)).toEqual(["Alfa", "Zeta"]);
   });
 });

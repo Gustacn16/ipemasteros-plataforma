@@ -49,3 +49,11 @@ export function filtrosValidos<F extends FiltroCampanhas>(
   const permitidas = new Set(validos.campanhas.filter((c) => !conta || c.contaId === conta).map((c) => c.id));
   return { ...f, conta, campanhas: f.campanhas.filter((id) => permitidas.has(id)) };
 }
+
+/** Lista do filtro de campanhas: ativas primeiro (cada grupo em ordem de nome), respeitando a situação escolhida. */
+export function campanhasDaLista<C extends { nome: string; status: string }>(campanhas: C[], situacao: FiltroCampanhas["situacao"]): C[] {
+  const ativa = (c: C) => c.status === "ACTIVE";
+  return campanhas
+    .filter((c) => situacao === "todas" || (situacao === "ativas" ? ativa(c) : !ativa(c)))
+    .sort((a, b) => Number(ativa(b)) - Number(ativa(a)) || a.nome.localeCompare(b.nome, "pt-BR"));
+}

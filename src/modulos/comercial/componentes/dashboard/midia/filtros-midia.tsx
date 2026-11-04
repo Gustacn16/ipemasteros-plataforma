@@ -4,6 +4,7 @@ import { ChevronDownIcon, XIcon } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { type FiltroCampanhas, campanhasDaLista } from "../../../regras/midia";
 import { pilula } from "../estilos";
 
 type Conta = { id: string; nome: string };
@@ -40,7 +41,8 @@ export function FiltrosMidia({ contas, campanhas }: { contas: Conta[]; campanhas
     definir({ campanhas: novas.join(",") || null });
   }
 
-  const visiveis = campanhas.filter(
+  const situacao = (busca.get("situacao") ?? "todas") as FiltroCampanhas["situacao"];
+  const visiveis = campanhasDaLista(campanhas, situacao).filter(
     (c) => (!conta || c.contaId === conta) && c.nome.toLocaleLowerCase("pt-BR").includes(procura.trim().toLocaleLowerCase("pt-BR")),
   );
   const opcao = "bg-[#1b1e22]";
