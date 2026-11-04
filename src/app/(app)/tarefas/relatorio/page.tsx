@@ -52,7 +52,7 @@ export default async function PaginaRelatorio({ searchParams }: PageProps<"/tare
   const linhasTabela: LinhaRelatorio[] = equipe ? linhas : [eu];
 
   return (
-    <div className="grid max-w-5xl gap-6">
+    <div className="grid max-w-5xl grid-cols-1 gap-6">
       <div className="grid gap-2">
         <CabecalhoPagina
           titulo="Relatório"

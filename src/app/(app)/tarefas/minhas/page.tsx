@@ -4,7 +4,6 @@ import { CalendarClock, CalendarRange, CalendarX, ListChecks } from "lucide-reac
 import { CabecalhoPagina } from "@/componentes/cabecalho-pagina";
 import { CartaoNumero } from "@/componentes/cartao-numero";
 import { EstadoVazio } from "@/componentes/estado-vazio";
-import { buttonVariants } from "@/componentes/ui/button";
 import { exigirPermissaoPagina } from "@/lib/sessao";
 import { BotaoConcluir } from "@/modulos/tarefas/componentes/botao-concluir";
 import { ChipPrazo, ChipStatus } from "@/modulos/tarefas/componentes/chips-tarefa";
@@ -40,12 +39,7 @@ export default async function PaginaMinhasTarefas() {
         <EstadoVazio
           icone={ListChecks}
           titulo="Nada atribuído a você"
-          descricao="Quando alguém atribuir uma tarefa a você, ela aparece aqui."
-          acao={
-            <Link href="/tarefas" className={buttonVariants({ variant: "outline" })}>
-              Ver espaços e listas
-            </Link>
-          }
+          descricao="Quando alguém te atribuir uma tarefa, ela aparece aqui."
         />
       )}
 
@@ -67,7 +61,7 @@ export default async function PaginaMinhasTarefas() {
                       </span>
                     </span>
                   </span>
-                  <span className="flex shrink-0 flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-2">
+                  <span className="flex min-w-0 max-w-[55%] flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-2">
                     <ChipPrazo dataEntrega={t.dataEntrega} agora={agora} />
                     <ChipStatus nome={t.status.nome} cor={t.status.cor} />
                   </span>

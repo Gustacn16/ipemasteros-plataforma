@@ -72,7 +72,7 @@ export function PodioEGrafico({ podio, serie }: { podio: ItemPodio[]; serie: Pon
   const mensal = serie.some((b) => !/^\d/.test(b.rotulo));
   const vazio = serie.every((b) => b.noPrazo + b.atrasadas + b.semData === 0);
   return (
-    <div className={cn("grid gap-3", podio.length > 0 && "lg:grid-cols-2")}>
+    <div className={cn("grid grid-cols-1 gap-3", podio.length > 0 && "lg:grid-cols-2")}>
       {podio.length > 0 && (
         <section aria-labelledby="titulo-podio" className={cn(cartao, "min-w-0")}>
           <div>
