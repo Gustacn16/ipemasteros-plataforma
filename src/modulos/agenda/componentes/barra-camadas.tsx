@@ -8,8 +8,6 @@ import { gravarCookie } from "@/lib/cookie-navegador";
 import { cn } from "@/lib/utils";
 import { COOKIE_FILTRO, type FiltroAgenda } from "../esquemas/agenda";
 
-const COR_TAREFA = "#5F45F4";
-
 /** Salva camadas e visão no cookie e recarrega a tela. `null` limpa tudo. */
 export function useAplicarFiltroAgenda() {
   const router = useRouter();
@@ -33,7 +31,7 @@ type Props = {
 };
 
 const chip =
-  "inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 outline-none";
+  "inline-flex h-7 max-w-full min-w-0 items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 outline-none";
 
 /** Camadas da agenda: tipos de evento da IPEMaster, turma, Minhas tarefas e as agendas pessoais. Ficam salvas até Limpar. */
 export function BarraCamadas({ filtro, tipos, agendas = [], turmas, mostrarInstitucional, mostrarTarefas }: Props) {
@@ -58,8 +56,8 @@ export function BarraCamadas({ filtro, tipos, agendas = [], turmas, mostrarInsti
   }
 
   return (
-    <div role="group" aria-label="Camadas" className={cn("flex flex-wrap items-center gap-2", pendente && "opacity-60")}>
-      <LayersIcon className="text-muted-foreground size-4" aria-hidden />
+    <div role="group" aria-label="Camadas" className={cn("flex min-w-0 flex-wrap items-center gap-2", pendente && "opacity-60")}>
+      <LayersIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
       {mostrarInstitucional && (
         <>
           <span className="text-muted-foreground text-xs font-medium">IPEMaster</span>
@@ -74,11 +72,11 @@ export function BarraCamadas({ filtro, tipos, agendas = [], turmas, mostrarInsti
                 disabled={pendente || unico}
                 title={unico ? "Deixe ao menos um tipo ligado" : undefined}
                 onClick={() => alternarTipo(t.id)}
-                className={cn(chip, on ? "bg-background" : "text-muted-foreground border-dashed opacity-70 hover:opacity-100", unico && "cursor-default")}
+                className={cn(chip, on ? "bg-card" : "text-muted-foreground border-dashed opacity-70 hover:opacity-100", unico && "cursor-default")}
                 style={on ? { borderColor: `color-mix(in oklab, ${t.cor} 55%, var(--border))` } : undefined}
               >
-                <span className="size-2.5 rounded-full" style={on ? { backgroundColor: t.cor } : { boxShadow: `inset 0 0 0 1.5px ${t.cor}` }} aria-hidden />
-                {t.nome}
+                <span className="size-2.5 shrink-0 rounded-full" style={on ? { backgroundColor: t.cor } : { boxShadow: `inset 0 0 0 1.5px ${t.cor}` }} aria-hidden />
+                <span className="truncate">{t.nome}</span>
               </button>
             );
           })}
@@ -86,8 +84,8 @@ export function BarraCamadas({ filtro, tipos, agendas = [], turmas, mostrarInsti
             <select
               aria-label="Turma"
               className={cn(
-                "border-input bg-background h-7 max-w-44 rounded-full border px-2.5 text-xs",
-                filtro.turma && "border-[#5F45F4] font-medium",
+                "border-input bg-card h-7 max-w-44 min-w-0 rounded-full border px-2.5 text-xs dark:scheme-dark",
+                filtro.turma && "border-primary font-medium",
               )}
               value={filtro.turma ?? ""}
               disabled={pendente}
@@ -109,10 +107,9 @@ export function BarraCamadas({ filtro, tipos, agendas = [], turmas, mostrarInsti
           aria-pressed={filtro.tarefas}
           disabled={pendente}
           onClick={() => aplicar({ ...filtro, tarefas: !filtro.tarefas })}
-          className={cn(chip, filtro.tarefas ? "bg-background" : "text-muted-foreground border-dashed opacity-70 hover:opacity-100")}
-          style={filtro.tarefas ? { borderColor: `color-mix(in oklab, ${COR_TAREFA} 55%, var(--border))` } : undefined}
+          className={cn(chip, filtro.tarefas ? "bg-card border-primary" : "text-muted-foreground border-dashed opacity-70 hover:opacity-100")}
         >
-          <CheckSquareIcon className="size-3.5" style={{ color: COR_TAREFA }} aria-hidden />
+          <CheckSquareIcon className="text-primary size-3.5" aria-hidden />
           Minhas tarefas
         </button>
       )}
@@ -128,11 +125,11 @@ export function BarraCamadas({ filtro, tipos, agendas = [], turmas, mostrarInsti
                 aria-pressed={on}
                 disabled={pendente}
                 onClick={() => alternarAgenda(a.id)}
-                className={cn(chip, "border-dashed", on ? "bg-background" : "text-muted-foreground opacity-70 hover:opacity-100")}
+                className={cn(chip, "border-dashed", on ? "bg-card" : "text-muted-foreground opacity-70 hover:opacity-100")}
                 style={on ? { borderColor: `color-mix(in oklab, ${a.cor} 55%, var(--border))` } : undefined}
               >
-                <span className="size-2.5 rounded-full" style={on ? { backgroundColor: a.cor } : { boxShadow: `inset 0 0 0 1.5px ${a.cor}` }} aria-hidden />
-                {a.nome}
+                <span className="size-2.5 shrink-0 rounded-full" style={on ? { backgroundColor: a.cor } : { boxShadow: `inset 0 0 0 1.5px ${a.cor}` }} aria-hidden />
+                <span className="truncate">{a.nome}</span>
               </button>
             );
           })}

@@ -25,7 +25,7 @@ export function VisaoMes({ data, itens, hoje, hrefDia }: Props) {
   const envoltos = paraFaixas(itens);
 
   return (
-    <div className="overflow-hidden rounded-lg border">
+    <div className="bg-card min-w-0 overflow-hidden rounded-xl border">
       <div className="bg-muted/40 grid grid-cols-7 border-b">
         {DIAS_SEMANA.map((d) => (
           <div key={d} className="text-muted-foreground px-1 py-1.5 text-center text-xs font-medium sm:px-2 sm:text-left">
@@ -47,7 +47,7 @@ export function VisaoMes({ data, itens, hoje, hrefDia }: Props) {
               <div
                 key={`fundo-${dia}`}
                 aria-hidden
-                className={cn("border-r last:border-r-0", !doMes && "bg-muted/30", dia === hoje && "bg-[#5F45F4]/5 dark:bg-[#5F45F4]/10")}
+                className={cn("border-r last:border-r-0", !doMes && "bg-muted/30", dia === hoje && "bg-primary/5")}
                 style={{ gridColumn: i + 1, gridRow: "1 / -1" }}
               />
             ))}
@@ -59,7 +59,7 @@ export function VisaoMes({ data, itens, hoje, hrefDia }: Props) {
                   className={cn(
                     "inline-flex size-6 items-center justify-center rounded-full text-xs hover:bg-muted",
                     !doMes && "text-muted-foreground",
-                    dia === hoje && "bg-[#5F45F4] font-semibold text-white hover:bg-[#5F45F4]/90",
+                    dia === hoje && "bg-primary text-primary-foreground hover:bg-primary/90 font-semibold",
                   )}
                 >
                   {Number(dia.slice(8))}

@@ -1,6 +1,8 @@
-import { CalendarPlusIcon, CopyPlusIcon } from "lucide-react";
+import { CalendarCheckIcon, CalendarPlusIcon, CalendarRangeIcon, CheckSquareIcon, CopyPlusIcon, SettingsIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { CabecalhoPagina } from "@/componentes/cabecalho-pagina";
+import { CartaoNumero } from "@/componentes/cartao-numero";
 import { Button } from "@/componentes/ui/button";
 import { ErroNegocio } from "@/lib/erros";
 import { temPermissao } from "@/lib/permissoes";
@@ -19,6 +21,7 @@ import { VisaoSemana } from "@/modulos/agenda/componentes/visao-semana";
 import { intervaloDaVisao, tituloDoPeriodo } from "@/modulos/agenda/regras/disposicao";
 import { navegar } from "@/modulos/agenda/regras/periodo";
 import { itensPessoais } from "@/modulos/agenda/regras/pessoal";
+import { cobreResumo, contarNoIntervalo, fimDoResumo } from "@/modulos/agenda/regras/resumo";
 import { podeVerInstitucional } from "@/modulos/agenda/regras/visibilidade";
 import { eventosDasMinhasAgendas } from "@/modulos/agenda/servicos/agendas-externas";
 import { listarEventos, listarTurmas, obterEvento } from "@/modulos/agenda/servicos/eventos";
@@ -49,6 +52,9 @@ export default async function PaginaAgenda({ searchParams }: PageProps<"/agenda"
   const data = lerData(busca);
   const hoje = diaEmSaoPaulo(new Date());
   const { de, ate } = intervaloDaVisao(visao, data);
+  // Faixa de números: hoje a hoje+6. Se a visão já carrega esse intervalo, conta do que está na tela.
+  const fimResumo = fimDoResumo(hoje);
+  const resumoCarregado = cobreResumo({ de, ate }, hoje);
 
   const institucional = podeVerInstitucional(usuario.papel);
   const comTarefas = temPermissao(usuario.papel, "tarefas:usar");
@@ -56,7 +62,9 @@ export default async function PaginaAgenda({ searchParams }: PageProps<"/agenda"
   // Um painel por vez: o evento vence o formulário. Formulário só para quem edita.
   const idEvento = texto(busca.evento);
   const novo = !idEvento && podeEditar && (busca.novo === "evento" || busca.novo === "lote") ? busca.novo : null;
-  const [eventos, tarefas, tipos, turmas, detalhe, pessoal] = await Promise.all([
+  // As entregas da semana contam mesmo com a camada de tarefas desligada.
+  const tarefasForaDaTela = comTarefas && !(filtro.tarefas && resumoCarregado);
+  const [eventos, tarefas, tipos, turmas, detalhe, pessoal, resumo, tarefasResumo] = await Promise.all([
     institucional ? listarEventos(usuario, { de, ate, tipos: filtro.tipos, turma: filtro.turma }) : [],
     comTarefas && filtro.tarefas ? listarTarefasComEntrega(usuario, { de, ate }) : [],
     institucional ? listarTipos(usuario, { incluirInativos: false }) : [],
@@ -64,6 +72,14 @@ export default async function PaginaAgenda({ searchParams }: PageProps<"/agenda"
     idEvento && institucional ? detalheDoEvento(usuario, idEvento) : null,
     // Sem agendas ligadas, é uma consulta só, sem leitura de iCal. Uma agenda que falha vira aviso.
     eventosDasMinhasAgendas(usuario, de, ate, filtro.desligadas),
+    // Consulta extra só quando a visão não cobre hoje..hoje+6 (outro mês, semana já começada etc.).
+    resumoCarregado
+      ? null
+      : Promise.all([
+          institucional ? listarEventos(usuario, { de: hoje, ate: fimResumo, tipos: filtro.tipos, turma: filtro.turma }) : [],
+          eventosDasMinhasAgendas(usuario, hoje, fimResumo, filtro.desligadas),
+        ]),
+    tarefasForaDaTela ? listarTarefasComEntrega(usuario, { de: hoje, ate: fimResumo }) : null,
   ]);
 
   // O professor não abre listas: a tarefa leva a Minhas tarefas.
@@ -78,6 +94,21 @@ export default async function PaginaAgenda({ searchParams }: PageProps<"/agenda"
   ];
   const agendas = pessoal.agendas.map(({ id, nome, cor }) => ({ id, nome, cor }));
 
+  // "Hoje" e "Próximos 7 dias" contam os itens das camadas ligadas, como aparecem na tela.
+  const semLink = { evento: () => "", tarefa: () => "" };
+  const itensResumo = resumo
+    ? [
+        ...itensDaAgenda(resumo[0], filtro.tarefas ? (tarefasResumo ?? []) : [], semLink),
+        ...itensPessoais(resumo[1].eventos, resumo[1].agendas),
+      ]
+    : itens;
+  const entregas = tarefasResumo ? tarefasResumo.map((t) => ({ inicio: t.dataEntrega, fim: t.dataEntrega })) : itens.filter((i) => i.tipo === "tarefa");
+  const numeros = {
+    hoje: contarNoIntervalo(itensResumo, hoje, hoje),
+    proximos: contarNoIntervalo(itensResumo, hoje, fimResumo),
+    entregas: contarNoIntervalo(entregas, hoje, fimResumo),
+  };
+
   const semEvento = { evento: null, novo: null };
   const consulta = new URLSearchParams(
     Object.entries(busca).flatMap(([k, v]) => (typeof v === "string" ? [[k, v]] : [])),
@@ -86,33 +117,49 @@ export default async function PaginaAgenda({ searchParams }: PageProps<"/agenda"
   const hrefDia = (dia: string) => urlAgenda(busca, { ...semEvento, visao: "lista", data: dia });
 
   return (
-    <div className="grid gap-4">
+    <div className="grid min-w-0 grid-cols-1 gap-4">
       {!busca.visao && !filtro.visao && <VisaoPadraoCelular consulta={consulta} />}
+      <CabecalhoPagina
+        titulo="Agenda"
+        descricao={tituloDoPeriodo(visao, data)}
+        acoes={
+          <>
+            {podeEditar && (
+              <>
+                <Button asChild size="sm">
+                  <Link href={urlAgenda(busca, { evento: null, novo: "evento" })} scroll={false}>
+                    <CalendarPlusIcon /> Novo evento
+                  </Link>
+                </Button>
+                <Button asChild size="sm" variant="outline">
+                  <Link href={urlAgenda(busca, { evento: null, novo: "lote" })} scroll={false}>
+                    <CopyPlusIcon /> Lançar várias datas
+                  </Link>
+                </Button>
+              </>
+            )}
+            <Button asChild size="sm" variant="outline">
+              <Link href="/agenda/configuracoes">
+                <SettingsIcon /> Configurações
+              </Link>
+            </Button>
+          </>
+        }
+      />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <CartaoNumero rotulo="Hoje" icone={CalendarCheckIcon} valor={numeros.hoje} />
+        <CartaoNumero rotulo="Próximos 7 dias" icone={CalendarRangeIcon} valor={numeros.proximos} />
+        {comTarefas && <CartaoNumero rotulo="Suas entregas na semana" icone={CheckSquareIcon} valor={numeros.entregas} />}
+      </div>
       <CabecalhoAgenda
         visao={visao}
-        titulo={tituloDoPeriodo(visao, data)}
         filtro={filtro}
         consulta={consulta}
         hrefAnterior={urlAgenda(busca, { ...semEvento, data: navegar(visao, data, -1) })}
         hrefProximo={urlAgenda(busca, { ...semEvento, data: navegar(visao, data, 1) })}
         hrefHoje={urlAgenda(busca, { ...semEvento, data: null })}
         emHoje={data === hoje}
-      >
-        {podeEditar && (
-          <>
-            <Button asChild size="sm" variant="outline">
-              <Link href={urlAgenda(busca, { evento: null, novo: "lote" })} scroll={false}>
-                <CopyPlusIcon /> Lançar várias datas
-              </Link>
-            </Button>
-            <Button asChild size="sm">
-              <Link href={urlAgenda(busca, { evento: null, novo: "evento" })} scroll={false}>
-                <CalendarPlusIcon /> Novo evento
-              </Link>
-            </Button>
-          </>
-        )}
-      </CabecalhoAgenda>
+      />
       <BarraCamadas
         filtro={filtro}
         tipos={tipos}
@@ -124,7 +171,22 @@ export default async function PaginaAgenda({ searchParams }: PageProps<"/agenda"
       <AvisoAgendasComErro agendas={pessoal.agendas} />
       {visao === "mes" && <VisaoMes data={data} itens={itens} hoje={hoje} hrefDia={hrefDia} />}
       {visao === "semana" && <VisaoSemana data={data} itens={itens} hoje={hoje} />}
-      {visao === "lista" && <VisaoLista data={data} itens={itens} hoje={hoje} />}
+      {visao === "lista" && (
+        <VisaoLista
+          data={data}
+          itens={itens}
+          hoje={hoje}
+          acaoVazia={
+            podeEditar ? (
+              <Button asChild size="sm">
+                <Link href={urlAgenda(busca, { evento: null, novo: "evento" })} scroll={false}>
+                  <CalendarPlusIcon /> Novo evento
+                </Link>
+              </Button>
+            ) : undefined
+          }
+        />
+      )}
 
       {idEvento && (
         <PainelEvento

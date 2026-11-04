@@ -4,8 +4,10 @@ import { CalendarIcon, ClockIcon, EyeIcon, EyeOffIcon, MapPinIcon, PencilIcon, T
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition, type ReactNode } from "react";
+import { ChipSituacao } from "@/componentes/chip-situacao";
 import { Button } from "@/componentes/ui/button";
 import { avisar } from "@/modulos/tarefas/componentes/avisar";
+import { CLASSE_TITULO_SECAO } from "@/modulos/tarefas/componentes/exibicao";
 import { excluirEventoAcao } from "../acoes/agenda";
 import type { obterEvento } from "../servicos/eventos";
 import { FormularioEvento, type OpcaoTipo } from "./formulario-evento";
@@ -64,7 +66,7 @@ export function PainelLateral({
         className="bg-background relative flex h-full w-full flex-col overflow-y-auto shadow-xl sm:max-w-xl"
       >
         <div className="bg-background sticky top-0 z-10 flex items-center justify-between gap-2 border-b px-5 py-3">
-          <div id="titulo-painel" className="min-w-0 truncate text-sm">
+          <div id="titulo-painel" className="min-w-0 text-sm">
             {cabecalho}
           </div>
           <div className="flex shrink-0 gap-1">
@@ -74,7 +76,7 @@ export function PainelLateral({
             </Button>
           </div>
         </div>
-        <div className="p-5">{children}</div>
+        <div className="min-w-0 p-5">{children}</div>
       </aside>
     </div>
   );
@@ -126,9 +128,15 @@ export function PainelEvento({ dados, urlFechar, modeloUrlEvento, tipos, turmas 
   }
 
   const cabecalho = (
-    <span className="flex min-w-0 items-center gap-2">
-      <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: evento.tipo.cor }} aria-hidden />
-      <span className="text-muted-foreground truncate">{evento.tipo.nome}</span>
+    <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+      <ChipSituacao cor={evento.tipo.cor} tamanho="sm">
+        {evento.tipo.nome}
+      </ChipSituacao>
+      {evento.visivelProfessores && (
+        <ChipSituacao tom="informacao" icone={EyeIcon} tamanho="sm">
+          Visível para professores
+        </ChipSituacao>
+      )}
     </span>
   );
 
@@ -159,7 +167,10 @@ export function PainelEvento({ dados, urlFechar, modeloUrlEvento, tipos, turmas 
         <div className="grid grid-cols-1 gap-6">
           <h2 className="text-xl font-semibold tracking-tight break-words">{evento.titulo}</h2>
 
-          <div className="grid gap-3">
+          <section className="grid grid-cols-1 gap-3" aria-labelledby="titulo-detalhes">
+            <h3 id="titulo-detalhes" className={CLASSE_TITULO_SECAO}>
+              Detalhes
+            </h3>
             <Linha icone={<CalendarIcon />}>{datasPorExtenso(evento.dataInicio, evento.dataFim)}</Linha>
             <Linha icone={<ClockIcon />}>{horario(evento.horaInicio, evento.horaFim)}</Linha>
             {evento.turma && (
@@ -169,16 +180,13 @@ export function PainelEvento({ dados, urlFechar, modeloUrlEvento, tipos, turmas 
               </Linha>
             )}
             {evento.local && <Linha icone={<MapPinIcon />}>{evento.local}</Linha>}
-            <Linha icone={evento.visivelProfessores ? <EyeIcon /> : <EyeOffIcon />}>
-              {evento.visivelProfessores ? "Visível para professores" : "Não visível para professores"}
-            </Linha>
-          </div>
-
-          {evento.descricao && <p className="border-t pt-5 text-sm leading-relaxed whitespace-pre-wrap">{evento.descricao}</p>}
+            {!evento.visivelProfessores && <Linha icone={<EyeOffIcon />}>Não visível para professores</Linha>}
+            {evento.descricao && <p className="mt-2 text-sm leading-relaxed break-words whitespace-pre-wrap">{evento.descricao}</p>}
+          </section>
 
           {evento.doLote.length > 0 && (
             <section className="grid grid-cols-1 gap-2 border-t pt-5" aria-labelledby="titulo-lote">
-              <h3 id="titulo-lote" className="text-sm font-medium">
+              <h3 id="titulo-lote" className={CLASSE_TITULO_SECAO}>
                 Outras datas deste lote
               </h3>
               <ul className="grid grid-cols-1 gap-1">

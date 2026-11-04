@@ -18,7 +18,7 @@ export function VisaoSemana({ data, itens, hoje }: Props) {
   const colunas = "grid-cols-[3rem_repeat(7,minmax(0,1fr))]";
 
   return (
-    <div className="overflow-x-auto rounded-lg border">
+    <div className="bg-card min-w-0 overflow-x-auto rounded-xl border">
       <div className="min-w-[44rem]">
         {/* Cabeçalho dos dias */}
         <div className={cn("bg-muted/40 grid border-b", colunas)}>
@@ -29,7 +29,7 @@ export function VisaoSemana({ data, itens, hoje }: Props) {
               <span
                 className={cn(
                   "inline-flex size-7 items-center justify-center rounded-full text-sm font-medium",
-                  dia === hoje && "bg-[#5F45F4] text-white",
+                  dia === hoje && "bg-primary text-primary-foreground",
                 )}
               >
                 {Number(dia.slice(8))}
@@ -62,7 +62,7 @@ export function VisaoSemana({ data, itens, hoje }: Props) {
           {dias.map((dia) => (
             <div
               key={dia}
-              className={cn("relative border-l", dia === hoje && "bg-[#5F45F4]/5 dark:bg-[#5F45F4]/10")}
+              className={cn("relative border-l", dia === hoje && "bg-primary/5")}
               style={{
                 height: `calc(${ALTURA_HORA} * ${HORAS.length})`,
                 backgroundImage: `repeating-linear-gradient(to bottom, transparent 0, transparent calc(${ALTURA_HORA} - 1px), var(--border) calc(${ALTURA_HORA} - 1px), var(--border) ${ALTURA_HORA})`,

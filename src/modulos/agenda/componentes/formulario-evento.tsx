@@ -102,7 +102,7 @@ export function CamposFinais({ prefixo, erros, inicial }: { prefixo: string; err
         <textarea id={`${prefixo}-descricao`} name="descricao" rows={4} maxLength={5000} defaultValue={inicial?.descricao ?? ""} className={estiloCampo} />
       </Campo>
       <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" name="visivelProfessores" defaultChecked={inicial?.visivelProfessores ?? false} className="accent-[#5F45F4]" />
+        <input type="checkbox" name="visivelProfessores" defaultChecked={inicial?.visivelProfessores ?? false} className="accent-primary" />
         Visível para professores
       </label>
     </>
@@ -126,7 +126,7 @@ export function CamposHora({
   return (
     <div className="grid gap-3">
       <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" checked={diaInteiro} onChange={(e) => aoMudarDiaInteiro(e.target.checked)} className="accent-[#5F45F4]" />
+        <input type="checkbox" checked={diaInteiro} onChange={(e) => aoMudarDiaInteiro(e.target.checked)} className="accent-primary" />
         Dia inteiro
       </label>
       {!diaInteiro && (
@@ -149,6 +149,17 @@ export function CamposHora({
         </div>
       )}
       <ErroCampo mensagens={erros} />
+    </div>
+  );
+}
+
+/** Barra fixa de Salvar no celular (fica no pé do painel), ligada ao formulário por `form=`. */
+export function BarraSalvarCelular({ formulario, disabled, children }: { formulario: string; disabled: boolean; children: ReactNode }) {
+  return (
+    <div className="bg-background sticky bottom-0 z-10 -mx-5 -mb-5 border-t px-5 py-3 sm:hidden">
+      <Button type="submit" form={formulario} disabled={disabled} className="w-full">
+        {children}
+      </Button>
     </div>
   );
 }
@@ -192,6 +203,8 @@ export function FormularioEvento({ tipos, turmas, hoje, evento, urlFechar, aoTer
   const [dataInicio, setDataInicio] = useState(evento?.dataInicio ?? hoje ?? "");
   const [dataFim, setDataFim] = useState(evento?.dataFim ?? hoje ?? "");
   const prefixo = evento ? "editar-evento" : "novo-evento";
+  const idFormulario = `formulario-${prefixo}`;
+  const rotuloSalvar = pendente ? "Salvando…" : evento ? "Salvar alterações" : "Criar evento";
 
   const terminar = () => (aoTerminar ? aoTerminar() : router.push(urlFechar, { scroll: false }));
 
@@ -205,7 +218,7 @@ export function FormularioEvento({ tipos, turmas, hoje, evento, urlFechar, aoTer
   }
 
   return (
-    <form action={salvar} className="grid grid-cols-1 gap-4" noValidate>
+    <form id={idFormulario} action={salvar} className="grid min-w-0 grid-cols-1 gap-4" noValidate>
       <fieldset disabled={pendente} className="grid min-w-0 grid-cols-1 gap-4">
         <CampoTipo tipos={tipos} erros={erros} prefixo={prefixo} inicial={evento} />
         <Campo rotulo="Título" htmlFor={`${prefixo}-titulo`} erro={erros.titulo}>
@@ -248,12 +261,17 @@ export function FormularioEvento({ tipos, turmas, hoje, evento, urlFechar, aoTer
         <CamposTurmaLocal turmas={turmas} erros={erros} prefixo={prefixo} inicial={evento} />
         <CamposFinais prefixo={prefixo} erros={erros} inicial={evento} />
         <div className="flex flex-wrap gap-2 pt-1">
-          <Button type="submit">{pendente ? "Salvando…" : evento ? "Salvar alterações" : "Criar evento"}</Button>
+          <Button type="submit" className="hidden sm:inline-flex">
+            {rotuloSalvar}
+          </Button>
           <Button type="button" variant="ghost" onClick={terminar}>
             Cancelar
           </Button>
         </div>
       </fieldset>
+      <BarraSalvarCelular formulario={idFormulario} disabled={pendente}>
+        {rotuloSalvar}
+      </BarraSalvarCelular>
     </form>
   );
 }

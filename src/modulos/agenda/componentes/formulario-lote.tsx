@@ -10,6 +10,7 @@ import { somarDias } from "@/modulos/tarefas/regras/prazo";
 import { criarLoteAcao } from "../acoes/agenda";
 import { MAX_LOTE, periodoPadraoFimDeSemana, titulosDoLote } from "../regras/periodo";
 import {
+  BarraSalvarCelular,
   Campo,
   CampoTipo,
   CamposFinais,
@@ -21,6 +22,8 @@ import {
   type Erros,
   type OpcaoTipo,
 } from "./formulario-evento";
+
+const ID_FORMULARIO = "formulario-lote";
 
 type Linha = { chave: number; dataInicio: string; dataFim: string };
 
@@ -66,6 +69,7 @@ export function FormularioLote({ tipos, turmas, hoje, urlFechar, errosIniciais }
 
   const { porLinha, deHora } = separarErrosDoLote(erros);
   const cheio = linhas.length >= MAX_LOTE;
+  const rotuloSalvar = pendente ? "Lançando…" : `Lançar ${linhas.length} ${linhas.length === 1 ? "data" : "datas"}`;
 
   // Os títulos são numerados na ordem das datas: a prévia mostra o da data mais cedo.
   const primeira = [...linhas].sort((a, b) => a.dataInicio.localeCompare(b.dataInicio))[0];
@@ -114,7 +118,7 @@ export function FormularioLote({ tipos, turmas, hoje, urlFechar, errosIniciais }
   }
 
   return (
-    <form action={salvar} className="grid grid-cols-1 gap-4" noValidate>
+    <form id={ID_FORMULARIO} action={salvar} className="grid min-w-0 grid-cols-1 gap-4" noValidate>
       <fieldset disabled={pendente} className="grid min-w-0 grid-cols-1 gap-4">
         <CampoTipo tipos={tipos} erros={erros} prefixo="lote" />
         <Campo rotulo="Título" htmlFor="lote-titulo" erro={erros.titulo}>
@@ -122,7 +126,7 @@ export function FormularioLote({ tipos, turmas, hoje, urlFechar, errosIniciais }
         </Campo>
         <div className="grid gap-1">
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={numerar} onChange={(e) => setNumerar(e.target.checked)} className="accent-[#5F45F4]" />
+            <input type="checkbox" checked={numerar} onChange={(e) => setNumerar(e.target.checked)} className="accent-primary" />
             Numerar títulos
           </label>
           <p className="text-muted-foreground text-xs" aria-live="polite">
@@ -135,7 +139,7 @@ export function FormularioLote({ tipos, turmas, hoje, urlFechar, errosIniciais }
         <fieldset className="grid min-w-0 grid-cols-1 gap-2">
           <div className="flex items-baseline justify-between gap-2">
             <legend className="text-sm font-medium">Datas</legend>
-            <span className={cheio ? "text-sm font-medium text-[#5F45F4] dark:text-[#a99bff]" : "text-muted-foreground text-sm"} aria-live="polite">
+            <span className={cheio ? "text-perigo text-sm font-medium" : "text-muted-foreground text-sm"} aria-live="polite">
               {linhas.length} de {MAX_LOTE}
             </span>
           </div>
@@ -199,12 +203,17 @@ export function FormularioLote({ tipos, turmas, hoje, urlFechar, errosIniciais }
         <CamposFinais prefixo="lote" erros={erros} />
 
         <div className="flex flex-wrap gap-2 pt-1">
-          <Button type="submit">{pendente ? "Lançando…" : `Lançar ${linhas.length} ${linhas.length === 1 ? "data" : "datas"}`}</Button>
+          <Button type="submit" className="hidden sm:inline-flex">
+            {rotuloSalvar}
+          </Button>
           <Button type="button" variant="ghost" onClick={() => router.push(urlFechar, { scroll: false })}>
             Cancelar
           </Button>
         </div>
       </fieldset>
+      <BarraSalvarCelular formulario={ID_FORMULARIO} disabled={pendente}>
+        {rotuloSalvar}
+      </BarraSalvarCelular>
     </form>
   );
 }

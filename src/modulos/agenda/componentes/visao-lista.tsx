@@ -1,4 +1,9 @@
+import { CalendarDaysIcon } from "lucide-react";
+import type { ReactNode } from "react";
+import { ChipSituacao } from "@/componentes/chip-situacao";
+import { EstadoVazio } from "@/componentes/estado-vazio";
 import { cn } from "@/lib/utils";
+import { ChipPrazo } from "@/modulos/tarefas/componentes/chips-tarefa";
 import { DIAS_LISTA, agruparPorDia } from "../regras/disposicao";
 import { Clicavel, IconeItem, rotuloHora, type ItemAgenda } from "./item-agenda";
 
@@ -16,24 +21,32 @@ function rotuloQuando(item: ItemAgenda): string {
   return `${de} a ${ate}`;
 }
 
-type Props = { data: string; itens: ItemAgenda[]; hoje: string };
+type Props = {
+  data: string;
+  itens: ItemAgenda[];
+  hoje: string;
+  /** Ação da tela vazia ("Novo evento"), só para quem edita. */
+  acaoVazia?: ReactNode;
+  /** Só para a prévia visual: fixa o "agora" do chip de prazo. */
+  agora?: Date;
+};
 
 /** Próximos 60 dias a partir de `data`, agrupados por dia. Dias vazios ficam de fora. */
-export function VisaoLista({ data, itens, hoje }: Props) {
+export function VisaoLista({ data, itens, hoje, acaoVazia, agora }: Props) {
   const grupos = agruparPorDia(itens, data, DIAS_LISTA);
   if (grupos.length === 0) {
-    return <p className="text-muted-foreground rounded-lg border border-dashed px-4 py-10 text-center text-sm">Nada marcado nestes 60 dias.</p>;
+    return <EstadoVazio icone={CalendarDaysIcon} titulo="Nada marcado nestes 60 dias" acao={acaoVazia} />;
   }
 
   return (
-    <div className="grid gap-5">
+    <div className="grid min-w-0 grid-cols-1 gap-5">
       {grupos.map(({ dia, itens: doDia }) => (
         <section key={dia} aria-labelledby={`dia-${dia}`} className="grid gap-2">
           <h2 id={`dia-${dia}`} className="flex items-center gap-2 text-sm font-semibold">
             {rotuloDia(dia)}
-            {dia === hoje && <span className="rounded-full bg-[#5F45F4] px-2 py-0.5 text-[11px] font-medium text-white">Hoje</span>}
+            {dia === hoje && <span className="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[11px] font-medium">Hoje</span>}
           </h2>
-          <ul className="divide-y overflow-hidden rounded-lg border">
+          <ul className="bg-card divide-y overflow-hidden rounded-xl border">
             {doDia.map((item) => (
               <li key={item.id}>
                 <Clicavel href={item.href} className={cn("flex items-start gap-3 px-3 py-2.5", item.href && "hover:bg-muted/50")}>
@@ -48,7 +61,19 @@ export function VisaoLista({ data, itens, hoje }: Props) {
                       <IconeItem item={item} className="size-3.5" />
                       <span className="truncate">{item.titulo}</span>
                     </span>
-                    {item.detalhe && <span className="text-muted-foreground block truncate text-xs">{item.detalhe}</span>}
+                    <span className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                      {item.tipo === "evento" && item.rotuloTipo && (
+                        <ChipSituacao cor={item.cor} tamanho="sm">
+                          {item.rotuloTipo}
+                        </ChipSituacao>
+                      )}
+                      {item.tipo === "tarefa" && item.entrega && (
+                        <ChipPrazo dataEntrega={new Date(`${item.entrega}T00:00:00Z`)} agora={agora} />
+                      )}
+                      {item.detalhe && item.tipo !== "tarefa" && (
+                        <span className="text-muted-foreground min-w-0 truncate text-xs">{item.detalhe}</span>
+                      )}
+                    </span>
                   </span>
                 </Clicavel>
               </li>

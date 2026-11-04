@@ -16,11 +16,13 @@ export type ItemAgenda = {
   horaFim: string | null;
   cor: string;
   href: string | null;
-  /** Linha secundária na Lista (tipo, turma, local). */
+  /** Linha secundária na Lista (turma, local; na agenda pessoal, o nome da agenda). */
   detalhe?: string;
+  /** Nome do tipo do evento institucional (chip na Lista). */
+  rotuloTipo?: string;
+  /** Dia de entrega da tarefa (chip de prazo na Lista). */
+  entrega?: string;
 };
-
-export const COR_TAREFA = "#5F45F4";
 
 type Busca = Record<string, string | string[] | undefined>;
 
@@ -53,7 +55,8 @@ export function itensDaAgenda(
         horaFim: e.horaFim,
         cor: e.tipo.cor,
         href: href.evento(e.id),
-        detalhe: [e.tipo.nome, e.turma, e.local].filter(Boolean).join(" · "),
+        detalhe: [e.turma, e.local].filter(Boolean).join(" · ") || undefined,
+        rotuloTipo: e.tipo.nome,
       }),
     ),
     ...tarefas.map(
@@ -65,9 +68,11 @@ export function itensDaAgenda(
         fim: t.dataEntrega,
         horaInicio: null,
         horaFim: null,
-        cor: COR_TAREFA,
+        // A tarefa usa a cor principal do tema.
+        cor: "var(--primary)",
         href: href.tarefa(t),
         detalhe: "Entrega de tarefa",
+        entrega: t.dataEntrega,
       }),
     ),
   ];
@@ -102,7 +107,7 @@ export function Clicavel({ href, className, style, title, children }: { href: st
 
 export function IconeItem({ item, className }: { item: Pick<ItemAgenda, "tipo">; className?: string }) {
   if (item.tipo !== "tarefa") return null;
-  return <CheckSquareIcon className={cn("size-3 shrink-0", className)} style={{ color: COR_TAREFA }} aria-label="Tarefa" />;
+  return <CheckSquareIcon className={cn("text-primary size-3 shrink-0", className)} aria-label="Tarefa" />;
 }
 
 export function rotuloHora(item: Pick<ItemAgenda, "horaInicio" | "horaFim">): string {
@@ -111,7 +116,7 @@ export function rotuloHora(item: Pick<ItemAgenda, "horaInicio" | "horaFim">): st
 }
 
 export function dicaDoItem(item: ItemAgenda): string {
-  return [item.titulo, item.horaInicio ? rotuloHora(item) : null, item.detalhe].filter(Boolean).join(" · ");
+  return [item.titulo, item.horaInicio ? rotuloHora(item) : null, item.rotuloTipo, item.detalhe].filter(Boolean).join(" · ");
 }
 
 /** Faixa de um item na grade (Mês e topo da Semana). Cantos retos do lado em que continua. */

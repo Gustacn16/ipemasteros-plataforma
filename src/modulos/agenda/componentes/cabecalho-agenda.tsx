@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDaysIcon, CalendarRangeIcon, ChevronLeftIcon, ChevronRightIcon, ListIcon, SettingsIcon } from "lucide-react";
+import { CalendarDaysIcon, CalendarRangeIcon, ChevronLeftIcon, ChevronRightIcon, ListIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -23,7 +23,6 @@ const ROTULO_PASSO: Record<VisaoAgenda, [string, string]> = {
 
 type Props = {
   visao: VisaoAgenda;
-  titulo: string;
   filtro: FiltroAgenda;
   /** Query string atual, sem "?". */
   consulta: string;
@@ -31,11 +30,10 @@ type Props = {
   hrefProximo: string;
   hrefHoje: string;
   emHoje: boolean;
-  children?: React.ReactNode;
 };
 
-/** Hoje, ‹ ›, título do período e Mês/Semana/Lista. A visão escolhida fica salva no cookie. */
-export function CabecalhoAgenda({ visao, titulo, filtro, consulta, hrefAnterior, hrefProximo, hrefHoje, emHoje, children }: Props) {
+/** Barra de navegação: Hoje, ‹ › e Mês/Semana/Lista. A visão escolhida fica salva no cookie. O título do período fica no cabeçalho da página. */
+export function CabecalhoAgenda({ visao, filtro, consulta, hrefAnterior, hrefProximo, hrefHoje, emHoje }: Props) {
   const router = useRouter();
   const { aplicar, pendente } = useAplicarFiltroAgenda();
   const [anterior, proximo] = ROTULO_PASSO[visao];
@@ -53,14 +51,15 @@ export function CabecalhoAgenda({ visao, titulo, filtro, consulta, hrefAnterior,
     }
   }
 
-  const seta = "hover:bg-muted inline-flex size-8 items-center justify-center rounded-md border";
+  const seta = "bg-card hover:bg-muted inline-flex size-8 items-center justify-center rounded-md border";
 
   return (
-    <header className="flex flex-wrap items-center justify-between gap-3">
+    <nav aria-label="Navegação da agenda" className="flex min-w-0 flex-wrap items-center justify-between gap-2">
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         <Link
           href={hrefHoje}
-          className={cn("hover:bg-muted inline-flex h-8 items-center rounded-md border px-3 text-sm font-medium", emHoje && "text-muted-foreground")}
+          aria-current={emHoje ? "date" : undefined}
+          className={cn("bg-card hover:bg-muted inline-flex h-8 items-center rounded-md border px-3 text-sm font-medium", emHoje && "text-muted-foreground")}
         >
           Hoje
         </Link>
@@ -72,33 +71,26 @@ export function CabecalhoAgenda({ visao, titulo, filtro, consulta, hrefAnterior,
             <ChevronRightIcon className="size-4" />
           </Link>
         </div>
-        <h1 className="min-w-0 text-lg font-semibold tracking-tight sm:text-xl">{titulo}</h1>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
-        {children}
-        <Link href="/agenda/configuracoes" className="hover:bg-muted inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-sm font-medium">
-          <SettingsIcon className="size-4" aria-hidden /> Configurações
-        </Link>
-        <div role="group" aria-label="Visualização" className={cn("bg-muted inline-flex rounded-lg p-0.5", pendente && "opacity-60")}>
-          {OPCOES.map(({ valor, rotulo, icone: Icone }) => (
-            <button
-              key={valor}
-              type="button"
-              aria-pressed={visao === valor}
-              disabled={pendente}
-              onClick={() => escolher(valor)}
-              className={cn(
-                "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm",
-                visao === valor ? "bg-background font-medium shadow-xs" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <Icone className="size-4" aria-hidden />
-              {rotulo}
-            </button>
-          ))}
-        </div>
+      <div role="group" aria-label="Visualização" className={cn("bg-muted inline-flex rounded-lg p-0.5", pendente && "opacity-60")}>
+        {OPCOES.map(({ valor, rotulo, icone: Icone }) => (
+          <button
+            key={valor}
+            type="button"
+            aria-pressed={visao === valor}
+            disabled={pendente}
+            onClick={() => escolher(valor)}
+            className={cn(
+              "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm",
+              visao === valor ? "bg-background text-foreground font-medium shadow-xs" : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <Icone className="size-4" aria-hidden />
+            {rotulo}
+          </button>
+        ))}
       </div>
-    </header>
+    </nav>
   );
 }
 
