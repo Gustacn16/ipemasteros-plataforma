@@ -57,3 +57,37 @@ export function campanhasDaLista<C extends { nome: string; status: string }>(cam
     .filter((c) => situacao === "todas" || (situacao === "ativas" ? ativa(c) : !ativa(c)))
     .sort((a, b) => Number(ativa(b)) - Number(ativa(a)) || a.nome.localeCompare(b.nome, "pt-BR"));
 }
+
+export const CATEGORIAS_CAMPANHA = ["transplante", "psiquiatria", "paciente_modelo", "outras"] as const;
+export type CategoriaCampanha = (typeof CATEGORIAS_CAMPANHA)[number];
+
+export const ROTULO_CATEGORIA: Record<CategoriaCampanha, string> = {
+  transplante: "Pós Transplante Capilar",
+  psiquiatria: "Psiquiatria",
+  paciente_modelo: "Paciente Modelo",
+  outras: "Outras",
+};
+
+const semAcento = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+/**
+ * Categoria pelo nome da campanha (pedido do usuário em 2026-11-04). A ordem importa:
+ * "Paciente Modelo Transplante" é Paciente Modelo, não Transplante.
+ */
+export function categoriaDaCampanha(nome: string): CategoriaCampanha {
+  const n = semAcento(nome);
+  if (n.includes("paciente modelo")) return "paciente_modelo";
+  if (n.includes("psiq")) return "psiquiatria";
+  if (/\btct\b/.test(n) || n.includes("transplante")) return "transplante";
+  return "outras";
+}
+
+/** CTR do link em %, com duas casas. */
+export function ctr(cliquesLink: number, impressoes: number): number | null {
+  return impressoes === 0 ? null : Math.round((cliquesLink / impressoes) * 10000) / 100;
+}
+
+/** Custo por clique no link. */
+export function cpc(investimentoCentavos: number, cliquesLink: number): string | null {
+  return cliquesLink === 0 ? null : reais(Math.round(investimentoCentavos / cliquesLink));
+}

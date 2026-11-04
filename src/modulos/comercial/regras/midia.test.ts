@@ -1,5 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { cac, campanhasDaLista, custoPorLead, filtrandoCampanhas, filtrosValidos, formatarRoas, roas, totalLeads } from "./midia";
+import {
+  cac,
+  campanhasDaLista,
+  categoriaDaCampanha,
+  cpc,
+  ctr,
+  custoPorLead,
+  filtrandoCampanhas,
+  filtrosValidos,
+  formatarRoas,
+  roas,
+  totalLeads,
+} from "./midia";
 
 describe("filtrandoCampanhas", () => {
   it("só quando algum filtro de campanha está ativo", () => {
@@ -73,5 +85,34 @@ describe("campanhasDaLista", () => {
   it("respeita a situação escolhida", () => {
     expect(campanhasDaLista(campanhas, "ativas").map((c) => c.nome)).toEqual(["Beta", "Gama"]);
     expect(campanhasDaLista(campanhas, "pausadas").map((c) => c.nome)).toEqual(["Alfa", "Zeta"]);
+  });
+});
+
+describe("categoriaDaCampanha", () => {
+  it.each([
+    ["[ABO][CADASTRO][FORMS][FRIO]-Pós Graduação TCT", "transplante"],
+    ["[ABO][TRÁFEGO] - Instagram TCT", "transplante"],
+    ["Pós Transplante Capilar - Leads", "transplante"],
+    ["[ABO][CADASTRO][FORMS][FRIO] - Pós Graduação Psiquiatria 2", "psiquiatria"],
+    ["[ABO][TRÁFEGO] - Instagram PSIQ", "psiquiatria"],
+    ["[ABO][ENGAJAMENTO][FRIO] - Paciente Modelo Transplante e Tratamento", "paciente_modelo"],
+    ["PACIENTE MODELO capilar", "paciente_modelo"],
+    ["Nova campanha de Engajamento", "outras"],
+    ["Campanha 120249297561930528", "outras"],
+  ])("%s → %s", (nome, categoria) => {
+    expect(categoriaDaCampanha(nome)).toBe(categoria);
+  });
+});
+
+describe("CTR e CPC do link", () => {
+  it("CTR em % com duas casas; sem impressões, null", () => {
+    expect(ctr(25, 1000)).toBe(2.5);
+    expect(ctr(1, 3)).toBe(33.33);
+    expect(ctr(5, 0)).toBeNull();
+  });
+
+  it("CPC = investimento ÷ cliques no link; sem cliques, null", () => {
+    expect(cpc(10000, 40)).toBe("2.50");
+    expect(cpc(10000, 0)).toBeNull();
   });
 });
