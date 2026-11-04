@@ -29,6 +29,7 @@ export type InsightMeta = {
   impressions?: string;
   reach?: string;
   clicks?: string;
+  inline_link_clicks?: string;
   actions?: { action_type: string; value: string }[];
 };
 
@@ -70,7 +71,7 @@ export function criarClienteMeta(token: string, fetchFn: typeof fetch = fetch) {
         level: "campaign",
         time_increment: "1",
         time_range: JSON.stringify({ since: desde, until: ate }),
-        fields: "campaign_id,spend,impressions,reach,clicks,actions",
+        fields: "campaign_id,spend,impressions,reach,clicks,inline_link_clicks,actions",
         limit: "500",
       }),
   };

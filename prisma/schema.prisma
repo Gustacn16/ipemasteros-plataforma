@@ -957,6 +957,10 @@ model MetricaDiariaAnuncio {
   leadsFormulario    Int      @default(0) @map("leads_formulario")
   leadsSite          Int      @default(0) @map("leads_site")
   conversasIniciadas Int      @default(0) @map("conversas_iniciadas")
+  /// Cliques no link (`inline_link_clicks`), base do CTR e do CPC do link.
+  cliquesLink        Int      @default(0) @map("cliques_link")
+  /// Visitas ao perfil (tipos de `actions` com "profile_visit").
+  visitasPerfil      Int      @default(0) @map("visitas_perfil")
   criadoEm           DateTime @default(now()) @map("criado_em")
   atualizadoEm       DateTime @updatedAt @map("atualizado_em")
 

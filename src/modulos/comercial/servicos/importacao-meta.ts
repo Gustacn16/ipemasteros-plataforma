@@ -135,6 +135,8 @@ export async function executarImportacao({
               impressoes: inteiro(l.impressions),
               alcance: inteiro(l.reach),
               cliques: inteiro(l.clicks),
+              cliquesLink: inteiro(l.inline_link_clicks),
+              visitasPerfil: leads.visitasPerfil,
               leadsFormulario: leads.leadsFormulario,
               leadsSite: leads.leadsSite,
               conversasIniciadas: leads.conversasIniciadas,

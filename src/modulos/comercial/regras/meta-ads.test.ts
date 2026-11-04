@@ -12,11 +12,11 @@ describe("lerLeads", () => {
         { action_type: "link_click", value: "40" },
         { action_type: "link_click", value: "1" },
       ]),
-    ).toEqual({ leadsFormulario: 3, leadsSite: 2, conversasIniciadas: 5, ignorados: ["lead", "link_click"] });
+    ).toEqual({ leadsFormulario: 3, leadsSite: 2, conversasIniciadas: 5, visitasPerfil: 0, ignorados: ["lead", "link_click"] });
   });
 
   it("sem actions, tudo zero", () => {
-    expect(lerLeads(undefined)).toEqual({ leadsFormulario: 0, leadsSite: 0, conversasIniciadas: 0, ignorados: [] });
+    expect(lerLeads(undefined)).toEqual({ leadsFormulario: 0, leadsSite: 0, conversasIniciadas: 0, visitasPerfil: 0, ignorados: [] });
   });
 });
 
@@ -79,5 +79,20 @@ describe("importacaoRodando", () => {
     expect(importacaoRodando([{ status: "em_andamento", iniciadoEm: ha(2) }], agora)).toBe(true);
     expect(importacaoRodando([{ status: "em_andamento", iniciadoEm: ha(40) }], agora)).toBe(false);
     expect(importacaoRodando([{ status: "concluida", iniciadoEm: ha(2) }], agora)).toBe(false);
+  });
+});
+
+describe("visitas ao perfil", () => {
+  it("conta qualquer tipo com profile_visit e não lista como ignorado", () => {
+    const r = lerLeads([
+      { action_type: "onsite_conversion.instagram_profile_visit", value: "7" },
+      { action_type: "link_click", value: "40" },
+    ]);
+    expect(r.visitasPerfil).toBe(7);
+    expect(r.ignorados).toEqual(["link_click"]);
+  });
+
+  it("sem esse tipo, zero", () => {
+    expect(lerLeads([{ action_type: "link_click", value: "1" }]).visitasPerfil).toBe(0);
   });
 });

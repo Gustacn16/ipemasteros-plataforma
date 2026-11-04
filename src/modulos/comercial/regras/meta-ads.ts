@@ -10,19 +10,25 @@ export const ACOES_LEAD = {
 
 type Acao = { action_type: string; value: string };
 
+/** Visita ao perfil (Instagram/Facebook): a Meta não fixa um nome único, então vale qualquer tipo com "profile_visit". */
+const ehVisitaPerfil = (tipo: string) => tipo.includes("profile_visit");
+
 export function lerLeads(actions: Acao[] | undefined): {
   leadsFormulario: number;
   leadsSite: number;
   conversasIniciadas: number;
+  visitasPerfil: number;
   ignorados: string[];
 } {
-  const valor = (tipo: string) => (actions ?? []).filter((a) => a.action_type === tipo).reduce((s, a) => s + (Number(a.value) || 0), 0);
+  const soma = (filtro: (tipo: string) => boolean) =>
+    (actions ?? []).filter((a) => filtro(a.action_type)).reduce((s, a) => s + (Number(a.value) || 0), 0);
   const conhecidos = new Set<string>(Object.values(ACOES_LEAD));
   return {
-    leadsFormulario: valor(ACOES_LEAD.formulario),
-    leadsSite: valor(ACOES_LEAD.site),
-    conversasIniciadas: valor(ACOES_LEAD.conversas),
-    ignorados: [...new Set((actions ?? []).map((a) => a.action_type).filter((t) => !conhecidos.has(t)))],
+    leadsFormulario: soma((t) => t === ACOES_LEAD.formulario),
+    leadsSite: soma((t) => t === ACOES_LEAD.site),
+    conversasIniciadas: soma((t) => t === ACOES_LEAD.conversas),
+    visitasPerfil: soma(ehVisitaPerfil),
+    ignorados: [...new Set((actions ?? []).map((a) => a.action_type).filter((t) => !conhecidos.has(t) && !ehVisitaPerfil(t)))],
   };
 }
 
