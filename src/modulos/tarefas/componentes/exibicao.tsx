@@ -51,9 +51,6 @@ export function ChipPrioridade({ prioridade, tamanho = "sm" }: { prioridade: Pri
   );
 }
 
-/** Nome antigo, ainda usado no Início. */
-export const BadgePrioridade = ChipPrioridade;
-
 export function PontoCor({ cor, className }: { cor: string; className?: string }) {
   return <span aria-hidden className={cn("inline-block size-2.5 shrink-0 rounded-full", className)} style={{ backgroundColor: cor }} />;
 }
