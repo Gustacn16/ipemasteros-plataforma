@@ -7,6 +7,7 @@ import { Input } from "@/componentes/ui/input";
 import { cn } from "@/lib/utils";
 import { adicionarItemChecklistAcao, atualizarItemChecklistAcao, moverItemChecklistAcao, removerItemChecklistAcao } from "../acoes/tarefas";
 import { avisar } from "./avisar";
+import { CLASSE_TITULO_SECAO } from "./exibicao";
 
 type Item = { id: string; texto: string; concluido: boolean };
 
@@ -40,18 +41,18 @@ export function ChecklistTarefa({ tarefaId, itens }: { tarefaId: string; itens: 
   return (
     <section className="grid gap-2" aria-labelledby="titulo-checklist">
       <div className="flex items-center justify-between">
-        <h3 id="titulo-checklist" className="text-sm font-medium">
+        <h3 id="titulo-checklist" className={CLASSE_TITULO_SECAO}>
           Checklist
         </h3>
         {lista.length > 0 && (
-          <span className="text-muted-foreground text-xs">
+          <span className="text-muted-foreground text-xs tabular-nums">
             {feitos}/{lista.length} feitos
           </span>
         )}
       </div>
       {lista.length > 0 && (
         <div className="bg-muted h-1.5 overflow-hidden rounded-full" aria-hidden>
-          <div className="h-full rounded-full bg-[#5F45F4] transition-all" style={{ width: `${(feitos / lista.length) * 100}%` }} />
+          <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${(feitos / lista.length) * 100}%` }} />
         </div>
       )}
       <ul className="grid">
@@ -59,7 +60,7 @@ export function ChecklistTarefa({ tarefaId, itens }: { tarefaId: string; itens: 
           <li key={item.id} className="group hover:bg-muted/60 flex items-center gap-2 rounded-md px-1.5 py-1">
             <input
               type="checkbox"
-              className="size-4 accent-[#5F45F4]"
+              className="size-4 accent-primary"
               checked={item.concluido}
               onChange={(e) => marcar(item, e.target.checked)}
               aria-label={item.texto}

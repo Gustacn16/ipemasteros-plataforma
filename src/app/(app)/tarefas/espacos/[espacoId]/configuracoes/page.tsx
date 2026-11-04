@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { CabecalhoPagina } from "@/componentes/cabecalho-pagina";
 import { ErroNegocio } from "@/lib/erros";
 import { exigirPermissaoPagina } from "@/lib/sessao";
 import { ExcluirEspaco, FormularioDadosEspaco, MembrosEspaco } from "@/modulos/tarefas/componentes/configuracoes-espaco";
@@ -18,13 +19,10 @@ export default async function PaginaConfiguracoesEspaco({ params }: PageProps<"/
 
   return (
     <div className="grid max-w-3xl gap-8">
-      <header>
-        <p className="text-muted-foreground text-sm">Configurações do espaço</p>
-        <h1 className="text-2xl font-semibold tracking-tight">{dados.espaco.nome}</h1>
-      </header>
+      <CabecalhoPagina titulo={dados.espaco.nome} descricao="Configurações do espaço" />
 
       <section className="grid gap-3" aria-labelledby="sec-dados">
-        <h2 id="sec-dados" className="font-semibold">
+        <h2 id="sec-dados" className="text-foreground font-semibold">
           Dados
         </h2>
         <FormularioDadosEspaco espaco={dados.espaco} />
@@ -32,7 +30,7 @@ export default async function PaginaConfiguracoesEspaco({ params }: PageProps<"/
 
       <section className="grid gap-3" aria-labelledby="sec-membros">
         <div>
-          <h2 id="sec-membros" className="font-semibold">
+          <h2 id="sec-membros" className="text-foreground font-semibold">
             Membros
           </h2>
           <p className="text-muted-foreground text-sm">Quem participa deste departamento vê o espaço e pode receber tarefas dele.</p>
@@ -42,7 +40,7 @@ export default async function PaginaConfiguracoesEspaco({ params }: PageProps<"/
 
       <section className="grid gap-3" aria-labelledby="sec-etiquetas">
         <div>
-          <h2 id="sec-etiquetas" className="font-semibold">
+          <h2 id="sec-etiquetas" className="text-foreground font-semibold">
             Etiquetas
           </h2>
           <p className="text-muted-foreground text-sm">Servem para agrupar e filtrar as tarefas deste espaço (ex.: Campanha, Financeiro).</p>
@@ -51,7 +49,7 @@ export default async function PaginaConfiguracoesEspaco({ params }: PageProps<"/
       </section>
 
       <section className="grid gap-3 border-t pt-6" aria-labelledby="sec-excluir">
-        <h2 id="sec-excluir" className="font-semibold">
+        <h2 id="sec-excluir" className="text-foreground font-semibold">
           Excluir espaço
         </h2>
         <p className="text-muted-foreground text-sm">O conteúdo não é apagado do banco, só deixa de aparecer.</p>

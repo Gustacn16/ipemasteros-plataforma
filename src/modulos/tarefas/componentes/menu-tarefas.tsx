@@ -26,7 +26,7 @@ function ItemLink({ href, children, recuo }: { href: string; children: React.Rea
       className={cn(
         "hover:bg-muted truncate rounded-md px-2 py-1.5 text-sm",
         recuo && "pl-6.5",
-        ativo && "bg-muted font-medium",
+        ativo && "bg-accent text-accent-foreground hover:bg-accent font-medium",
       )}
     >
       {children}
@@ -106,11 +106,11 @@ function Conteudo(props: Props) {
 export function MenuTarefas(props: Props) {
   return (
     <>
-      <aside className="hidden w-60 shrink-0 border-r p-4 md:block">
-        <p className="mb-4 px-2 text-sm font-semibold">Tarefas</p>
+      <aside className="bg-background hidden w-60 shrink-0 border-r p-4 md:block">
+        <p className="text-foreground mb-4 px-2 text-sm font-semibold">Tarefas</p>
         <Conteudo {...props} />
       </aside>
-      <details className="group border-b md:hidden">
+      <details className="group bg-background border-b md:hidden">
         <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-semibold">
           Tarefas: espaços e listas
           <ChevronDownIcon className="size-4 transition-transform group-open:rotate-180" aria-hidden />

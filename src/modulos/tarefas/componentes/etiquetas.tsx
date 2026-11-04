@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { criarEtiquetaAcao, definirEtiquetasTarefaAcao, editarEtiquetaAcao, excluirEtiquetaAcao } from "../acoes/tarefas";
 import { avisar } from "./avisar";
 import { CORES_ESPACO } from "./dialogos-estrutura";
+import { CLASSE_TITULO_SECAO } from "./exibicao";
 
 export type Etiqueta = { id: string; nome: string; cor: string };
 
@@ -77,7 +78,7 @@ export function EtiquetasTarefa({ tarefaId, espacoId, selecionadas, doEspaco, po
 
   return (
     <section className="grid gap-2" aria-labelledby="titulo-etiquetas">
-      <h3 id="titulo-etiquetas" className="text-sm font-medium">
+      <h3 id="titulo-etiquetas" className={CLASSE_TITULO_SECAO}>
         Etiquetas
       </h3>
       <div className="flex flex-wrap items-center gap-1.5">
@@ -208,7 +209,7 @@ function SeletorCorCompacto({ valor, mudar }: { valor: string; mudar: (cor: stri
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button type="button" aria-label="Cor da etiqueta" className="size-7 shrink-0 rounded-md border-2 border-white shadow ring-1 ring-black/10" style={{ backgroundColor: valor }} />
+        <button type="button" aria-label="Cor da etiqueta" className="size-7 shrink-0 rounded-md border-background border-2 shadow ring-border ring-1" style={{ backgroundColor: valor }} />
       </DropdownMenuTrigger>
       <DropdownMenuContent className="grid w-auto grid-cols-6 gap-1 p-2">
         {CORES_ESPACO.map((c) => (

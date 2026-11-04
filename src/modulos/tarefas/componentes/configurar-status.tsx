@@ -132,7 +132,7 @@ function Editor({ listaId, salvos, fechar }: { listaId: string; salvos: StatusSa
               aria-label={`Cor de ${s.nome || "status"}`}
               value={s.cor}
               onChange={(e) => alterar(s.chave, { cor: e.target.value })}
-              className="h-9 w-10 shrink-0 cursor-pointer rounded border"
+              className="border-input bg-background h-9 w-10 shrink-0 cursor-pointer rounded border"
             />
             <Input
               aria-label="Nome do status"

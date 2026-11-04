@@ -90,3 +90,6 @@ export function Avatares({ pessoas }: { pessoas: { id: string; nome: string; ima
     </span>
   );
 }
+
+/** Título discreto das seções do painel da tarefa. */
+export const CLASSE_TITULO_SECAO = "text-muted-foreground text-xs font-semibold tracking-wide uppercase";

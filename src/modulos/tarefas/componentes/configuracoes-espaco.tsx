@@ -41,11 +41,11 @@ export function MembrosEspaco({ espacoId, usuarios, membroIds }: { espacoId: str
 
   return (
     <div className="grid max-w-xl gap-3">
-      <ul className="grid divide-y rounded-md border">
+      <ul className="bg-card grid divide-y rounded-md border">
         {usuarios.map((u) => (
           <li key={u.id}>
             <label className="flex items-center gap-3 px-3 py-2 text-sm">
-              <input type="checkbox" checked={selecionados.includes(u.id)} onChange={(e) => alternar(u.id, e.target.checked)} />
+              <input type="checkbox" className="accent-primary size-4" checked={selecionados.includes(u.id)} onChange={(e) => alternar(u.id, e.target.checked)} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium">{u.nome}</span>
                 <span className="text-muted-foreground block truncate">{u.email}</span>
