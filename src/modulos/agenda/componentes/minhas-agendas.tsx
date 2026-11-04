@@ -1,8 +1,10 @@
 "use client";
 
-import { AlertTriangleIcon, CheckCircle2Icon, LockIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { AlertTriangleIcon, CalendarPlusIcon, CheckCircle2Icon, LockIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
+import { ChipSituacao } from "@/componentes/chip-situacao";
+import { EstadoVazio } from "@/componentes/estado-vazio";
 import { Button } from "@/componentes/ui/button";
 import { Input } from "@/componentes/ui/input";
 import { Label } from "@/componentes/ui/label";
@@ -25,9 +27,9 @@ export type MinhaAgendaLinha = {
 /** Agendas pessoais por link iCal: passo a passo, formulário e lista. Só o dono vê. */
 export function MinhasAgendas({ agendas, limite }: { agendas: MinhaAgendaLinha[]; limite: number }) {
   return (
-    <div className="grid max-w-2xl gap-4">
+    <div className="grid max-w-2xl min-w-0 grid-cols-1 gap-4">
       <p className="bg-muted/50 flex items-start gap-2 rounded-md border px-3 py-2 text-sm">
-        <LockIcon className="mt-0.5 size-4 shrink-0 text-[#5F45F4]" aria-hidden />
+        <LockIcon className="text-primary mt-0.5 size-4 shrink-0" aria-hidden />
         <span>
           <strong className="font-medium">Só você vê esses compromissos.</strong>{" "}
           <span className="text-muted-foreground">Eles aparecem na sua Agenda da plataforma e não são guardados aqui.</span>
@@ -56,12 +58,14 @@ export function MinhasAgendas({ agendas, limite }: { agendas: MinhaAgendaLinha[]
         </p>
       </div>
 
-      {agendas.length > 0 && (
-        <ul className="grid divide-y rounded-md border">
+      {agendas.length > 0 ? (
+        <ul className="grid min-w-0 grid-cols-1 divide-y rounded-md border">
           {agendas.map((a) => (
             <LinhaAgenda key={`${a.id}-${a.nome}-${a.cor}`} agenda={a} />
           ))}
         </ul>
+      ) : (
+        <EstadoVazio icone={CalendarPlusIcon} titulo="Conecte seu Google Agenda" descricao="Cole o endereço secreto iCal no formulário abaixo." />
       )}
 
       {agendas.length < limite ? (
@@ -78,7 +82,7 @@ export function MinhasAgendas({ agendas, limite }: { agendas: MinhaAgendaLinha[]
 function PassoAPasso({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
     <details className="group rounded-md border px-3 py-2 text-sm">
-      <summary className="cursor-pointer font-medium marker:text-[#5F45F4]">{titulo}</summary>
+      <summary className="marker:text-primary cursor-pointer font-medium">{titulo}</summary>
       <ol className="text-muted-foreground mt-2 ml-5 grid list-decimal gap-1 [&_strong]:text-foreground [&_strong]:font-medium">{children}</ol>
     </details>
   );
@@ -93,7 +97,7 @@ function NovaAgenda({ corInicial }: { corInicial: string }) {
 
   return (
     <form
-      className="grid gap-3 rounded-md border p-3"
+      className="grid min-w-0 gap-3 rounded-md border p-3"
       action={() =>
         iniciar(async () => {
           setErro(null);
@@ -111,7 +115,7 @@ function NovaAgenda({ corInicial }: { corInicial: string }) {
       <span className="text-sm font-medium">Ligar uma agenda</span>
       <div className="flex flex-wrap items-end gap-2">
         <SeletorCor valor={cor} mudar={setCor} rotulo="Cor da agenda" />
-        <div className="grid min-w-40 flex-1 gap-1">
+        <div className="grid min-w-0 flex-1 basis-40 gap-1">
           <Label htmlFor="nova-agenda-nome" className="text-xs">
             Nome
           </Label>
@@ -159,10 +163,10 @@ function LinhaAgenda({ agenda }: { agenda: MinhaAgendaLinha }) {
   const mudou = nome.trim() !== agenda.nome || cor !== agenda.cor;
 
   return (
-    <li className="grid gap-1.5 px-3 py-2.5">
+    <li className="grid min-w-0 gap-1.5 px-3 py-2.5">
       <div className="flex flex-wrap items-center gap-2">
         <SeletorCor valor={cor} mudar={setCor} rotulo={`Cor de ${agenda.nome}`} />
-        <Input value={nome} onChange={(e) => setNome(e.target.value)} maxLength={60} aria-label="Nome da agenda" className="h-8 w-44" />
+        <Input value={nome} onChange={(e) => setNome(e.target.value)} maxLength={60} aria-label="Nome da agenda" className="h-8 w-44 max-w-full min-w-0" />
         <span className="ml-auto flex flex-wrap items-center gap-1">
           <Button
             size="sm"
@@ -188,16 +192,17 @@ function LinhaAgenda({ agenda }: { agenda: MinhaAgendaLinha }) {
           )}
         </span>
       </div>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-        <span className="text-muted-foreground font-mono break-all">{agenda.urlMascarada}</span>
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+        <span className="text-muted-foreground min-w-0 font-mono break-all">{agenda.urlMascarada}</span>
         {agenda.ultimoErro ? (
-          <span className="text-destructive inline-flex items-center gap-1">
-            <AlertTriangleIcon className="size-3.5" aria-hidden /> {agenda.ultimoErro}
-          </span>
+          <ChipSituacao tom="perigo" icone={AlertTriangleIcon} tamanho="sm">
+            {/* O erro explica o motivo: quebra linha em vez de cortar no celular. */}
+            <span className="break-words whitespace-normal">{agenda.ultimoErro}</span>
+          </ChipSituacao>
         ) : agenda.leitura ? (
-          <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
-            <CheckCircle2Icon className="size-3.5" aria-hidden /> {agenda.leitura}
-          </span>
+          <ChipSituacao tom="sucesso" icone={CheckCircle2Icon} tamanho="sm">
+            {agenda.leitura}
+          </ChipSituacao>
         ) : null}
       </div>
     </li>
@@ -209,12 +214,12 @@ export function AvisoAgendasComErro({ agendas }: { agendas: { id: string; nome: 
   const comErro = agendas.filter((a) => a.erro);
   if (comErro.length === 0) return null;
   return (
-    <div role="status" className="grid gap-1 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+    <div role="status" className="bg-atencao-suave border-atencao text-foreground grid min-w-0 gap-1 rounded-md border px-3 py-2 text-sm">
       {comErro.map((a) => (
         <p key={a.id} className="flex items-start gap-2">
-          <AlertTriangleIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
-          <span>
-            <strong className="font-medium">Não consegui ler {a.nome}.</strong> <span className="opacity-80">{a.erro}</span>
+          <AlertTriangleIcon className="text-atencao mt-0.5 size-4 shrink-0" aria-hidden />
+          <span className="min-w-0 break-words">
+            <strong className="font-medium">Não consegui ler {a.nome}.</strong> <span className="text-muted-foreground">{a.erro}</span>
           </span>
         </p>
       ))}

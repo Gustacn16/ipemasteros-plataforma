@@ -2,6 +2,7 @@ import { ArrowLeftIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { CabecalhoPagina } from "@/componentes/cabecalho-pagina";
 import { temPermissao } from "@/lib/permissoes";
 import { exigirPermissaoPagina } from "@/lib/sessao";
 import { GerenciarTipos } from "@/modulos/agenda/componentes/gerenciar-tipos";
@@ -17,9 +18,9 @@ export const metadata: Metadata = { title: "Configurações da Agenda — IPEMas
 
 function Secao({ id, titulo, descricao, children }: { id: string; titulo: string; descricao: ReactNode; children: ReactNode }) {
   return (
-    <section className="grid gap-3" aria-labelledby={id}>
+    <section className="bg-card text-card-foreground grid min-w-0 grid-cols-1 gap-3 rounded-xl border p-4" aria-labelledby={id}>
       <div className="grid gap-1">
-        <h2 id={id} className="text-base font-medium">
+        <h2 id={id} className="text-base font-semibold">
           {titulo}
         </h2>
         <p className="text-muted-foreground max-w-2xl text-sm">{descricao}</p>
@@ -51,13 +52,13 @@ export default async function PaginaConfiguracoesAgenda() {
   }));
 
   return (
-    <div className="grid gap-8">
-      <header className="grid gap-1">
+    <div className="grid min-w-0 grid-cols-1 gap-6">
+      <div className="grid min-w-0 gap-2">
         <Link href="/agenda" className="text-muted-foreground hover:text-foreground inline-flex w-fit items-center gap-1 text-sm">
           <ArrowLeftIcon className="size-4" /> Agenda
         </Link>
-        <h1 className="text-xl font-semibold tracking-tight">Configurações da Agenda</h1>
-      </header>
+        <CabecalhoPagina titulo="Configurações da agenda" />
+      </div>
 
       <Secao
         id="titulo-minhas-agendas"

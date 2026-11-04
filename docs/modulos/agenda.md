@@ -35,8 +35,9 @@ Especificação: `docs/superpowers/specs/2026-11-02-agenda-design.md`.
   - **Minhas agendas** (todos): aviso fixo "Só você vê esses compromissos.", passo a passo do Google (Configurações → clique na sua agenda → Integrar agenda → "Endereço secreto no formato iCal" → copiar) e do Outlook (Calendários compartilhados → Publicar um calendário → link ICS), formulário com nome, cor e link (o servidor testa antes de salvar), e a lista com cor, nome, endereço mascarado, "Lida às HH:MM" ou o erro, Salvar e Remover (com confirmação). Até 5 agendas. Aviso: se a plataforma trocar a chave de segurança, é preciso colar o link de novo.
   - **Levar para o Google** (quem vê o calendário da IPEMaster): botão Gerar link / Gerar novo link (o novo pede confirmação, porque o anterior para de funcionar na hora). **O link é exibido uma vez só**, logo depois de gerado, com Copiar (se a área de transferência falhar, o texto fica selecionado para copiar à mão). Instruções: Google Agenda → Outras agendas → + → "Do URL" → colar. Aviso "O Google pode levar algumas horas para atualizar".
   - **Tipos de evento** (só `agenda:gerenciar_tipos`): cor, nome, Salvar, subir e descer, Ativo/Inativo e criação de tipo novo.
-- **Cores:** o evento usa a cor do seu tipo. A tarefa é roxa (#5F45F4), com ícone de tarefa. A agenda pessoal usa a cor escolhida, em traço mais leve.
+- **Cores:** o evento usa a cor do seu tipo. A tarefa usa a cor principal do tema, com ícone de tarefa. A agenda pessoal usa a cor escolhida, em traço mais leve.
 - O item **Agenda** do menu principal fica ativo para quem tem `agenda:usar`.
+- **Visual novo:** cabeçalho padrão, faixa de números, chips de tipo, telas vazias; tokens do tema.
 
 ## Regras de negócio
 1. Criar, editar ou excluir evento exige `agenda:editar_institucional`. A exclusão é lógica. As três ações vão para a auditoria (`agenda.evento_criado`, `agenda.evento_editado`, `agenda.evento_excluido`; o lote gera uma linha só, com a quantidade).

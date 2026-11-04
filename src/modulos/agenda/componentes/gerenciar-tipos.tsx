@@ -19,7 +19,7 @@ export function GerenciarTipos({ tipos }: { tipos: TipoEventoLinha[] }) {
   const [cor, setCor] = useState<string>(CORES_ESPACO[0]);
 
   return (
-    <div className="grid max-w-xl gap-3">
+    <div className="grid max-w-xl min-w-0 grid-cols-1 gap-3">
       {tipos.length > 0 && (
         <ul className="grid divide-y rounded-md border">
           {tipos.map((t, i) => (
@@ -36,7 +36,7 @@ export function GerenciarTipos({ tipos }: { tipos: TipoEventoLinha[] }) {
         }
       >
         <SeletorCor valor={cor} mudar={setCor} />
-        <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Workshop" maxLength={40} aria-label="Nome do novo tipo" className="h-9 w-48" />
+        <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Workshop" maxLength={40} aria-label="Nome do novo tipo" className="h-9 w-48 max-w-full min-w-0" />
         <Button type="submit" size="sm" disabled={pendente || !nome.trim()}>
           <PlusIcon /> Criar tipo
         </Button>
@@ -59,7 +59,7 @@ function LinhaTipo({ tipo, primeiro, ultimo }: { tipo: TipoEventoLinha; primeiro
         onChange={(e) => setNome(e.target.value)}
         maxLength={40}
         aria-label="Nome do tipo"
-        className={cn("h-8 w-48", !tipo.ativo && "text-muted-foreground")}
+        className={cn("h-8 w-48 max-w-full min-w-0", !tipo.ativo && "text-muted-foreground")}
       />
       <span className="ml-auto flex flex-wrap items-center gap-1">
         <Button
@@ -109,7 +109,7 @@ export function SeletorCor({ valor, mudar, rotulo = "Cor do tipo" }: { valor: st
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button type="button" aria-label={rotulo} className="size-7 shrink-0 rounded-md border-2 border-white shadow ring-1 ring-black/10" style={{ backgroundColor: valor }} />
+        <button type="button" aria-label={rotulo} className="border-background ring-foreground/10 size-7 shrink-0 rounded-md border-2 shadow ring-1" style={{ backgroundColor: valor }} />
       </DropdownMenuTrigger>
       <DropdownMenuContent className="grid w-auto grid-cols-6 gap-1 p-2">
         {CORES_ESPACO.map((c) => (

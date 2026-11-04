@@ -27,7 +27,7 @@ export function LinkAssinatura({ temLink }: { temLink: boolean }) {
   }
 
   return (
-    <div className="grid max-w-2xl gap-4">
+    <div className="grid max-w-2xl min-w-0 grid-cols-1 gap-4">
       <ol className="text-muted-foreground ml-5 grid list-decimal gap-1 text-sm [&_strong]:text-foreground [&_strong]:font-medium">
         <li>Clique em <strong>{jaTem ? "Gerar novo link" : "Gerar link"}</strong> e copie o link.</li>
         <li>
@@ -96,7 +96,7 @@ export function LinkGerado({ link }: { link: string }) {
   }
 
   return (
-    <div className="grid gap-2 rounded-md border border-[#5F45F4]/40 bg-[#5F45F4]/5 p-3 dark:bg-[#5F45F4]/10">
+    <div className="bg-informacao-suave border-informacao grid min-w-0 gap-2 rounded-md border p-3">
       <p className="text-sm font-medium">Copie agora: este link não será mostrado de novo.</p>
       <div className="flex flex-col gap-2 sm:flex-row">
         <Input
