@@ -12,12 +12,12 @@ import { PLATAFORMAS, ROTULO_PLATAFORMA, type Plataforma } from "../esquemas/con
 import type { Conta } from "../servicos/contas";
 import { SeloPlataforma } from "./selo-plataforma";
 
-const estiloSelect = "border-input bg-background h-9 rounded-md border px-2 text-sm";
+const estiloSelect = "border-input bg-background h-9 min-w-0 rounded-md border px-2 text-sm";
 
 export function NovaMarca() {
   const [estado, executar, pendente] = useActionState(criarMarcaAcao, { ok: false });
   return (
-    <form action={executar} className="grid max-w-md gap-4 rounded-lg border p-4">
+    <form action={executar} className="bg-card text-card-foreground grid max-w-md min-w-0 gap-4 rounded-xl border p-4">
       <h2 className="font-semibold">Nova conta</h2>
       {estado.mensagem && (
         <Alert variant={estado.ok ? "default" : "destructive"}>
@@ -40,8 +40,8 @@ function Canal({ canal }: { canal: Conta["canais"][number] }) {
     iniciar(async () => void avisar(await editarCanalAcao({ canalId: canal.id, identificador, ativo })));
 
   return (
-    <li className="flex flex-wrap items-center gap-2 py-2">
-      <span className="flex w-36 items-center gap-2 text-sm">
+    <li className="flex min-w-0 flex-wrap items-center gap-2 py-2">
+      <span className="flex w-36 min-w-0 items-center gap-2 text-sm">
         <SeloPlataforma plataforma={canal.plataforma} />
         {ROTULO_PLATAFORMA[canal.plataforma]}
       </span>
@@ -51,7 +51,7 @@ function Canal({ canal }: { canal: Conta["canais"][number] }) {
         onChange={(e) => setIdentificador(e.target.value)}
         placeholder="@perfil"
         maxLength={100}
-        className="h-8 w-48"
+        className="h-8 w-full min-w-0 sm:w-48"
       />
       <Button size="sm" variant="outline" disabled={pendente} onClick={() => salvar(canal.ativo)}>
         Salvar
@@ -71,10 +71,10 @@ export function CartaoMarca({ conta }: { conta: Conta }) {
   const [identificador, setIdentificador] = useState("");
 
   return (
-    <section className="grid gap-3 rounded-lg border p-4" aria-label={conta.nome}>
-      <div className="flex flex-wrap items-center gap-2">
-        <span aria-hidden className="size-3 rounded-full" style={{ backgroundColor: conta.cor }} />
-        <Input aria-label="Nome da conta" value={nome} onChange={(e) => setNome(e.target.value)} className="h-8 w-56 font-semibold" maxLength={60} />
+    <section className="bg-card text-card-foreground grid min-w-0 gap-3 rounded-xl border p-4" aria-label={conta.nome}>
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <span aria-hidden className="size-3 shrink-0 rounded-full" style={{ backgroundColor: conta.cor }} />
+        <Input aria-label="Nome da conta" value={nome} onChange={(e) => setNome(e.target.value)} className="h-8 w-full min-w-0 font-semibold sm:w-56" maxLength={60} />
         <Button
           size="sm"
           variant="outline"
@@ -105,7 +105,7 @@ export function CartaoMarca({ conta }: { conta: Conta }) {
       </ul>
 
       <form
-        className="flex flex-wrap items-center gap-2 border-t pt-3"
+        className="flex min-w-0 flex-wrap items-center gap-2 border-t pt-3"
         action={() =>
           iniciar(async () => {
             if (avisar(await criarCanalAcao({ marcaId: conta.id, plataforma, identificador }))) setIdentificador("");
@@ -119,7 +119,7 @@ export function CartaoMarca({ conta }: { conta: Conta }) {
             </option>
           ))}
         </select>
-        <Input aria-label="Perfil" value={identificador} onChange={(e) => setIdentificador(e.target.value)} placeholder="@perfil (opcional)" maxLength={100} className="h-9 w-48" />
+        <Input aria-label="Perfil" value={identificador} onChange={(e) => setIdentificador(e.target.value)} placeholder="@perfil (opcional)" maxLength={100} className="h-9 w-full min-w-0 sm:w-48" />
         <Button type="submit" size="sm" disabled={pendente}>
           Adicionar canal
         </Button>

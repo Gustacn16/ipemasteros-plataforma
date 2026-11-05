@@ -24,8 +24,8 @@ export function useAplicarFiltro() {
   return { aplicar, pendente };
 }
 
-const estiloSelect = "border-input bg-background h-8 max-w-48 rounded-md border px-2 text-sm";
-const ativo = "border-orange-500 bg-orange-50 font-medium dark:bg-orange-950";
+const estiloSelect = "border-input bg-background h-8 min-w-0 max-w-48 rounded-md border px-2 text-sm";
+const ativo = "border-primary bg-primary/10 font-medium";
 
 type Props = { filtro: FiltroConteudo; contas: Conta[]; pessoas: { id: string; nome: string }[] };
 
@@ -46,8 +46,8 @@ export function BarraFiltros({ filtro, contas, pessoas }: Props) {
   };
 
   return (
-    <div role="group" aria-label="Filtros" className={cn("mb-4 flex flex-wrap items-center gap-2", pendente && "opacity-60")}>
-      <FilterIcon className="text-muted-foreground size-4" aria-hidden />
+    <div role="group" aria-label="Filtros" className={cn("mb-6 flex min-w-0 flex-wrap items-center gap-2", pendente && "opacity-60")}>
+      <FilterIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
       <select aria-label="Conta" className={cn(estiloSelect, filtro.marca && ativo)} value={filtro.marca ?? ""} onChange={(e) => mudar("marca", e.target.value)}>
         <option value="">Todas as contas</option>
         {contas.map((c) => (

@@ -10,7 +10,8 @@ import { valorInputData } from "@/modulos/tarefas/componentes/exibicao";
 import { atualizarConteudoAcao, excluirConteudoAcao } from "../acoes/conteudo";
 import { FORMATOS, ROTULO_FORMATO, ROTULO_PLATAFORMA, type Formato, type Plataforma } from "../esquemas/conteudo";
 
-const estiloCampo = "border-input bg-background w-full rounded-md border px-2 py-1.5 text-sm";
+const estiloCampo = "border-input bg-background w-full min-w-0 rounded-md border px-2 py-1.5 text-sm";
+const ID_FORMULARIO = "form-conteudo";
 
 type Props = {
   conteudo: {
@@ -68,87 +69,96 @@ export function EditorConteudo({ conteudo, canais, canaisSelecionados, pessoas }
   const erro = (n: string) => erros[n] && <p className="text-destructive text-sm">{erros[n]!.join(" ")}</p>;
 
   return (
-    <form action={salvar} className="grid gap-5">
-      <div className="grid gap-1.5">
-        <Label htmlFor="c-titulo">Título</Label>
-        <Input id="c-titulo" name="titulo" defaultValue={conteudo.titulo} required maxLength={200} />
-        {erro("titulo")}
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <>
+      <form id={ID_FORMULARIO} action={salvar} className="grid gap-5">
         <div className="grid gap-1.5">
-          <Label htmlFor="c-formato">Formato</Label>
-          <select id="c-formato" name="formato" defaultValue={conteudo.formato} className={estiloCampo}>
-            {FORMATOS.map((f) => (
-              <option key={f} value={f}>
-                {ROTULO_FORMATO[f]}
-              </option>
+          <Label htmlFor="c-titulo">Título</Label>
+          <Input id="c-titulo" name="titulo" defaultValue={conteudo.titulo} required maxLength={200} />
+          {erro("titulo")}
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-1.5">
+            <Label htmlFor="c-formato">Formato</Label>
+            <select id="c-formato" name="formato" defaultValue={conteudo.formato} className={estiloCampo}>
+              {FORMATOS.map((f) => (
+                <option key={f} value={f}>
+                  {ROTULO_FORMATO[f]}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="c-resp">Responsável</Label>
+            <select id="c-resp" name="responsavelId" defaultValue={conteudo.responsavelId ?? ""} className={estiloCampo}>
+              <option value="">Ninguém</option>
+              {pessoas.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nome}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="c-grav">Gravação</Label>
+            <input id="c-grav" type="date" name="dataGravacao" defaultValue={valorInputData(conteudo.dataGravacao)} className={estiloCampo} />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="c-pub">Publicação prevista</Label>
+            <input id="c-pub" type="date" name="dataPublicacao" defaultValue={valorInputData(conteudo.dataPublicacao)} className={estiloCampo} />
+          </div>
+        </div>
+
+        <fieldset className="grid gap-1.5">
+          <legend className="mb-1.5 text-sm font-medium">Canais de destino</legend>
+          <div className="flex flex-wrap gap-4">
+            {visiveis.map((k) => (
+              <label key={k.id} className="flex min-w-0 items-center gap-1.5 text-sm">
+                <input
+                  type="checkbox"
+                  className="accent-primary size-4"
+                  checked={canalIds.includes(k.id)}
+                  onChange={(e) => setCanalIds((a) => (e.target.checked ? [...a, k.id] : a.filter((x) => x !== k.id)))}
+                />
+                {ROTULO_PLATAFORMA[k.plataforma]}
+                {k.identificador && <span className="text-muted-foreground">{k.identificador}</span>}
+              </label>
             ))}
-          </select>
-        </div>
+          </div>
+          {erro("canalIds")}
+        </fieldset>
+
         <div className="grid gap-1.5">
-          <Label htmlFor="c-resp">Responsável</Label>
-          <select id="c-resp" name="responsavelId" defaultValue={conteudo.responsavelId ?? ""} className={estiloCampo}>
-            <option value="">Ninguém</option>
-            {pessoas.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nome}
-              </option>
-            ))}
-          </select>
+          <Label htmlFor="c-link">Pasta do material (Google Drive)</Label>
+          <Input id="c-link" name="linkMaterial" type="url" defaultValue={conteudo.linkMaterial ?? ""} placeholder="https://drive.google.com/…" />
+          {erro("linkMaterial")}
         </div>
+
         <div className="grid gap-1.5">
-          <Label htmlFor="c-grav">Gravação</Label>
-          <input id="c-grav" type="date" name="dataGravacao" defaultValue={valorInputData(conteudo.dataGravacao)} className={estiloCampo} />
+          <Label htmlFor="c-roteiro">Roteiro / briefing</Label>
+          <textarea id="c-roteiro" name="roteiro" rows={8} defaultValue={conteudo.roteiro ?? ""} className={estiloCampo} />
         </div>
+
         <div className="grid gap-1.5">
-          <Label htmlFor="c-pub">Publicação prevista</Label>
-          <input id="c-pub" type="date" name="dataPublicacao" defaultValue={valorInputData(conteudo.dataPublicacao)} className={estiloCampo} />
+          <Label htmlFor="c-legenda">Legenda</Label>
+          <textarea id="c-legenda" name="legenda" rows={5} defaultValue={conteudo.legenda ?? ""} className={estiloCampo} />
         </div>
-      </div>
 
-      <fieldset className="grid gap-1.5">
-        <legend className="mb-1.5 text-sm font-medium">Canais de destino</legend>
-        <div className="flex flex-wrap gap-4">
-          {visiveis.map((k) => (
-            <label key={k.id} className="flex items-center gap-1.5 text-sm">
-              <input
-                type="checkbox"
-                checked={canalIds.includes(k.id)}
-                onChange={(e) => setCanalIds((a) => (e.target.checked ? [...a, k.id] : a.filter((x) => x !== k.id)))}
-              />
-              {ROTULO_PLATAFORMA[k.plataforma]}
-              {k.identificador && <span className="text-muted-foreground">{k.identificador}</span>}
-            </label>
-          ))}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Button type="submit" disabled={pendente} className="hidden sm:inline-flex">
+            {pendente ? "Salvando…" : "Salvar"}
+          </Button>
+          <Button type="button" variant="ghost" className="text-destructive" onClick={excluir} disabled={pendente}>
+            Excluir conteúdo
+          </Button>
         </div>
-        {erro("canalIds")}
-      </fieldset>
-
-      <div className="grid gap-1.5">
-        <Label htmlFor="c-link">Pasta do material (Google Drive)</Label>
-        <Input id="c-link" name="linkMaterial" type="url" defaultValue={conteudo.linkMaterial ?? ""} placeholder="https://drive.google.com/…" />
-        {erro("linkMaterial")}
-      </div>
-
-      <div className="grid gap-1.5">
-        <Label htmlFor="c-roteiro">Roteiro / briefing</Label>
-        <textarea id="c-roteiro" name="roteiro" rows={8} defaultValue={conteudo.roteiro ?? ""} className={estiloCampo} />
-      </div>
-
-      <div className="grid gap-1.5">
-        <Label htmlFor="c-legenda">Legenda</Label>
-        <textarea id="c-legenda" name="legenda" rows={5} defaultValue={conteudo.legenda ?? ""} className={estiloCampo} />
-      </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Button type="submit" disabled={pendente}>
+      </form>
+      {/* No celular o Salvar fica preso ao pé da tela. */}
+      <div className="bg-background sticky bottom-0 z-10 -mx-4 border-t px-4 py-3 sm:hidden">
+        <Button type="submit" form={ID_FORMULARIO} disabled={pendente} className="w-full">
           {pendente ? "Salvando…" : "Salvar"}
         </Button>
-        <Button type="button" variant="ghost" className="text-destructive" onClick={excluir} disabled={pendente}>
-          Excluir conteúdo
-        </Button>
       </div>
-    </form>
+    </>
   );
 }

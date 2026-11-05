@@ -19,7 +19,7 @@ import { criarConteudoAcao } from "../acoes/conteudo";
 import { FORMATOS, ROTULO_FORMATO, ROTULO_PLATAFORMA } from "../esquemas/conteudo";
 import type { Conta } from "../servicos/contas";
 
-const estiloCampo = "border-input bg-background h-9 w-full rounded-md border px-2 text-sm";
+const estiloCampo = "border-input bg-background h-9 w-full min-w-0 rounded-md border px-2 text-sm";
 
 export function NovoConteudo({ contas, marcaPadrao, gatilho }: { contas: Conta[]; marcaPadrao?: string; gatilho: ReactNode }) {
   const [aberto, setAberto] = useState(false);
@@ -115,6 +115,7 @@ function Formulario({ contas, marcaPadrao, fechar }: { contas: Conta[]; marcaPad
               <label key={k.id} className="flex items-center gap-1.5 text-sm">
                 <input
                   type="checkbox"
+                  className="accent-primary size-4"
                   checked={canalIds.includes(k.id)}
                   onChange={(e) => setCanalIds((a) => (e.target.checked ? [...a, k.id] : a.filter((x) => x !== k.id)))}
                 />

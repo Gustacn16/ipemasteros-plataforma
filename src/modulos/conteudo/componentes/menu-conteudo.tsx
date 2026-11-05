@@ -19,7 +19,8 @@ const VISOES = [
   { href: "/conteudo/publicados", rotulo: "Publicados" },
 ];
 
-const estiloItem = "hover:bg-muted flex w-full items-center gap-2 truncate rounded-md px-2 py-1.5 text-left text-sm";
+const estiloItem =
+  "hover:bg-muted focus-visible:ring-ring flex w-full min-w-0 items-center gap-2 truncate rounded-md px-2 py-1.5 text-left text-sm focus-visible:ring-2 focus-visible:outline-none";
 
 type Props = { contas: Conta[]; podeConfigurar: boolean; filtro: FiltroConteudo };
 
@@ -61,7 +62,7 @@ function Conteudo({ contas, podeConfigurar, filtro }: Props) {
 
       <div className="grid gap-0.5">
         <div className="flex items-center justify-between px-2">
-          <p className="text-muted-foreground text-xs font-medium uppercase">Contas</p>
+          <p className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">Contas</p>
           {podeConfigurar && (
             <Link href="/conteudo/configuracoes" className="text-muted-foreground hover:text-foreground rounded p-1" aria-label="Configurar contas e canais">
               <SettingsIcon className="size-3.5" />
@@ -85,7 +86,7 @@ function Conteudo({ contas, podeConfigurar, filtro }: Props) {
               className={cn(estiloItem, "font-medium", marca === c.id && !canal && "bg-muted")}
             >
               <span aria-hidden className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: c.cor }} />
-              {c.nome}
+              <span className="truncate">{c.nome}</span>
             </button>
             {c.canais.map((k) => (
               <button
@@ -96,7 +97,7 @@ function Conteudo({ contas, podeConfigurar, filtro }: Props) {
                 className={cn(estiloItem, "pl-6", canal === k.id && "bg-muted font-medium")}
               >
                 <SeloPlataforma plataforma={k.plataforma} />
-                {ROTULO_PLATAFORMA[k.plataforma]}
+                <span className="truncate">{ROTULO_PLATAFORMA[k.plataforma]}</span>
               </button>
             ))}
           </div>
@@ -110,11 +111,11 @@ function Conteudo({ contas, podeConfigurar, filtro }: Props) {
 export function MenuConteudo(props: Props) {
   return (
     <>
-      <aside className="hidden w-60 shrink-0 border-r p-4 md:block">
+      <aside className="bg-card hidden w-60 shrink-0 border-r p-4 md:block">
         <p className="mb-4 px-2 text-sm font-semibold">Conteúdo</p>
         <Conteudo {...props} />
       </aside>
-      <details className="group border-b md:hidden">
+      <details className="group bg-card border-b md:hidden">
         <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-semibold">
           Conteúdo: visões e contas
           <ChevronDownIcon className="size-4 transition-transform group-open:rotate-180" aria-hidden />

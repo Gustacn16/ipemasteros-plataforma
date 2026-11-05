@@ -1,7 +1,8 @@
 "use client";
 
-import { CheckCircle2Icon, ExternalLinkIcon } from "lucide-react";
+import { CircleCheck, CircleDashed, ExternalLinkIcon } from "lucide-react";
 import { useState, useTransition } from "react";
+import { ChipSituacao } from "@/componentes/chip-situacao";
 import { Button } from "@/componentes/ui/button";
 import { Input } from "@/componentes/ui/input";
 import { Label } from "@/componentes/ui/label";
@@ -68,16 +69,18 @@ function LinhaPublicacao({ p, liberada }: { p: Publicacao; liberada: boolean }) 
   }
 
   return (
-    <li className="grid gap-3 rounded-lg border p-4">
+    <li className="bg-card text-card-foreground grid min-w-0 gap-3 rounded-xl border p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="flex items-center gap-2 font-medium">
+        <span className="flex min-w-0 flex-wrap items-center gap-2 font-medium">
           <SeloPlataforma plataforma={p.canal.plataforma} publicado={publicado} />
           {ROTULO_PLATAFORMA[p.canal.plataforma]}
           {p.canal.identificador && <span className="text-muted-foreground font-normal">{p.canal.identificador}</span>}
         </span>
         {publicado ? (
-          <span className="flex items-center gap-2 text-sm text-green-700">
-            <CheckCircle2Icon className="size-4" aria-hidden /> Publicado {p.publicadoEm && `em ${diaSP(p.publicadoEm).split("-").reverse().join("/")}`}
+          <span className="flex flex-wrap items-center gap-2 text-sm">
+            <ChipSituacao tom="sucesso" icone={CircleCheck} tamanho="sm">
+              Publicado{p.publicadoEm && ` em ${diaSP(p.publicadoEm).split("-").reverse().join("/")}`}
+            </ChipSituacao>
             {p.url && (
               <a href={p.url} target="_blank" rel="noopener noreferrer" className="text-foreground inline-flex items-center gap-1 underline-offset-4 hover:underline">
                 abrir <ExternalLinkIcon className="size-3.5" />
@@ -85,7 +88,9 @@ function LinhaPublicacao({ p, liberada }: { p: Publicacao; liberada: boolean }) 
             )}
           </span>
         ) : (
-          <span className="text-muted-foreground text-sm">Pendente</span>
+          <ChipSituacao icone={CircleDashed} tamanho="sm">
+            Pendente
+          </ChipSituacao>
         )}
       </div>
 
@@ -99,14 +104,14 @@ function LinhaPublicacao({ p, liberada }: { p: Publicacao; liberada: boolean }) 
       )}
 
       {editando && (
-        <form action={registrar} className="grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end">
+        <form action={registrar} className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-end">
           <div className="grid gap-1.5">
             <Label htmlFor={`url-${p.id}`}>Link da publicação</Label>
             <Input id={`url-${p.id}`} name="url" type="url" placeholder="https://instagram.com/p/…" />
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor={`data-${p.id}`}>Data</Label>
-            <input id={`data-${p.id}`} name="data" type="date" defaultValue={diaSP(new Date())} className="border-input h-9 rounded-md border px-2 text-sm" />
+            <input id={`data-${p.id}`} name="data" type="date" defaultValue={diaSP(new Date())} className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm" />
           </div>
           <div className="flex gap-2">
             <Button type="submit" size="sm" disabled={pendente}>
@@ -121,7 +126,7 @@ function LinhaPublicacao({ p, liberada }: { p: Publicacao; liberada: boolean }) 
 
       {publicado && (
         <form action={salvarMetricas} className="grid gap-3">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 [&>div]:min-w-0">
             {METRICAS.map(([k, rotulo]) => (
               <div key={k} className="grid gap-1">
                 <Label htmlFor={`${k}-${p.id}`} className="text-xs">

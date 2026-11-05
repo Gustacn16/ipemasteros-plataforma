@@ -19,8 +19,8 @@ export function SeletorEtapa({ conteudoId, etapa, compacto }: { conteudoId: stri
       disabled={pendente}
       className={
         compacto
-          ? "border-input bg-background h-7 w-full rounded border px-1 text-xs"
-          : "border-input bg-background h-9 rounded-md border px-2 text-sm"
+          ? "border-input bg-background focus-visible:ring-ring h-7 w-full min-w-0 rounded-md border px-1 text-xs focus-visible:ring-2 focus-visible:outline-none"
+          : "border-input bg-background focus-visible:ring-ring h-9 max-w-full rounded-md border px-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
       }
       onChange={(e) => {
         const nova = e.target.value as Etapa;

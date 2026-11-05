@@ -31,6 +31,7 @@ Especificação da C1: `docs/superpowers/specs/2026-11-02-conteudo-c1-design.md`
 - `/conteudo/publicados`: publicações do mês com link, métricas e engajamento por canal.
 - `/conteudo/itens/[id]`: detalhe, edição e registro das publicações e métricas.
 - `/conteudo/configuracoes`: contas e canais (admin/gestor).
+- Visual novo: cabeçalho padrão, números em cartões, chips de etapa, prazo e plataforma, telas vazias; tokens do tema.
 
 Todas as visões têm uma barra de filtros (conta, canal, responsável, formato e etapa). O filtro fica salvo no cookie `conteudo_filtro` (só ids e códigos, por navegador, validade de 1 ano) e vale em todas as visões até a pessoa clicar em "Limpar filtros". As contas do menu lateral usam o mesmo filtro. O mês continua na URL (`?mes=`).
 
