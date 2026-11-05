@@ -4,7 +4,16 @@ import { temPermissao } from "@/lib/permissoes";
 import { prisma } from "@/lib/prisma";
 import type { UsuarioAtual } from "@/lib/sessao";
 import type { DadosMetasProduto } from "../esquemas/meta";
-import { type MetaChave, mesAnterior, metaVazia, metasParaCopiar, primeiroDiaDoMes, vendedoresParaValidar } from "../regras/meta";
+import {
+  type MetaChave,
+  mesAnterior,
+  mesSeguinte,
+  metaVazia,
+  metasParaCopiar,
+  primeiroDiaDoMes,
+  progressoDasMetas,
+  vendedoresParaValidar,
+} from "../regras/meta";
 import { MENSAGEM_NAO_ENCONTRADO, exigirPermissaoComercial } from "./acesso";
 import { listarVendedores } from "./vendas";
 
@@ -123,3 +132,48 @@ export async function copiarMetasMesAnterior(ator: UsuarioAtual, mes: string): P
   const { count } = await prisma.metaVenda.createMany({ data: novas.map((m) => ({ ...m, mes: dataDoMes(mes) })), skipDuplicates: true });
   return count;
 }
+
+/**
+ * Visão das metas do mês: progresso de cada vendedor (com foto), total e pódio.
+ * Sem a visão da equipe, só o próprio vendedor.
+ */
+export async function obterVisaoMetas(ator: UsuarioAtual, mes: string) {
+  exigirPermissaoComercial(ator, "comercial:ver");
+  const equipe = temPermissao(ator.papel, "comercial:ver_equipe");
+  const doVendedor = equipe ? {} : { vendedorId: ator.id };
+  const [metas, vendas] = await Promise.all([
+    prisma.metaVenda.findMany({
+      where: { mes: dataDoMes(mes), ...doVendedor },
+      select: { vendedorId: true, valorAlvo: true, quantidadeAlvo: true },
+    }),
+    prisma.venda.groupBy({
+      by: ["vendedorId"],
+      where: { excluidoEm: null, dataVenda: { gte: dataDoMes(mes), lt: dataDoMes(mesSeguinte(mes)) }, ...doVendedor },
+      _sum: { valorTotal: true },
+      _count: true,
+    }),
+  ]);
+  // Vendedores ativos, mais quem tem meta ou venda no mês (mesmo que tenha saído).
+  const ids = [...new Set([...metas.map((m) => m.vendedorId), ...vendas.map((v) => v.vendedorId)])];
+  const vendedores = await prisma.usuario.findMany({
+    where: equipe ? { OR: [{ ativo: true, papel: { in: ["comercial", "gestor", "admin"] } }, { id: { in: ids } }] } : { id: ator.id },
+    orderBy: { nome: "asc" },
+    select: { id: true, nome: true, imagem: true },
+  });
+  const progresso = progressoDasMetas({
+    vendedores,
+    metas: metas.map((m) => ({ vendedorId: m.vendedorId, valorAlvo: m.valorAlvo.toFixed(2), quantidadeAlvo: m.quantidadeAlvo })),
+    vendas: vendas.map((v) => ({ vendedorId: v.vendedorId, vendido: Number(v._sum.valorTotal ?? 0).toFixed(2), quantidade: v._count })),
+  });
+  // No gráfico e nos cartões, só quem tem meta ou venda (gestor sem meta não polui a tela).
+  const comNumeros = progresso.vendedores.filter((v) => v.percentual !== null || v.vendas > 0 || v.id === ator.id);
+  return {
+    mes,
+    equipe,
+    euId: ator.id,
+    ...progresso,
+    vendedores: comNumeros,
+    podeEditar: temPermissao(ator.papel, "comercial:gerenciar_metas"),
+  };
+}
+export type VisaoMetas = Awaited<ReturnType<typeof obterVisaoMetas>>;
