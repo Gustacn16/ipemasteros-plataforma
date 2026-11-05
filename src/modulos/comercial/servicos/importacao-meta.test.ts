@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ClienteMeta, InsightMeta } from "./meta-graph";
+import type { ClienteMeta, InsightAnuncioMeta, InsightMeta } from "./meta-graph";
 import { ErroMeta } from "./meta-graph";
 
 // Banco em memória só com o que a importação usa.
@@ -9,6 +9,8 @@ const banco = vi.hoisted(() => {
     contas: [] as Linha[],
     campanhas: [] as Linha[],
     metricas: [] as Linha[],
+    criativos: [] as Linha[],
+    metricasCriativo: [] as Linha[],
     importacoes: [] as Linha[],
     seq: 0,
   };
@@ -50,7 +52,13 @@ const banco = vi.hoisted(() => {
         where: { idExterno: string };
         create: Record<string, unknown>;
         update: Record<string, unknown>;
-      }) => upsertPor(estado.contas, (c) => c.idExterno === where.idExterno, { ativa: true, historicoCompletoEm: null, ...create }, update),
+      }) =>
+        upsertPor(
+          estado.contas,
+          (c) => c.idExterno === where.idExterno,
+          { ativa: true, historicoCompletoEm: null, historicoCriativosEm: null, ...create },
+          update,
+        ),
       findMany: async ({ where }: { where: { ativa: boolean; idExterno: { in: string[] } } }) =>
         estado.contas.filter((c) => c.ativa === where.ativa && where.idExterno.in.includes(c.idExterno as string)),
       update: async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) =>
@@ -87,6 +95,34 @@ const banco = vi.hoisted(() => {
           update,
         ),
     },
+    criativoAnuncio: {
+      upsert: async ({
+        where,
+        create,
+        update,
+      }: {
+        where: { idExterno: string };
+        create: Record<string, unknown>;
+        update: Record<string, unknown>;
+      }) => upsertPor(estado.criativos, (c) => c.idExterno === where.idExterno, create, update),
+    },
+    metricaDiariaCriativo: {
+      upsert: async ({
+        where,
+        create,
+        update,
+      }: {
+        where: { criativoId_data: { criativoId: string; data: Date } };
+        create: Record<string, unknown>;
+        update: Record<string, unknown>;
+      }) =>
+        upsertPor(
+          estado.metricasCriativo,
+          (m) => m.criativoId === where.criativoId_data.criativoId && +(m.data as Date) === +where.criativoId_data.data,
+          create,
+          update,
+        ),
+    },
   };
   return { estado, prisma };
 });
@@ -103,7 +139,14 @@ const contas = [
 ];
 
 /** Cliente falso: um dia de números por período pedido, por conta. */
-function clienteFalso(o: { falharInsights?: (conta: string, desde: string) => boolean; pedidos?: string[] } = {}): ClienteMeta {
+function clienteFalso(
+  o: {
+    falharInsights?: (conta: string, desde: string) => boolean;
+    falharAnuncios?: (conta: string) => boolean;
+    pedidos?: string[];
+    pedidosAnuncios?: string[];
+  } = {},
+): ClienteMeta {
   return {
     listarContas: async () => contas,
     listarCampanhas: async (conta) => [{ id: `camp_${conta}`, name: `Campanha ${conta}`, status: "ACTIVE" }],
@@ -113,6 +156,31 @@ function clienteFalso(o: { falharInsights?: (conta: string, desde: string) => bo
       const linha: InsightMeta = { campaign_id: `camp_${conta}`, date_start: desde, spend: "10.00", actions: [] };
       return [linha];
     },
+    listarAnuncios: async (conta) => {
+      if (o.falharAnuncios?.(conta)) throw new ErroMeta("A Meta limitou as consultas. Tente de novo em alguns minutos.", 17);
+      return [
+        {
+          id: `ad_${conta}`,
+          name: `Anúncio ${conta}`,
+          status: "ACTIVE",
+          campaign_id: `camp_${conta}`,
+          creative: { thumbnail_url: "https://cdn/mini.jpg", image_url: "https://cdn/grande.jpg" },
+        },
+      ];
+    },
+    listarInsightsAnuncios: async (conta, desde) => {
+      o.pedidosAnuncios?.push(`${conta}:${desde}`);
+      const linha: InsightAnuncioMeta = {
+        ad_id: `ad_${conta}`,
+        campaign_id: `camp_${conta}`,
+        date_start: desde,
+        spend: "5.00",
+        impressions: "100",
+        inline_link_clicks: "3",
+        actions: [{ action_type: "onsite_conversion.lead_grouped", value: "2" }],
+      };
+      return [linha];
+    },
   };
 }
 
@@ -120,6 +188,8 @@ beforeEach(() => {
   banco.estado.contas.length = 0;
   banco.estado.campanhas.length = 0;
   banco.estado.metricas.length = 0;
+  banco.estado.criativos.length = 0;
+  banco.estado.metricasCriativo.length = 0;
   banco.estado.importacoes.length = 0;
 });
 
@@ -158,6 +228,32 @@ describe("importarMetaAds", () => {
     await importarMetaAds({ origem: "agendada", agora: AGORA, cliente: clienteFalso({ pedidos }) });
     expect(pedidos).toContain("act_B:2026-01-01"); // B volta a pedir desde o início
     expect(pedidos).not.toContain("act_A:2026-01-01"); // A já tem o histórico completo: só os últimos 7 dias
+  });
+
+  it("importa os anúncios com a miniatura (imagem grande quando há) e os números por dia, sem duplicar", async () => {
+    await importarMetaAds({ origem: "manual", agora: AGORA, cliente: clienteFalso() });
+    const criativoA = banco.estado.criativos.find((c) => c.idExterno === "ad_act_A")!;
+    expect(criativoA).toMatchObject({ nome: "Anúncio act_A", miniatura: "https://cdn/grande.jpg" });
+    expect(criativoA.campanhaId).toBe(banco.estado.campanhas.find((c) => c.idExterno === "camp_act_A")?.id);
+    const doA = () => banco.estado.metricasCriativo.filter((m) => m.criativoId === criativoA.id);
+    expect(doA()[0]).toMatchObject({ investimento: "5.00", impressoes: 100, cliquesLink: 3, leadsFormulario: 2 });
+    const antes = doA().length;
+    await importarMetaAds({ origem: "manual", agora: AGORA, cliente: clienteFalso() });
+    expect(doA().length).toBe(antes + 1); // só o dia novo dos "últimos 7 dias"
+  });
+
+  it("falha nos anúncios não atrapalha as campanhas e refaz o histórico dos anúncios depois", async () => {
+    const r = await importarMetaAds({ origem: "manual", agora: AGORA, cliente: clienteFalso({ falharAnuncios: (c) => c === "act_B" }) });
+    expect(r.status).toBe("concluida");
+    expect(banco.estado.importacoes.at(-1)?.erro).toContain("Conta B (act_B), criativos:");
+    const contaB = banco.estado.contas.find((c) => c.idExterno === "act_B")!;
+    expect(contaB.historicoCompletoEm).not.toBeNull();
+    expect(contaB.historicoCriativosEm ?? null).toBeNull();
+
+    const pedidosAnuncios: string[] = [];
+    await importarMetaAds({ origem: "agendada", agora: AGORA, cliente: clienteFalso({ pedidosAnuncios }) });
+    expect(pedidosAnuncios).toContain("act_B:2026-01-01");
+    expect(pedidosAnuncios).not.toContain("act_A:2026-01-01");
   });
 
   it("chave sem contas atribuídas: conclui com o aviso do que fazer", async () => {

@@ -8,6 +8,7 @@ import {
   custoPorLead,
   filtrandoCampanhas,
   filtrosValidos,
+  rankingCriativos,
   formatarRoas,
   roas,
   totalLeads,
@@ -115,5 +116,32 @@ describe("CTR e CPC do link", () => {
   it("CPC = investimento ÷ cliques no link; sem cliques, null", () => {
     expect(cpc(10000, 40)).toBe("2.50");
     expect(cpc(10000, 0)).toBeNull();
+  });
+});
+
+describe("rankingCriativos", () => {
+  const base = { campanha: "C", miniatura: null, impressoes: 1000, cliquesLink: 10 };
+  const itens = [
+    { ...base, id: "a", nome: "A", investimento: 10000, leads: 10 }, // R$ 10 por lead
+    { ...base, id: "b", nome: "B", investimento: 6000, leads: 10 }, // R$ 6
+    { ...base, id: "c", nome: "C", investimento: 12000, leads: 20 }, // R$ 6, mais leads
+    { ...base, id: "d", nome: "D", investimento: 4900, leads: 5 }, // abaixo de R$ 50
+    { ...base, id: "e", nome: "E", investimento: 8000, leads: 0 }, // gastou sem lead
+  ];
+
+  it("ordena pelo menor custo por lead; empate fica com quem trouxe mais leads", () => {
+    const r = rankingCriativos(itens);
+    expect(r.ranking.map((c) => c.id)).toEqual(["c", "b", "a"]);
+    expect(r.ranking[0]).toMatchObject({ posicao: 1, cpl: "6.00", investimento: "120.00", ctr: 1, cpc: "12.00" });
+  });
+
+  it("deixa de fora quem gastou menos de R$ 50 e conta quem gastou sem trazer lead", () => {
+    const r = rankingCriativos(itens);
+    expect(r.ranking.some((c) => c.id === "d")).toBe(false);
+    expect(r.semLead).toBe(1);
+  });
+
+  it("mostra no máximo o limite pedido", () => {
+    expect(rankingCriativos(itens, 2).ranking).toHaveLength(2);
   });
 });

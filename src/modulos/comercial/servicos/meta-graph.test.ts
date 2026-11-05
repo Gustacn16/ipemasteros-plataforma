@@ -45,6 +45,24 @@ describe("cliente da Graph API", () => {
     expect(JSON.parse(url.searchParams.get("time_range")!)).toEqual({ since: "2026-11-01", until: "2026-11-02" });
   });
 
+  it("pede anúncios com a miniatura e os insights por anúncio e por dia", async () => {
+    const urls: string[] = [];
+    const espiao = (async (entrada: string | URL | Request) => {
+      urls.push(String(entrada));
+      return resposta({ data: [] });
+    }) as typeof fetch;
+    const cliente = criarClienteMeta(TOKEN, espiao);
+    await cliente.listarAnuncios("act_111");
+    await cliente.listarInsightsAnuncios("act_111", "2026-11-01", "2026-11-02");
+    const anuncios = new URL(urls[0]!);
+    expect(anuncios.pathname).toMatch(/\/act_111\/ads$/);
+    expect(anuncios.searchParams.get("fields")).toContain("creative{thumbnail_url,image_url}");
+    const insights = new URL(urls[1]!);
+    expect(insights.searchParams.get("level")).toBe("ad");
+    expect(insights.searchParams.get("fields")).toContain("ad_id");
+    expect(insights.searchParams.get("time_increment")).toBe("1");
+  });
+
   it("manda a chave no header Authorization, nunca na URL", async () => {
     const pedidos: { url: string; auth: string | null }[] = [];
     const espiao = (async (entrada: string | URL | Request, init?: RequestInit) => {

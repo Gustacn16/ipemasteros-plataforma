@@ -906,17 +906,19 @@ enum StatusImportacao {
 
 /// Conta de anúncio da Meta vista pela chave do usuário do sistema.
 model ContaAnuncio {
-  id                  String    @id @default(cuid())
+  id                   String    @id @default(cuid())
   /// Ex.: "act_123".
-  idExterno           String    @unique @map("id_externo") @db.VarChar(40)
-  nome                String    @db.VarChar(255)
-  moeda               String    @db.VarChar(3)
+  idExterno            String    @unique @map("id_externo") @db.VarChar(40)
+  nome                 String    @db.VarChar(255)
+  moeda                String    @db.VarChar(3)
   /// Contas desligadas não são importadas.
-  ativa               Boolean   @default(true)
+  ativa                Boolean   @default(true)
   /// Quando a carga do histórico desde 2026-01-01 terminou sem erro. Até lá, cada importação refaz o histórico da conta.
-  historicoCompletoEm DateTime? @map("historico_completo_em")
-  criadoEm            DateTime  @default(now()) @map("criado_em")
-  atualizadoEm        DateTime  @updatedAt @map("atualizado_em")
+  historicoCompletoEm  DateTime? @map("historico_completo_em")
+  /// Mesma regra de `historicoCompletoEm`, para os números por anúncio (ranking de criativos).
+  historicoCriativosEm DateTime? @map("historico_criativos_em")
+  criadoEm             DateTime  @default(now()) @map("criado_em")
+  atualizadoEm         DateTime  @updatedAt @map("atualizado_em")
 
   campanhas CampanhaAnuncio[]
 
@@ -936,9 +938,10 @@ model CampanhaAnuncio {
   criadoEm     DateTime           @default(now()) @map("criado_em")
   atualizadoEm DateTime           @updatedAt @map("atualizado_em")
 
-  conta    ContaAnuncio           @relation(fields: [contaId], references: [id])
-  produto  Produto?               @relation(fields: [produtoId], references: [id])
-  metricas MetricaDiariaAnuncio[]
+  conta     ContaAnuncio           @relation(fields: [contaId], references: [id])
+  produto   Produto?               @relation(fields: [produtoId], references: [id])
+  metricas  MetricaDiariaAnuncio[]
+  criativos CriativoAnuncio[]
 
   @@index([contaId])
   @@index([produtoId])
@@ -969,6 +972,45 @@ model MetricaDiariaAnuncio {
   @@unique([campanhaId, data])
   @@index([data])
   @@map("metricas_diarias_anuncio")
+}
+
+/// Anúncio (criativo) da Meta, com a miniatura para o ranking. A URL da miniatura expira; é renovada a cada importação.
+model CriativoAnuncio {
+  id           String   @id @default(cuid())
+  campanhaId   String   @map("campanha_id")
+  idExterno    String   @unique @map("id_externo") @db.VarChar(40)
+  nome         String   @db.VarChar(255)
+  status       String   @db.VarChar(30)
+  miniatura    String?  @db.Text
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  campanha CampanhaAnuncio         @relation(fields: [campanhaId], references: [id])
+  metricas MetricaDiariaCriativo[]
+
+  @@index([campanhaId])
+  @@map("criativos_anuncio")
+}
+
+/// Números de um anúncio num dia (no fuso da conta). Refeitos a cada importação.
+model MetricaDiariaCriativo {
+  id                 String   @id @default(cuid())
+  criativoId         String   @map("criativo_id")
+  data               DateTime @db.Date
+  investimento       Decimal  @default(0) @db.Decimal(12, 2)
+  impressoes         Int      @default(0)
+  cliquesLink        Int      @default(0) @map("cliques_link")
+  leadsFormulario    Int      @default(0) @map("leads_formulario")
+  leadsSite          Int      @default(0) @map("leads_site")
+  conversasIniciadas Int      @default(0) @map("conversas_iniciadas")
+  criadoEm           DateTime @default(now()) @map("criado_em")
+  atualizadoEm       DateTime @updatedAt @map("atualizado_em")
+
+  criativo CriativoAnuncio @relation(fields: [criativoId], references: [id])
+
+  @@unique([criativoId, data])
+  @@index([data])
+  @@map("metricas_diarias_criativo")
 }
 
 /// Histórico das importações do Meta Ads. Nunca guarda a chave de acesso.

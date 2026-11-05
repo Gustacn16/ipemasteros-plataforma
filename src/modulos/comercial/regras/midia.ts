@@ -97,3 +97,42 @@ export function ctr(cliquesLink: number, impressoes: number): number | null {
 export function cpc(investimentoCentavos: number, cliquesLink: number): string | null {
   return cliquesLink === 0 ? null : reais(Math.round(investimentoCentavos / cliquesLink));
 }
+
+/** Gasto mínimo no mês para um criativo entrar no ranking (R$ 50, em centavos). */
+export const INVESTIMENTO_MINIMO_RANKING = 5000;
+
+export type CriativoDoMes = {
+  id: string;
+  nome: string;
+  campanha: string;
+  miniatura: string | null;
+  investimento: number;
+  impressoes: number;
+  cliquesLink: number;
+  leads: number;
+};
+
+/**
+ * Ranking dos criativos pelo menor custo por lead (pedido em 2026-11-04). Só entra quem
+ * gastou pelo menos R$ 50 e trouxe lead; empate vai para quem trouxe mais leads.
+ */
+export function rankingCriativos(itens: CriativoDoMes[], limite = 10) {
+  const elegiveis = itens.filter((c) => c.investimento >= INVESTIMENTO_MINIMO_RANKING);
+  const ranking = elegiveis
+    .filter((c) => c.leads > 0)
+    .sort((a, b) => a.investimento * b.leads - b.investimento * a.leads || b.leads - a.leads || a.nome.localeCompare(b.nome, "pt-BR"))
+    .slice(0, limite)
+    .map((c, i) => ({
+      id: c.id,
+      nome: c.nome,
+      campanha: c.campanha,
+      miniatura: c.miniatura,
+      posicao: i + 1,
+      investimento: reais(c.investimento),
+      leads: c.leads,
+      cpl: custoPorLead(c.investimento, c.leads),
+      ctr: ctr(c.cliquesLink, c.impressoes),
+      cpc: cpc(c.investimento, c.cliquesLink),
+    }));
+  return { ranking, semLead: elegiveis.filter((c) => c.leads === 0).length };
+}

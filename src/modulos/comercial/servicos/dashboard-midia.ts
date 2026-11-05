@@ -14,6 +14,7 @@ import {
   custoPorLead,
   filtrandoCampanhas,
   filtrosValidos,
+  rankingCriativos,
   roas,
   totalLeads,
 } from "../regras/midia";
@@ -66,24 +67,43 @@ export async function obterMidia(ator: UsuarioAtual, filtros: FiltroCampanhas & 
     ...(f.busca ? { nome: { contains: f.busca } } : {}),
     ...(f.situacao === "ativas" ? { status: "ACTIVE" } : f.situacao === "pausadas" ? { status: { not: "ACTIVE" } } : {}),
   };
-  const metricas = await prisma.metricaDiariaAnuncio.findMany({
-    where: {
-      data: { gte: inicioJanela, lt: fimJanela },
-      campanha: filtroCampanha,
-      ...(f.campanhas.length ? { campanhaId: { in: f.campanhas } } : {}),
-    },
-    select: {
-      campanhaId: true,
-      data: true,
-      investimento: true,
-      impressoes: true,
-      cliquesLink: true,
-      visitasPerfil: true,
-      leadsFormulario: true,
-      leadsSite: true,
-      conversasIniciadas: true,
-    },
-  });
+  const [metricas, metricasCriativos] = await Promise.all([
+    prisma.metricaDiariaAnuncio.findMany({
+      where: {
+        data: { gte: inicioJanela, lt: fimJanela },
+        campanha: filtroCampanha,
+        ...(f.campanhas.length ? { campanhaId: { in: f.campanhas } } : {}),
+      },
+      select: {
+        campanhaId: true,
+        data: true,
+        investimento: true,
+        impressoes: true,
+        cliquesLink: true,
+        visitasPerfil: true,
+        leadsFormulario: true,
+        leadsSite: true,
+        conversasIniciadas: true,
+      },
+    }),
+    // Ranking de criativos: só o mês escolhido, com os mesmos filtros de campanha.
+    prisma.metricaDiariaCriativo.findMany({
+      where: {
+        data: { gte: dataDoMes(mes), lt: fimJanela },
+        criativo: { campanha: filtroCampanha, ...(f.campanhas.length ? { campanhaId: { in: f.campanhas } } : {}) },
+      },
+      select: {
+        criativoId: true,
+        investimento: true,
+        impressoes: true,
+        cliquesLink: true,
+        leadsFormulario: true,
+        leadsSite: true,
+        conversasIniciadas: true,
+        criativo: { select: { nome: true, miniatura: true, campanhaId: true } },
+      },
+    }),
+  ]);
 
   // Categoria pelo nome. O bloco "Por categoria" mostra todas (com os demais filtros);
   // o resto da tela respeita a categoria escolhida.
@@ -127,6 +147,27 @@ export async function obterMidia(ator: UsuarioAtual, filtros: FiltroCampanhas & 
     }
   }
 
+  const nomeDaCampanha = new Map(campanhasOpcoes.map((c) => [c.id, c.nome]));
+  const porCriativo = new Map<string, Parameters<typeof rankingCriativos>[0][number]>();
+  for (const m of metricasCriativos) {
+    if (f.categoria && categoriaPorCampanha.get(m.criativo.campanhaId) !== f.categoria) continue;
+    const c = porCriativo.get(m.criativoId) ?? {
+      id: m.criativoId,
+      nome: m.criativo.nome,
+      campanha: nomeDaCampanha.get(m.criativo.campanhaId) ?? "—",
+      miniatura: m.criativo.miniatura,
+      investimento: 0,
+      impressoes: 0,
+      cliquesLink: 0,
+      leads: 0,
+    };
+    c.investimento += centavos(m.investimento);
+    c.impressoes += m.impressoes;
+    c.cliquesLink += m.cliquesLink;
+    c.leads += totalLeads(m);
+    porCriativo.set(m.criativoId, c);
+  }
+
   const leads = totalLeads(atual);
   const vendas = vendasDoMes._count;
   const vendido = centavos(vendasDoMes._sum.valorTotal);
@@ -164,6 +205,7 @@ export async function obterMidia(ator: UsuarioAtual, filtros: FiltroCampanhas & 
         cpl: custoPorLead(c.investimento, c.leads),
       }))
       .sort((a, b) => Number(b.investimento) - Number(a.investimento) || a.nome.localeCompare(b.nome, "pt-BR")),
+    criativos: rankingCriativos([...porCriativo.values()]),
     categoria: f.categoria ?? null,
     porCategoria: CATEGORIAS_CAMPANHA.map((categoria) => {
       const g = porCategoria.get(categoria)!;

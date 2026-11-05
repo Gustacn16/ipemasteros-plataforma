@@ -33,6 +33,23 @@ export type InsightMeta = {
   actions?: { action_type: string; value: string }[];
 };
 
+export type AnuncioMeta = {
+  id: string;
+  name: string;
+  status: string;
+  campaign_id: string;
+  creative?: { thumbnail_url?: string; image_url?: string };
+};
+export type InsightAnuncioMeta = {
+  ad_id: string;
+  campaign_id: string;
+  date_start: string;
+  spend?: string;
+  impressions?: string;
+  inline_link_clicks?: string;
+  actions?: { action_type: string; value: string }[];
+};
+
 export function criarClienteMeta(token: string, fetchFn: typeof fetch = fetch) {
   async function pedir<T>(url: string): Promise<Pagina<T>> {
     let resposta: Response;
@@ -72,6 +89,16 @@ export function criarClienteMeta(token: string, fetchFn: typeof fetch = fetch) {
         time_increment: "1",
         time_range: JSON.stringify({ since: desde, until: ate }),
         fields: "campaign_id,spend,impressions,reach,clicks,inline_link_clicks,actions",
+        limit: "500",
+      }),
+    listarAnuncios: (contaId: string) =>
+      todas<AnuncioMeta>(`${contaId}/ads`, { fields: "id,name,status,campaign_id,creative{thumbnail_url,image_url}", limit: "200" }),
+    listarInsightsAnuncios: (contaId: string, desde: string, ate: string) =>
+      todas<InsightAnuncioMeta>(`${contaId}/insights`, {
+        level: "ad",
+        time_increment: "1",
+        time_range: JSON.stringify({ since: desde, until: ate }),
+        fields: "ad_id,campaign_id,spend,impressions,inline_link_clicks,actions",
         limit: "500",
       }),
   };

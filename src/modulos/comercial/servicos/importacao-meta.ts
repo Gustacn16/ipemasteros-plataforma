@@ -99,9 +99,25 @@ export async function executarImportacao({
       // depois, só os últimos 7 dias. Conta nova também recebe o histórico.
       const periodos = periodosImportacao({ temDados: conta.historicoCompletoEm !== null, hoje });
       for (const p of periodos) dias.push(p.desde, p.ate);
+      const idPorExterno = new Map<string, string>();
+      const campanhaDe = async (idExterno: string) => {
+        let campanhaId = idPorExterno.get(idExterno);
+        if (!campanhaId) {
+          // Campanha excluída na Meta, mas com números no período.
+          const nova = await prisma.campanhaAnuncio.upsert({
+            where: { idExterno },
+            create: { idExterno, contaId: conta.id, nome: `Campanha ${idExterno}`, status: "DESCONHECIDO" },
+            update: {},
+            select: { id: true },
+          });
+          campanhaId = nova.id;
+          idPorExterno.set(idExterno, campanhaId);
+        }
+        return campanhaId;
+      };
+      let campanhasLidas = false;
       try {
         const campanhas = await cliente.listarCampanhas(conta.idExterno);
-        const idPorExterno = new Map<string, string>();
         for (const camp of campanhas) {
           const salva = await prisma.campanhaAnuncio.upsert({
             where: { idExterno: camp.id },
@@ -112,22 +128,12 @@ export async function executarImportacao({
           });
           idPorExterno.set(camp.id, salva.id);
         }
+        campanhasLidas = true;
 
         for (const periodo of periodos) {
           const linhas = await cliente.listarInsights(conta.idExterno, periodo.desde, periodo.ate);
           for (const l of linhas) {
-            let campanhaId = idPorExterno.get(l.campaign_id);
-            if (!campanhaId) {
-              // Campanha excluída na Meta, mas com números no período.
-              const nova = await prisma.campanhaAnuncio.upsert({
-                where: { idExterno: l.campaign_id },
-                create: { idExterno: l.campaign_id, contaId: conta.id, nome: `Campanha ${l.campaign_id}`, status: "DESCONHECIDO" },
-                update: {},
-                select: { id: true },
-              });
-              campanhaId = nova.id;
-              idPorExterno.set(l.campaign_id, campanhaId);
-            }
+            const campanhaId = await campanhaDe(l.campaign_id);
             const leads = lerLeads(l.actions);
             for (const t of leads.ignorados) ignorados.add(t);
             const numeros = {
@@ -156,6 +162,24 @@ export async function executarImportacao({
       } catch (erro) {
         erros.push(`${conta.nome} (${conta.idExterno}): ${mensagemDe(erro)}`);
       }
+      // Números por anúncio (ranking de criativos), com histórico próprio: um erro aqui não desfaz as campanhas.
+      if (campanhasLidas) {
+        try {
+          registros += await importarCriativos({
+            cliente,
+            contaIdExterno: conta.idExterno,
+            hoje,
+            campanhaDe,
+            temDados: conta.historicoCriativosEm !== null,
+            dias,
+          });
+          if (conta.historicoCriativosEm === null) {
+            await prisma.contaAnuncio.update({ where: { id: conta.id }, data: { historicoCriativosEm: agora } });
+          }
+        } catch (erro) {
+          erros.push(`${conta.nome} (${conta.idExterno}), criativos: ${mensagemDe(erro)}`);
+        }
+      }
     }
   } catch (erro) {
     const mensagem = mensagemDe(erro);
@@ -179,6 +203,74 @@ export async function executarImportacao({
     },
   });
   return { status: "concluida", registros, erro: erros.length ? erros.join("\n") : undefined };
+}
+
+/** Anúncios da conta (com a miniatura) e os números de cada um por dia. Devolve quantas linhas gravou. */
+async function importarCriativos(o: {
+  cliente: ClienteMeta;
+  contaIdExterno: string;
+  hoje: string;
+  temDados: boolean;
+  dias: string[];
+  campanhaDe: (idExterno: string) => Promise<string>;
+}): Promise<number> {
+  const idPorExterno = new Map<string, string>();
+  const criativoDe = async (
+    idExterno: string,
+    campanhaExterna: string,
+    dados?: { nome: string; status: string; miniatura: string | null },
+  ) => {
+    const campanhaId = await o.campanhaDe(campanhaExterna);
+    const salvo = await prisma.criativoAnuncio.upsert({
+      where: { idExterno },
+      create: {
+        idExterno,
+        campanhaId,
+        nome: dados?.nome ?? `Anúncio ${idExterno}`,
+        status: dados?.status ?? "DESCONHECIDO",
+        miniatura: dados?.miniatura ?? null,
+      },
+      update: dados ? { campanhaId, ...dados } : {},
+      select: { id: true },
+    });
+    idPorExterno.set(idExterno, salvo.id);
+    return salvo.id;
+  };
+
+  for (const a of await o.cliente.listarAnuncios(o.contaIdExterno)) {
+    await criativoDe(a.id, a.campaign_id, {
+      nome: a.name.slice(0, 255),
+      status: a.status,
+      // A imagem grande fica melhor no ranking; vídeo só tem a miniatura.
+      miniatura: a.creative?.image_url ?? a.creative?.thumbnail_url ?? null,
+    });
+  }
+
+  let registros = 0;
+  const periodos = periodosImportacao({ temDados: o.temDados, hoje: o.hoje });
+  for (const p of periodos) o.dias.push(p.desde, p.ate);
+  for (const periodo of periodos) {
+    for (const l of await o.cliente.listarInsightsAnuncios(o.contaIdExterno, periodo.desde, periodo.ate)) {
+      const criativoId = idPorExterno.get(l.ad_id) ?? (await criativoDe(l.ad_id, l.campaign_id));
+      const leads = lerLeads(l.actions);
+      const numeros = {
+        investimento: (centavosDoGasto(l.spend) / 100).toFixed(2),
+        impressoes: inteiro(l.impressions),
+        cliquesLink: inteiro(l.inline_link_clicks),
+        leadsFormulario: leads.leadsFormulario,
+        leadsSite: leads.leadsSite,
+        conversasIniciadas: leads.conversasIniciadas,
+      };
+      const data = dataDoDia(l.date_start);
+      await prisma.metricaDiariaCriativo.upsert({
+        where: { criativoId_data: { criativoId, data } },
+        create: { criativoId, data, ...numeros },
+        update: numeros,
+      });
+      registros++;
+    }
+  }
+  return registros;
 }
 
 /** Situação para a tela da integração: configuração, contas e últimas importações. */

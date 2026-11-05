@@ -8,6 +8,7 @@ import { cartao, textoApagado, tituloCartao } from "../estilos";
 import { FiltrosMidia } from "./filtros-midia";
 import { GraficoMidia } from "./grafico-midia";
 import { PorCategoria } from "./por-categoria";
+import { RankingCriativos } from "./ranking-criativos";
 
 const formatoDataHora = new Intl.DateTimeFormat("pt-BR", {
   timeZone: "America/Sao_Paulo",
@@ -145,6 +146,8 @@ export function PainelMidia({
       </section>
 
       <PorCategoria dados={dados} hrefCategoria={hrefCategoria} />
+
+      <RankingCriativos dados={dados} />
     </div>
   );
 }
