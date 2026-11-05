@@ -61,7 +61,7 @@ Regras:
 | Integração | Uso | Autenticação | Fase |
 |---|---|---|---|
 | Google Agenda / Outlook | Ler a agenda pessoal e levar o calendário da IPEMaster ao Google | Sem OAuth na v1: link iCal secreto colado pela pessoa (guardado cifrado, ADR 0005) e link de assinatura `.ics` com token (o banco guarda só o hash). OAuth do Google fica para depois | F3 |
-| Meta Graph API | Publicar no Instagram/Facebook | OAuth da página/conta comercial | F5 |
+| Meta Graph API (Instagram) | Métricas do Instagram (C2a) e, depois, publicar (C2b) | A mesma chave de usuário do sistema do Meta Ads (`META_ACCESS_TOKEN`), com `instagram_basic`, `instagram_manage_insights`, `pages_show_list` e `pages_read_engagement`; base em `src/lib/meta-graph.ts`. Runbook: `docs/runbooks/instagram.md` | F5 |
 | Meta Marketing API | Investimento, impressões, cliques, leads | Chave de usuário do sistema do Business Manager (`META_ACCESS_TOKEN`, só `ads_read`); versão em `VERSAO_GRAPH`. Runbook: `docs/runbooks/meta-ads.md` | F6 |
 | Kommo API | Leads, negócios, vendas | OAuth Kommo + webhooks | F6 |
 | E-mail (SMTP Hostinger) | Convites, recuperação de senha, avisos | Credenciais SMTP | F0 |
@@ -71,6 +71,8 @@ Tokens de integração ficam **criptografados no banco** (AES-256-GCM, chave em 
 ## Jobs agendados
 A Hostinger Cloud oferece cron no hPanel. Cada job é um `GET /api/cron/<tarefa>` com o header `Authorization: Bearer $CRON_SECRET`.
 - `importar-meta-ads` (diário, 4h): refaz os últimos 7 dias do Meta Ads; implementado em `src/app/api/cron/[tarefa]/route.ts`.
+- `importar-instagram` (diário, 4h): posts novos, números dos posts dos últimos 30 dias e da conta (últimos 7 dias e mês) e seguidores do dia.
+- `importar-stories-instagram` (de hora em hora): números dos stories enquanto estão no ar.
 - `importar-kommo` (de hora em hora, complementando os webhooks): futuro.
 - `publicar-agendados` (a cada 5 min): publica conteúdos agendados.
 - `limpeza-lgpd` (semanal): anonimiza dados que passaram do prazo de retenção.
