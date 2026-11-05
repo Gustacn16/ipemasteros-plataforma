@@ -122,7 +122,10 @@ export const repositorioPrisma: RepositorioInstagram = {
     });
   },
   midiasSemLigacao: (contaId) =>
-    prisma.midiaInstagram.findMany({ where: { contaId, publicacaoId: null, removidaEm: null }, select: { id: true, codigo: true } }),
+    prisma.midiaInstagram.findMany({
+      where: { contaId, publicacaoId: null, removidaEm: null, desligadaEm: null },
+      select: { id: true, codigo: true },
+    }),
   async publicacoesCandidatas(contaId) {
     const pubs = await prisma.publicacao.findMany({
       where: { canal: { contaInstagram: { id: contaId } }, midia: { is: null }, conteudo: { excluidoEm: null } },

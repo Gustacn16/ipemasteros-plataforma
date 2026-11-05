@@ -50,7 +50,7 @@ export async function ligarNoBanco(midiaId: string, publicacaoId: string) {
   await prisma.$transaction(async (tx) => {
     const midia = await tx.midiaInstagram.update({
       where: { id: midiaId },
-      data: { publicacaoId },
+      data: { publicacaoId, desligadaEm: null },
       select: { ...camposNumeros, metricasEm: true, permalink: true, publicadoEm: true },
     });
     const pub = await tx.publicacao.update({
@@ -73,7 +73,7 @@ export async function desligarNoBanco(midiaId: string) {
   await prisma.$transaction(async (tx) => {
     const midia = await tx.midiaInstagram.findUniqueOrThrow({ where: { id: midiaId }, select: { publicacaoId: true } });
     if (!midia.publicacaoId) return;
-    await tx.midiaInstagram.update({ where: { id: midiaId }, data: { publicacaoId: null } });
+    await tx.midiaInstagram.update({ where: { id: midiaId }, data: { publicacaoId: null, desligadaEm: new Date() } });
     await tx.publicacao.update({ where: { id: midia.publicacaoId }, data: { metricasOrigem: "manual" } });
   });
 }

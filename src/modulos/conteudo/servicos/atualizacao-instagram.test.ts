@@ -328,4 +328,12 @@ describe("atualização do Instagram", () => {
     await rodar(manual.cliente, "completa", "manual", new Date(AGORA.getTime() + 3600_000));
     expect(manual.pedidos.insightsMidia.sort()).toEqual(["1", "2"]);
   });
+  it("erro nos números da conta vira um aviso só, com a contagem de períodos", async () => {
+    await contaLigada();
+    const r = await rodar(clienteFalso({ erroConta: new ErroMeta("Erro da Meta: métrica indisponível", 100) }).cliente);
+    expect(r.status).toBe("concluida");
+    const avisos = (falso.estado.atualizacoes.at(-1)?.erro ?? "").split("\n");
+    expect(avisos).toHaveLength(1);
+    expect(avisos[0]).toMatch(/^Números da conta: \d+ períodos sem números \(Erro da Meta: métrica indisponível\)\.$/);
+  });
 });

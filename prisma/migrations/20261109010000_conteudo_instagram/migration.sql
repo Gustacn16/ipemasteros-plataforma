@@ -41,6 +41,7 @@ CREATE TABLE `midias_instagram` (
     `respostas` INTEGER NULL,
     `metricas_em` DATETIME(3) NULL,
     `publicacao_id` VARCHAR(191) NULL,
+    `desligada_em` DATETIME(3) NULL,
     `removida_em` DATETIME(3) NULL,
     `criado_em` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `atualizado_em` DATETIME(3) NOT NULL,

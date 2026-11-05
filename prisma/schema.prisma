@@ -1104,6 +1104,8 @@ model MidiaInstagram {
   respostas         Int?
   metricasEm        DateTime?          @map("metricas_em")
   publicacaoId      String?            @unique @map("publicacao_id")
+  /// Desligado à mão de um conteúdo: a ligação automática não refaz.
+  desligadaEm       DateTime?          @map("desligada_em")
   removidaEm        DateTime?          @map("removida_em")
   criadoEm          DateTime           @default(now()) @map("criado_em")
   atualizadoEm      DateTime           @updatedAt @map("atualizado_em")

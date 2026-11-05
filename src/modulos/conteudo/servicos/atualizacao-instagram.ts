@@ -226,6 +226,9 @@ async function atualizarConta(
     ...dias.map((dia) => ({ periodo: "dia" as const, dia, desde: dia, ate: dia })),
     ...[...meses].reverse().map((m) => ({ periodo: "mes" as const, dia: m.desde, desde: m.desde, ate: m.ate })),
   ];
+  // Uma métrica recusada derrubaria todos os dias: vira um aviso só, com a contagem.
+  let periodosSemNumeros = 0;
+  let primeiroErro = "";
   for (const p of pedidos) {
     try {
       await repo.salvarLinhaConta(
@@ -238,9 +241,13 @@ async function atualizarConta(
     } catch (erro) {
       if (ehFatal(erro)) throw erro;
       if (ehLimite(erro)) return pararNoLimite(r, erro);
-      r.avisos.push(`Números da conta (${p.periodo === "dia" ? p.dia : p.dia.slice(0, 7)}): ${mensagemDe(erro)}`);
+      if (periodosSemNumeros++ === 0) primeiroErro = mensagemDe(erro);
     }
   }
+  if (periodosSemNumeros > 0)
+    r.avisos.push(
+      `Números da conta: ${periodosSemNumeros} ${periodosSemNumeros === 1 ? "período" : "períodos"} sem números (${primeiroErro}).`,
+    );
 
   const seguidores = await cliente.seguidores(conta.idExterno);
   if (seguidores !== null) await repo.salvarSeguidores(conta.id, hoje, seguidores);
