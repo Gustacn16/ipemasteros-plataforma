@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { dadosDoFormulario, tratarErroAcao, type EstadoAcao } from "@/lib/acoes";
+import { dadosDoFormulario, idDaAcao, tratarErroAcao, type EstadoAcao } from "@/lib/acoes";
 import { exigirPermissao } from "@/lib/sessao";
 import { esquemaVenda } from "../esquemas/venda";
 import { criarVenda, editarVenda, excluirVenda } from "../servicos/vendas";
@@ -26,7 +26,7 @@ export async function salvarVendaAcao(_: EstadoAcao, formData: FormData): Promis
 export async function excluirVendaAcao(id: string): Promise<EstadoAcao> {
   try {
     const ator = await exigirPermissao("comercial:registrar_venda");
-    await excluirVenda(ator, id);
+    await excluirVenda(ator, idDaAcao(id));
     revalidarComercial();
     return { ok: true, mensagem: "Venda excluída." };
   } catch (erro) {

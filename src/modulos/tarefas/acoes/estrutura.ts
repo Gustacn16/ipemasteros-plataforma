@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { dadosDoFormulario, tratarErroAcao, type EstadoAcao } from "@/lib/acoes";
+import { dadosDoFormulario, idDaAcao, tratarErroAcao, type EstadoAcao } from "@/lib/acoes";
 import { exigirPermissao } from "@/lib/sessao";
 import {
   esquemaEditarEspaco,
@@ -44,7 +44,7 @@ export async function editarEspacoAcao(_: EstadoAcao, formData: FormData): Promi
 export async function excluirEspacoAcao(espacoId: string): Promise<EstadoAcao> {
   try {
     const ator = await exigirPermissao("tarefas:gerenciar_espacos");
-    await excluirEspaco(ator, espacoId);
+    await excluirEspaco(ator, idDaAcao(espacoId));
     revalidarTudo();
     return { ok: true, mensagem: "Espaço excluído." };
   } catch (erro) {
@@ -90,7 +90,7 @@ export async function renomearListaAcao(listaId: string, nome: string): Promise<
 export async function excluirListaAcao(listaId: string): Promise<EstadoAcao> {
   try {
     const ator = await exigirPermissao("tarefas:gerenciar_listas");
-    await excluirLista(ator, listaId);
+    await excluirLista(ator, idDaAcao(listaId));
     revalidarTudo();
     return { ok: true, mensagem: "Lista excluída." };
   } catch (erro) {

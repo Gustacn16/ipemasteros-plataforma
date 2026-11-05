@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { dadosDoFormulario, tratarErroAcao, type EstadoAcao } from "@/lib/acoes";
+import { dadosDoFormulario, idDaAcao, tratarErroAcao, type EstadoAcao } from "@/lib/acoes";
 import { exigirPermissao } from "@/lib/sessao";
 import { esquemaAlterarPapel, esquemaConvite, esquemaIdUsuario } from "../esquemas/usuario";
 import { criarConvite, revogarConvite } from "../servicos/convites";
@@ -27,7 +27,7 @@ export async function convidarAcao(
 export async function revogarConviteAcao(conviteId: string): Promise<EstadoAcao> {
   try {
     const ator = await exigirPermissao("core:convidar_usuario");
-    await revogarConvite(ator, conviteId);
+    await revogarConvite(ator, idDaAcao(conviteId));
     revalidatePath(PAGINA_USUARIOS);
     return { ok: true, mensagem: "Convite revogado." };
   } catch (erro) {

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { dadosDoFormulario, tratarErroAcao, type EstadoAcao } from "@/lib/acoes";
+import { booleanoDaAcao, dadosDoFormulario, idDaAcao, tratarErroAcao, type EstadoAcao } from "@/lib/acoes";
 import { exigirPermissao } from "@/lib/sessao";
 import { esquemaCanal } from "../esquemas/produto";
 import { definirAtivoCanal, salvarCanal } from "../servicos/canais";
@@ -25,7 +25,7 @@ export async function salvarCanalAcao(_: EstadoAcao, formData: FormData): Promis
 export async function definirAtivoCanalAcao(id: string, ativo: boolean): Promise<EstadoAcao> {
   try {
     const ator = await exigirPermissao("comercial:gerenciar_produtos");
-    await definirAtivoCanal(ator, id, ativo);
+    await definirAtivoCanal(ator, idDaAcao(id), booleanoDaAcao(ativo));
     revalidatePath("/comercial", "layout");
     return {
       ok: true,

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
-import { tratarErroAcao, type EstadoAcao } from "@/lib/acoes";
+import { booleanoDaAcao, idDaAcao, tratarErroAcao, type EstadoAcao } from "@/lib/acoes";
 import { exigirPermissao } from "@/lib/sessao";
 import { definirContaAtiva, executarImportacao, iniciarImportacao } from "../servicos/importacao-meta";
 
@@ -27,7 +27,7 @@ export async function atualizarMetaAgoraAcao(): Promise<EstadoAcao> {
 export async function definirContaAtivaAcao(contaId: string, ativa: boolean): Promise<EstadoAcao> {
   try {
     await exigirPermissao("comercial:gerenciar_integracao_meta");
-    await definirContaAtiva(contaId, ativa);
+    await definirContaAtiva(idDaAcao(contaId), booleanoDaAcao(ativa));
     revalidatePath("/comercial", "layout");
     return { ok: true, mensagem: ativa ? "Conta incluída na importação." : "Conta fora da importação." };
   } catch (erro) {

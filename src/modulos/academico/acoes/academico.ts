@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { dadosDoFormulario, tratarErroAcao, type EstadoAcao } from "@/lib/acoes";
+import { booleanoDaAcao, dadosDoFormulario, idDaAcao, tratarErroAcao, type EstadoAcao } from "@/lib/acoes";
 import { exigirPermissao } from "@/lib/sessao";
 import { z } from "zod";
 import { SITUACOES_TURMA, esquemaAluno, esquemaMatricula, esquemaProfessor, esquemaTurma } from "../esquemas/academico";
@@ -43,7 +43,7 @@ export async function editarTurmaAcao(_: EstadoAcao, formData: FormData): Promis
 export async function definirSituacaoTurmaAcao(id: string, situacao: string): Promise<EstadoAcao> {
   try {
     const ator = await exigirPermissao("academico:gerenciar");
-    await definirSituacaoTurma(ator, id, z.enum(SITUACOES_TURMA).parse(situacao));
+    await definirSituacaoTurma(ator, idDaAcao(id), z.enum(SITUACOES_TURMA).parse(situacao));
     revalidarAcademico();
     return { ok: true, mensagem: "Situação da turma atualizada." };
   } catch (erro) {
@@ -54,7 +54,7 @@ export async function definirSituacaoTurmaAcao(id: string, situacao: string): Pr
 export async function excluirTurmaAcao(id: string): Promise<EstadoAcao> {
   try {
     const ator = await exigirPermissao("academico:gerenciar");
-    await excluirTurma(ator, id);
+    await excluirTurma(ator, idDaAcao(id));
     revalidarAcademico();
     return { ok: true, mensagem: "Turma excluída." };
   } catch (erro) {
@@ -137,7 +137,7 @@ export async function editarProfessorAcao(_: EstadoAcao, formData: FormData): Pr
 export async function definirAtivoProfessorAcao(id: string, ativo: boolean): Promise<EstadoAcao> {
   try {
     const ator = await exigirPermissao("academico:gerenciar");
-    await definirAtivoProfessor(ator, id, ativo);
+    await definirAtivoProfessor(ator, idDaAcao(id), booleanoDaAcao(ativo));
     revalidarAcademico();
     return { ok: true, mensagem: ativo ? "Professor ativado." : "Professor desativado." };
   } catch (erro) {

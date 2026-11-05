@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { dadosDoFormulario, tratarErroAcao, type EstadoAcao } from "@/lib/acoes";
+import { booleanoDaAcao, dadosDoFormulario, idDaAcao, tratarErroAcao, type EstadoAcao } from "@/lib/acoes";
 import { exigirPermissao } from "@/lib/sessao";
 import { esquemaLink, esquemaOferta, esquemaProduto } from "../esquemas/produto";
 import {
@@ -53,7 +53,7 @@ export async function editarProdutoAcao(_: EstadoAcao, formData: FormData): Prom
 export async function definirAtivoProdutoAcao(id: string, ativo: boolean): Promise<EstadoAcao> {
   try {
     const ator = await exigirPermissao("comercial:gerenciar_produtos");
-    await definirAtivoProduto(ator, id, ativo);
+    await definirAtivoProduto(ator, idDaAcao(id), booleanoDaAcao(ativo));
     revalidarComercial();
     return {
       ok: true,
@@ -67,7 +67,7 @@ export async function definirAtivoProdutoAcao(id: string, ativo: boolean): Promi
 export async function excluirProdutoAcao(id: string): Promise<EstadoAcao> {
   try {
     const ator = await exigirPermissao("comercial:excluir_produtos");
-    await excluirProduto(ator, id);
+    await excluirProduto(ator, idDaAcao(id));
     revalidarComercial();
     return { ok: true, mensagem: "Produto excluído." };
   } catch (erro) {
@@ -97,7 +97,7 @@ export async function salvarOfertaAcao(_: EstadoAcao, formData: FormData): Promi
 export async function excluirOfertaAcao(id: string): Promise<EstadoAcao> {
   try {
     const ator = await exigirPermissao("comercial:gerenciar_produtos");
-    await excluirOferta(ator, id);
+    await excluirOferta(ator, idDaAcao(id));
     revalidarComercial();
     return { ok: true, mensagem: "Oferta excluída." };
   } catch (erro) {
@@ -123,7 +123,7 @@ export async function salvarLinkAcao(_: EstadoAcao, formData: FormData): Promise
 export async function excluirLinkAcao(id: string): Promise<EstadoAcao> {
   try {
     const ator = await exigirPermissao("comercial:gerenciar_produtos");
-    await excluirLink(ator, id);
+    await excluirLink(ator, idDaAcao(id));
     revalidarComercial();
     return { ok: true, mensagem: "Link excluído." };
   } catch (erro) {

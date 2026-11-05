@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { tratarErroAcao, type EstadoAcao } from "@/lib/acoes";
+import { idDaAcao, tratarErroAcao, type EstadoAcao } from "@/lib/acoes";
 import { exigirPermissao } from "@/lib/sessao";
 import {
   esquemaAtualizarItemChecklist,
@@ -74,7 +74,7 @@ export async function mudarStatusAcao(dados: {
 export async function excluirTarefaAcao(tarefaId: string): Promise<EstadoAcao> {
   try {
     const ator = await exigirPermissao("tarefas:usar");
-    await excluirTarefa(ator, tarefaId);
+    await excluirTarefa(ator, idDaAcao(tarefaId));
     revalidarTarefas();
     return { ok: true, mensagem: "Tarefa excluída." };
   } catch (erro) {
