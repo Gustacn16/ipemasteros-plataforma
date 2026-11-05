@@ -7,6 +7,7 @@ import { mensagemErroMeta } from "../regras/meta-ads";
 /** Versão da Graph API (changelog da Meta: v26.0, de 29/07/2026). Revisar uma vez por ano. */
 export const VERSAO_GRAPH = "v26.0";
 const BASE = `https://graph.facebook.com/${VERSAO_GRAPH}`;
+const ORIGEM = new URL(BASE).origin;
 
 export class ErroMeta extends Error {
   constructor(
@@ -91,6 +92,8 @@ export function criarClienteMeta(token: string, fetchFn: typeof fetch = fetch) {
       const pagina: Pagina<T> = await pedir<T>(proxima);
       itens.push(...(pagina.data ?? []));
       proxima = pagina.paging?.next;
+      // O token vai no cabeçalho de cada página: só segue endereços da própria Graph API.
+      if (proxima && (!URL.canParse(proxima) || new URL(proxima).origin !== ORIGEM)) throw new ErroMeta("A Meta respondeu com um endereço de página inesperado.");
     }
     return itens;
   }
