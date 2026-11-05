@@ -52,4 +52,4 @@ O Claude confere pelo conector da Hostinger se existe `CRON_SECRET` (só o nome;
 | "Tipos de resultado não contados como lead: …" | Normal: são cliques, curtidas etc. Se algum deles for lead de verdade, avise para incluir. |
 
 ## Manutenção
-- Uma vez por ano, confira a versão da Graph API em `src/modulos/comercial/servicos/meta-graph.ts` (`VERSAO_GRAPH`) contra https://developers.facebook.com/docs/graph-api/changelog.
+- Uma vez por ano, confira a versão da Graph API em `src/lib/meta-graph.ts` (`VERSAO_GRAPH`) contra https://developers.facebook.com/docs/graph-api/changelog.
