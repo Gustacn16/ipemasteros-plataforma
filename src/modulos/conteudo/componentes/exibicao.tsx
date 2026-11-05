@@ -1,47 +1,70 @@
 import { ClapperboardIcon } from "lucide-react";
 import Link from "next/link";
+import { ChipSituacao } from "@/componentes/chip-situacao";
 import { cn } from "@/lib/utils";
 import { Avatares, DataEntrega, formatarDiaEntrega } from "@/modulos/tarefas/componentes/exibicao";
 import { ROTULO_FORMATO, ROTULO_PLATAFORMA, type Plataforma } from "../esquemas/conteudo";
 import { conteudoAtrasado } from "../regras/calendario";
 import { COR_ETAPA, ROTULO_ETAPA, type Etapa } from "../regras/etapas";
 import type { CartaoConteudo } from "../servicos/conteudos";
+import { ChipPublicacao } from "./chip-publicacao";
 import { SeloPlataforma } from "./selo-plataforma";
 
 export { DataEntrega, formatarDiaEntrega };
-export { SeloPlataforma };
+export { SeloPlataforma, ChipPublicacao };
 
-export function BadgeEtapa({ etapa }: { etapa: Etapa }) {
+/** Chip da etapa, na cor da etapa (dado) com texto do tema. */
+export function BadgeEtapa({ etapa, tamanho = "sm" }: { etapa: Etapa; tamanho?: "sm" | "md" }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap">
-      <span aria-hidden className="size-2 rounded-full" style={{ backgroundColor: COR_ETAPA[etapa] }} />
+    <ChipSituacao cor={COR_ETAPA[etapa]} tamanho={tamanho}>
       {ROTULO_ETAPA[etapa]}
-    </span>
+    </ChipSituacao>
   );
 }
 
 export function NomeCanal({ plataforma, identificador }: { plataforma: Plataforma; identificador: string | null }) {
   return (
-    <span className="inline-flex items-center gap-1.5">
+    <span className="inline-flex min-w-0 items-center gap-1.5">
       <SeloPlataforma plataforma={plataforma} />
-      <span>{ROTULO_PLATAFORMA[plataforma]}</span>
-      {identificador && <span className="text-muted-foreground">{identificador}</span>}
+      <span className="truncate">{ROTULO_PLATAFORMA[plataforma]}</span>
+      {identificador && <span className="text-muted-foreground truncate">{identificador}</span>}
     </span>
   );
 }
 
-/** Cartão de conteúdo usado no quadro, na visão geral e nas gravações. */
-export function Cartao({ item, mostrarGravacao, acoes }: { item: CartaoConteudo; mostrarGravacao?: boolean; acoes?: React.ReactNode }) {
-  const atrasado = conteudoAtrasado(item.dataPublicacao, item.etapa, new Date());
+/** Cartão de conteúdo usado no quadro, na visão geral e nas gravações. `agora` fixa a data em prévias. */
+export function Cartao({
+  item,
+  mostrarGravacao,
+  acoes,
+  agora = new Date(),
+}: {
+  item: CartaoConteudo;
+  mostrarGravacao?: boolean;
+  acoes?: React.ReactNode;
+  agora?: Date;
+}) {
+  const atrasado = conteudoAtrasado(item.dataPublicacao, item.etapa, agora);
   return (
-    <article className={cn("bg-background grid gap-2 rounded-lg border p-3 text-sm shadow-xs", atrasado && "border-red-300")}>
-      <div className="flex items-center gap-1.5 text-xs">
-        <span aria-hidden className="size-2 rounded-full" style={{ backgroundColor: item.marca.cor }} />
+    <article
+      className={cn(
+        "bg-card text-card-foreground hover:bg-muted/50 grid min-w-0 gap-2 rounded-xl border p-3 text-sm transition-colors",
+        atrasado && "border-perigo/50",
+      )}
+    >
+      <div className="flex min-w-0 items-center gap-1.5 text-xs">
+        <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: item.marca.cor }} />
         <span className="text-muted-foreground truncate">{item.marca.nome}</span>
         <span className="text-muted-foreground">·</span>
-        <span className="text-muted-foreground">{ROTULO_FORMATO[item.formato]}</span>
+        <span className="text-muted-foreground shrink-0">{ROTULO_FORMATO[item.formato]}</span>
+        <span className="ml-auto shrink-0">
+          <BadgeEtapa etapa={item.etapa} />
+        </span>
       </div>
-      <Link href={`/conteudo/itens/${item.id}`} className="leading-snug font-medium hover:underline">
+      <Link
+        href={`/conteudo/itens/${item.id}`}
+        className="text-foreground focus-visible:ring-ring rounded-sm leading-snug font-medium break-words hover:underline focus-visible:ring-2 focus-visible:outline-none"
+      >
         {item.titulo}
       </Link>
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -50,20 +73,14 @@ export function Cartao({ item, mostrarGravacao, acoes }: { item: CartaoConteudo;
             <SeloPlataforma key={i} plataforma={p.canal.plataforma} publicado={p.status === "publicado"} />
           ))}
         </span>
-        <span className="flex items-center gap-2 text-xs">
+        <span className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 text-xs">
           {mostrarGravacao && item.dataGravacao && (
-            <span title="Gravação" className="inline-flex items-center gap-1 text-orange-700">
-              <ClapperboardIcon className="size-3.5" aria-hidden />
+            <ChipSituacao tom="informacao" icone={ClapperboardIcon} tamanho="sm">
               <span className="sr-only">Gravação em </span>
               {formatarDiaEntrega(item.dataGravacao)}
-            </span>
+            </ChipSituacao>
           )}
-          {item.dataPublicacao && (
-            <span title="Publicação prevista" className={cn(atrasado && "font-semibold text-red-600")}>
-              {formatarDiaEntrega(item.dataPublicacao)}
-              {atrasado && <span className="sr-only"> (atrasado)</span>}
-            </span>
-          )}
+          <ChipPublicacao dataPublicacao={item.dataPublicacao} etapa={item.etapa} agora={agora} />
           {item.responsavel && <Avatares pessoas={[item.responsavel]} />}
         </span>
       </div>
