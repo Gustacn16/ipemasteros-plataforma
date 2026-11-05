@@ -1,0 +1,6 @@
+{
+  "data": [
+    { "permission": "ads_read", "status": "granted" },
+    { "permission": "instagram_basic", "status": "granted" }
+  ]
+}

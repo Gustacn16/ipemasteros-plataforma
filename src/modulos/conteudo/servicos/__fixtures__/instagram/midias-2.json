@@ -1,0 +1,23 @@
+{
+  "data": [
+    {
+      "id": "M1",
+      "caption": "Post",
+      "media_type": "IMAGE",
+      "media_product_type": "FEED",
+      "permalink": "https://www.instagram.com/p/P1/",
+      "timestamp": "2026-01-01T10:00:00+0000",
+      "media_url": "https://cdn.exemplo/p1.jpg"
+    },
+    {
+      "id": "M0",
+      "caption": "Antigo",
+      "media_type": "IMAGE",
+      "media_product_type": "FEED",
+      "permalink": "https://www.instagram.com/p/P0/",
+      "timestamp": "2025-12-31T02:00:00+0000",
+      "media_url": "https://cdn.exemplo/p0.jpg"
+    }
+  ],
+  "paging": { "next": "https://graph.facebook.com/v26.0/IG1/media?after=PAGINA3" }
+}

@@ -1,0 +1,12 @@
+{
+  "data": [
+    {
+      "id": "S1",
+      "media_type": "IMAGE",
+      "media_product_type": "STORY",
+      "permalink": "https://www.instagram.com/stories/ipemaster/S1/",
+      "timestamp": "2026-11-05T09:00:00+0000",
+      "media_url": "https://cdn.exemplo/s1.jpg"
+    }
+  ]
+}

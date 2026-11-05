@@ -1,0 +1,24 @@
+{
+  "data": [
+    {
+      "id": "M3",
+      "caption": "Reels novo",
+      "media_type": "VIDEO",
+      "media_product_type": "REELS",
+      "permalink": "https://www.instagram.com/reel/R3/",
+      "timestamp": "2026-11-03T15:00:00+0000",
+      "thumbnail_url": "https://cdn.exemplo/r3.jpg",
+      "media_url": "https://cdn.exemplo/r3.mp4"
+    },
+    {
+      "id": "M2",
+      "caption": "Carrossel",
+      "media_type": "CAROUSEL_ALBUM",
+      "media_product_type": "FEED",
+      "permalink": "https://www.instagram.com/p/C2/",
+      "timestamp": "2026-06-10T12:00:00+0000",
+      "media_url": "https://cdn.exemplo/c2.jpg"
+    }
+  ],
+  "paging": { "next": "https://graph.facebook.com/v26.0/IG1/media?after=PAGINA2" }
+}

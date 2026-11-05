@@ -1,0 +1,15 @@
+{
+  "data": [
+    {
+      "id": "PAG1",
+      "name": "IPEMaster",
+      "instagram_business_account": {
+        "id": "IG1",
+        "username": "ipemaster",
+        "name": "IPEMaster",
+        "profile_picture_url": "https://cdn.exemplo/foto.jpg"
+      }
+    },
+    { "id": "PAG2", "name": "Página sem Instagram" }
+  ]
+}
