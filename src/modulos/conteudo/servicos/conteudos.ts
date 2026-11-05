@@ -188,7 +188,10 @@ export async function obterConteudo(ator: UsuarioAtual, conteudoId: string) {
       aprovadoPor: { select: { nome: true } },
       publicacoes: {
         orderBy: { criadoEm: "asc" },
-        include: { canal: { select: { id: true, plataforma: true, identificador: true } } },
+        include: {
+          canal: { select: { id: true, plataforma: true, identificador: true } },
+          midia: { select: { id: true, permalink: true } },
+        },
       },
     },
   });
@@ -345,6 +348,9 @@ export async function registrarPublicacao(
 ) {
   exigirUso(ator);
   const pub = await exigirPublicacao(publicacaoId);
+  if (!dados.publicado && pub.metricasOrigem === "instagram") {
+    throw new ErroNegocio("Desligue o post do Instagram antes de desmarcar esta publicação.");
+  }
   if (dados.publicado && pub.conteudo.etapa !== "aprovado" && pub.conteudo.etapa !== "publicado") {
     throw new ErroNegocio("O conteúdo precisa estar aprovado antes de ser marcado como publicado.");
   }
@@ -392,6 +398,7 @@ export async function salvarMetricas(ator: UsuarioAtual, publicacaoId: string, m
   exigirUso(ator);
   const pub = await exigirPublicacao(publicacaoId);
   if (pub.status !== "publicado") throw new ErroNegocio("Marque como publicado antes de informar as métricas.");
+  if (pub.metricasOrigem === "instagram") throw new ErroNegocio("Os números desta publicação vêm do Instagram.");
   await prisma.publicacao.update({ where: { id: publicacaoId }, data: { ...metricas, metricasEm: new Date() } });
 }
 

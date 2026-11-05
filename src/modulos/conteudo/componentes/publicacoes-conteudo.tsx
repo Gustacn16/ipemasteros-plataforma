@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleCheck, CircleDashed, ExternalLinkIcon } from "lucide-react";
+import { CameraIcon, CircleCheck, CircleDashed, ExternalLinkIcon } from "lucide-react";
 import { useState, useTransition } from "react";
 import { ChipSituacao } from "@/componentes/chip-situacao";
 import { Button } from "@/componentes/ui/button";
@@ -8,6 +8,7 @@ import { Input } from "@/componentes/ui/input";
 import { Label } from "@/componentes/ui/label";
 import { avisar } from "@/modulos/tarefas/componentes/avisar";
 import { registrarPublicacaoAcao, salvarMetricasAcao } from "../acoes/conteudo";
+import { desligarMidiaAcao } from "../acoes/instagram";
 import { ROTULO_PLATAFORMA, type Plataforma } from "../esquemas/conteudo";
 import { SeloPlataforma } from "./selo-plataforma";
 
@@ -23,6 +24,10 @@ type Publicacao = {
   compartilhamentos: number | null;
   salvamentos: number | null;
   canal: { plataforma: Plataforma; identificador: string | null };
+  /** `instagram`: números vêm de um post ligado e não são editáveis (C2a). */
+  metricasOrigem?: "manual" | "instagram";
+  metricasEm?: Date | null;
+  midia?: { id: string; permalink: string } | null;
 };
 
 const METRICAS = [
@@ -34,12 +39,22 @@ const METRICAS = [
   ["salvamentos", "Salvos"],
 ] as const;
 
+const numero = new Intl.NumberFormat("pt-BR");
+const formatoDataHora = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" });
+
 const diaSP = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(d);
 
 function LinhaPublicacao({ p, liberada }: { p: Publicacao; liberada: boolean }) {
   const [pendente, iniciar] = useTransition();
   const [editando, setEditando] = useState(false);
   const publicado = p.status === "publicado";
+  const doInstagram = p.metricasOrigem === "instagram" && p.midia;
+
+  function desligar() {
+    if (!p.midia || !window.confirm("Desligar o post do Instagram? Os números ficam como estão e voltam a ser editáveis.")) return;
+    const midiaId = p.midia.id;
+    iniciar(async () => void avisar(await desligarMidiaAcao(midiaId)));
+  }
 
   function registrar(formData: FormData) {
     iniciar(async () => {
@@ -82,7 +97,12 @@ function LinhaPublicacao({ p, liberada }: { p: Publicacao; liberada: boolean }) 
               Publicado{p.publicadoEm && ` em ${diaSP(p.publicadoEm).split("-").reverse().join("/")}`}
             </ChipSituacao>
             {p.url && (
-              <a href={p.url} target="_blank" rel="noopener noreferrer" className="text-foreground inline-flex items-center gap-1 underline-offset-4 hover:underline">
+              <a
+                href={p.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-foreground inline-flex items-center gap-1 underline-offset-4 hover:underline"
+              >
                 abrir <ExternalLinkIcon className="size-3.5" />
               </a>
             )}
@@ -111,7 +131,13 @@ function LinhaPublicacao({ p, liberada }: { p: Publicacao; liberada: boolean }) 
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor={`data-${p.id}`}>Data</Label>
-            <input id={`data-${p.id}`} name="data" type="date" defaultValue={diaSP(new Date())} className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm" />
+            <input
+              id={`data-${p.id}`}
+              name="data"
+              type="date"
+              defaultValue={diaSP(new Date())}
+              className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
+            />
           </div>
           <div className="flex gap-2">
             <Button type="submit" size="sm" disabled={pendente}>
@@ -124,7 +150,29 @@ function LinhaPublicacao({ p, liberada }: { p: Publicacao; liberada: boolean }) 
         </form>
       )}
 
-      {publicado && (
+      {publicado && doInstagram && (
+        <div className="grid gap-3">
+          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            {METRICAS.map(([k, rotulo]) => (
+              <div key={k} className="grid min-w-0 gap-1">
+                <dt className="text-muted-foreground text-xs">{rotulo}</dt>
+                <dd className="font-medium tabular-nums">{p[k] === null ? "—" : numero.format(p[k])}</dd>
+              </div>
+            ))}
+          </dl>
+          <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
+            <ChipSituacao tamanho="sm" tom="informacao" icone={CameraIcon}>
+              do Instagram
+            </ChipSituacao>
+            {p.metricasEm && <span>atualizados em {formatoDataHora.format(p.metricasEm)}</span>}
+            <Button type="button" size="sm" variant="ghost" onClick={desligar} disabled={pendente}>
+              Desligar do post
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {publicado && !doInstagram && (
         <form action={salvarMetricas} className="grid gap-3">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 [&>div]:min-w-0">
             {METRICAS.map(([k, rotulo]) => (
