@@ -46,6 +46,12 @@ export async function editarProfessor(ator: UsuarioAtual, id: string, dados: Dad
 
 export async function definirAtivoProfessor(ator: UsuarioAtual, id: string, ativo: boolean) {
   exigirPermissaoAcademico(ator, "academico:gerenciar");
-  const { count } = await prisma.professor.updateMany({ where: { id }, data: { ativo } });
-  if (count === 0) throw new ErroNegocio(MENSAGEM_NAO_ENCONTRADO);
+  await prisma.$transaction(async (tx) => {
+    const { count } = await tx.professor.updateMany({ where: { id }, data: { ativo } });
+    if (count === 0) throw new ErroNegocio(MENSAGEM_NAO_ENCONTRADO);
+    await registrarAuditoria(
+      { usuarioId: ator.id, acao: "professor.editado", entidade: "Professor", entidadeId: id, diff: { campos: ["ativo"] } },
+      tx,
+    );
+  });
 }
