@@ -16,6 +16,10 @@ import {
   atualizacaoRodando,
   totaisDoMes,
   variacao,
+  validarLigacao,
+  ordenarCandidatas,
+  ordenarMidias,
+  lerOrdem,
   type NumerosConta,
 } from "./instagram";
 
@@ -302,5 +306,53 @@ describe("variacao e totaisDoMes", () => {
     });
     expect(c.alcance).toEqual({ valor: null, variacao: null });
     expect(c.seguidores).toEqual({ valor: null, variacao: null, ganhos: null });
+  });
+});
+
+describe("validarLigacao", () => {
+  const midia = { removidaEm: null, canalId: "ig" };
+  const pub = { canalId: "ig", temMidia: false, etapa: "aprovado", excluido: false };
+  it("aceita publicação do mesmo canal, livre e de conteúdo aprovado ou publicado", () => {
+    expect(validarLigacao(midia, pub)).toBeNull();
+    expect(validarLigacao(midia, { ...pub, etapa: "publicado" })).toBeNull();
+  });
+  it("recusa com mensagens em português", () => {
+    expect(validarLigacao({ ...midia, removidaEm: new Date() }, pub)).toBe("Este post foi removido do Instagram.");
+    expect(validarLigacao(midia, { ...pub, canalId: "outro" })).toBe("A publicação precisa ser do mesmo canal do Instagram.");
+    expect(validarLigacao(midia, { ...pub, temMidia: true })).toBe("Esta publicação já está ligada a outro post.");
+    expect(validarLigacao(midia, { ...pub, etapa: "revisao" })).toBe("O conteúdo precisa estar aprovado antes de ser ligado a um post.");
+    expect(validarLigacao(midia, { ...pub, excluido: true })).toBe("Não encontrado.");
+  });
+});
+
+describe("ordenarCandidatas", () => {
+  it("a data de publicação mais próxima do post vem primeiro; sem data, por último", () => {
+    const post = new Date("2026-11-10T12:00:00Z");
+    const r = ordenarCandidatas(post, [
+      { id: "longe", dataPublicacao: new Date("2026-10-01T00:00:00Z") },
+      { id: "sem", dataPublicacao: null },
+      { id: "perto", dataPublicacao: new Date("2026-11-11T00:00:00Z") },
+    ]);
+    expect(r.map((c) => c.id)).toEqual(["perto", "longe", "sem"]);
+  });
+});
+
+describe("ordenarMidias e lerOrdem", () => {
+  const m = (id: string, publicadoEm: string, alcance: number | null, interacoes: number | null) => ({
+    id,
+    publicadoEm: new Date(publicadoEm),
+    alcance,
+    interacoes,
+  });
+  const lista = [m("a", "2026-11-01T00:00:00Z", 10, 5), m("b", "2026-11-03T00:00:00Z", null, 50), m("c", "2026-11-02T00:00:00Z", 99, null)];
+  it("ordena por data, alcance ou interações, com '—' por último", () => {
+    expect(ordenarMidias(lista, "data").map((x) => x.id)).toEqual(["b", "c", "a"]);
+    expect(ordenarMidias(lista, "alcance").map((x) => x.id)).toEqual(["c", "a", "b"]);
+    expect(ordenarMidias(lista, "interacoes").map((x) => x.id)).toEqual(["b", "a", "c"]);
+  });
+  it("ordem desconhecida vira data", () => {
+    expect(lerOrdem("alcance")).toBe("alcance");
+    expect(lerOrdem("x")).toBe("data");
+    expect(lerOrdem(undefined)).toBe("data");
   });
 });

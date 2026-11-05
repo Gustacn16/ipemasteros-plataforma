@@ -272,3 +272,39 @@ export function totaisDoMes(o: {
     novosSeguidores: daConta("novosSeguidores"),
   };
 }
+
+/** Ligação manual (regra 5.13): `null` quando pode ligar; senão, o motivo em português. */
+export function validarLigacao(
+  midia: { removidaEm: Date | null; canalId: string | null },
+  pub: { canalId: string; temMidia: boolean; etapa: string; excluido: boolean },
+): string | null {
+  if (pub.excluido) return "Não encontrado.";
+  if (midia.removidaEm) return "Este post foi removido do Instagram.";
+  if (!midia.canalId || pub.canalId !== midia.canalId) return "A publicação precisa ser do mesmo canal do Instagram.";
+  if (pub.temMidia) return "Esta publicação já está ligada a outro post.";
+  if (pub.etapa !== "aprovado" && pub.etapa !== "publicado") return "O conteúdo precisa estar aprovado antes de ser ligado a um post.";
+  return null;
+}
+
+/** Candidatas da ligação manual: data de publicação mais próxima da data do post primeiro, sem data por último. */
+export function ordenarCandidatas<T extends { dataPublicacao: Date | null }>(publicadoEm: Date, candidatas: T[]): T[] {
+  const distancia = (c: T) => (c.dataPublicacao ? Math.abs(c.dataPublicacao.getTime() - publicadoEm.getTime()) : Infinity);
+  return [...candidatas].sort((a, b) => distancia(a) - distancia(b));
+}
+
+export const ORDENS_MIDIA = ["data", "alcance", "interacoes"] as const;
+export type OrdemMidia = (typeof ORDENS_MIDIA)[number];
+
+/** Ordem da lista de Publicados (`?ordem=`); desconhecida vira "data". */
+export function lerOrdem(valor: string | undefined): OrdemMidia {
+  return (ORDENS_MIDIA as readonly string[]).includes(valor ?? "") ? (valor as OrdemMidia) : "data";
+}
+
+/** Mais recente, maior alcance ou mais interações primeiro; "—" (null) por último. */
+export function ordenarMidias<T extends { publicadoEm: Date; alcance: number | null; interacoes: number | null }>(
+  midias: T[],
+  ordem: OrdemMidia,
+): T[] {
+  const chave = (m: T) => (ordem === "data" ? m.publicadoEm.getTime() : (m[ordem] ?? -Infinity));
+  return [...midias].sort((a, b) => chave(b) - chave(a));
+}

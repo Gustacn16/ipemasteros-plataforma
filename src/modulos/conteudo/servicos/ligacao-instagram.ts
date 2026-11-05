@@ -1,7 +1,12 @@
 import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
+import { ErroNegocio } from "@/lib/erros";
+import { ErroPermissao, temPermissao } from "@/lib/permissoes";
 import { prisma } from "@/lib/prisma";
+import type { UsuarioAtual } from "@/lib/sessao";
 import { etapaAposPublicacoes } from "../regras/etapas";
+import { ordenarCandidatas, validarLigacao } from "../regras/instagram";
+import { MENSAGEM_NAO_ENCONTRADO } from "./contas";
 
 type Tx = Prisma.TransactionClient;
 
@@ -85,4 +90,71 @@ export async function copiarNumerosLigados(contaId: string) {
       prisma.publicacao.update({ where: { id: m.publicacaoId! }, data: { metricasOrigem: "instagram", ...numerosDaMidia(m) } }),
     ),
   );
+}
+
+// ---------------------------------------------------------------- Ligação manual (regra 5.13)
+
+function exigirUso(ator: UsuarioAtual) {
+  if (!temPermissao(ator.papel, "conteudo:usar")) throw new ErroPermissao("conteudo:usar");
+}
+
+async function exigirMidia(midiaId: string) {
+  const midia = await prisma.midiaInstagram.findUnique({
+    where: { id: midiaId },
+    select: { id: true, publicadoEm: true, removidaEm: true, publicacaoId: true, conta: { select: { canalId: true } } },
+  });
+  if (!midia) throw new ErroNegocio(MENSAGEM_NAO_ENCONTRADO);
+  return midia;
+}
+
+/** Conteúdos aprovados ou publicados com publicação livre no canal do post, mais perto da data do post primeiro. */
+export async function candidatasParaLigar(ator: UsuarioAtual, midiaId: string) {
+  exigirUso(ator);
+  const midia = await exigirMidia(midiaId);
+  if (!midia.conta.canalId) return [];
+  const pubs = await prisma.publicacao.findMany({
+    where: {
+      canalId: midia.conta.canalId,
+      midia: { is: null },
+      conteudo: { excluidoEm: null, etapa: { in: ["aprovado", "publicado"] } },
+    },
+    select: { id: true, conteudo: { select: { id: true, titulo: true, dataPublicacao: true } } },
+    take: 200,
+  });
+  return ordenarCandidatas(
+    midia.publicadoEm,
+    pubs.map((p) => ({
+      publicacaoId: p.id,
+      conteudoId: p.conteudo.id,
+      titulo: p.conteudo.titulo,
+      dataPublicacao: p.conteudo.dataPublicacao,
+    })),
+  ).slice(0, 30);
+}
+
+export async function ligarMidia(ator: UsuarioAtual, midiaId: string, publicacaoId: string) {
+  exigirUso(ator);
+  const midia = await exigirMidia(midiaId);
+  if (midia.publicacaoId) throw new ErroNegocio("Este post já está ligado a um conteúdo.");
+  const pub = await prisma.publicacao.findUnique({
+    where: { id: publicacaoId },
+    select: { canalId: true, midia: { select: { id: true } }, conteudo: { select: { etapa: true, excluidoEm: true } } },
+  });
+  const motivo = validarLigacao(
+    { removidaEm: midia.removidaEm, canalId: midia.conta.canalId },
+    {
+      canalId: pub?.canalId ?? "",
+      temMidia: Boolean(pub?.midia),
+      etapa: pub?.conteudo.etapa ?? "",
+      excluido: !pub || Boolean(pub.conteudo.excluidoEm),
+    },
+  );
+  if (motivo) throw new ErroNegocio(motivo);
+  await ligarNoBanco(midiaId, publicacaoId);
+}
+
+export async function desligarMidia(ator: UsuarioAtual, midiaId: string) {
+  exigirUso(ator);
+  await exigirMidia(midiaId);
+  await desligarNoBanco(midiaId);
 }

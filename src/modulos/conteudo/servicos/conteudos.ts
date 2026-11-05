@@ -57,10 +57,7 @@ const selecaoCartao = {
 } satisfies Prisma.ConteudoSelect;
 export type CartaoConteudo = Prisma.ConteudoGetPayload<{ select: typeof selecaoCartao }>;
 
-const ordemPorData: Prisma.ConteudoOrderByWithRelationInput[] = [
-  { dataPublicacao: { sort: "asc", nulls: "last" } },
-  { criadoEm: "asc" },
-];
+const ordemPorData: Prisma.ConteudoOrderByWithRelationInput[] = [{ dataPublicacao: { sort: "asc", nulls: "last" } }, { criadoEm: "asc" }];
 
 export async function listarQuadro(ator: UsuarioAtual, f: FiltroConteudo) {
   exigirUso(ator);
@@ -130,6 +127,8 @@ export async function listarPublicados(ator: UsuarioAtual, mes: string, f: Filtr
       salvamentos: true,
       conteudo: { select: { id: true, titulo: true, formato: true, marca: { select: { nome: true, cor: true } } } },
       canal: { select: { id: true, plataforma: true, identificador: true } },
+      // Ligada a um post do Instagram: aparece na seção Instagram de Publicados, não na lista de publicações.
+      midia: { select: { id: true } },
     },
   });
   return publicacoes;
@@ -286,7 +285,12 @@ export async function atualizarConteudo(ator: UsuarioAtual, conteudoId: string, 
       data: canalIds.filter((id) => !atuaisIds.includes(id)).map((canalId) => ({ conteudoId, canalId })),
     });
     const status = await tx.publicacao.findMany({ where: { conteudoId }, select: { status: true } });
-    const etapa: Etapa = voltaRevisao ? "revisao" : etapaAposPublicacoes(atual.etapa, status.map((s) => s.status));
+    const etapa: Etapa = voltaRevisao
+      ? "revisao"
+      : etapaAposPublicacoes(
+          atual.etapa,
+          status.map((s) => s.status),
+        );
     await tx.conteudo.update({
       where: { id: conteudoId },
       data: {
@@ -319,10 +323,7 @@ export async function mudarEtapa(ator: UsuarioAtual, conteudoId: string, etapa: 
       },
     });
     if (etapa === "aprovado") {
-      await registrarAuditoria(
-        { usuarioId: ator.id, acao: "conteudo.aprovado", entidade: "Conteudo", entidadeId: conteudoId },
-        tx,
-      );
+      await registrarAuditoria({ usuarioId: ator.id, acao: "conteudo.aprovado", entidade: "Conteudo", entidadeId: conteudoId }, tx);
     }
   });
 }
@@ -356,7 +357,10 @@ export async function registrarPublicacao(
       data: { status: dados.publicado ? "publicado" : "pendente", url: dados.url, publicadoEm },
     });
     const status = await tx.publicacao.findMany({ where: { conteudoId: pub.conteudoId }, select: { status: true, publicadoEm: true } });
-    const etapa = etapaAposPublicacoes(pub.conteudo.etapa, status.map((s) => s.status));
+    const etapa = etapaAposPublicacoes(
+      pub.conteudo.etapa,
+      status.map((s) => s.status),
+    );
     const ultima = status.reduce<Date | null>((m, s) => (s.publicadoEm && (!m || s.publicadoEm > m) ? s.publicadoEm : m), null);
     await tx.conteudo.update({
       where: { id: pub.conteudoId },

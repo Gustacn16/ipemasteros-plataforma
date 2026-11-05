@@ -36,7 +36,9 @@ import { EditorConteudo } from "./editor-conteudo";
 import { PublicacoesConteudo } from "./publicacoes-conteudo";
 import { SeletorEtapa } from "./seletor-etapa";
 import { BlocoInstagram } from "./bloco-instagram";
-import type { VisaoInstagram } from "../servicos/visao-instagram";
+import { ListaMidiasInstagram } from "./ligar-midia";
+import type { OrdemMidia } from "../regras/instagram";
+import type { LinhaMidia, VisaoInstagram } from "../servicos/visao-instagram";
 
 const numero = new Intl.NumberFormat("pt-BR");
 const fmt = (v: number | null) => (v === null ? "—" : numero.format(v));
@@ -458,12 +460,14 @@ export function TelaGravacoes({
 
 type CampoMetrica = "alcance" | "visualizacoes" | "curtidas" | "comentarios" | "compartilhamentos" | "salvamentos";
 
-function somar(linhas: LinhaPublicado[], campo: CampoMetrica) {
+type ComMetricas = Pick<LinhaPublicado, CampoMetrica>;
+
+function somar(linhas: ComMetricas[], campo: CampoMetrica) {
   const valores = linhas.map((l) => l[campo]).filter((v): v is number => v !== null);
   return valores.length ? valores.reduce((a, b) => a + b, 0) : null;
 }
 
-function metricasDe(linhas: LinhaPublicado[]) {
+function metricasDe(linhas: ComMetricas[]) {
   return {
     alcance: somar(linhas, "alcance"),
     curtidas: somar(linhas, "curtidas"),
@@ -500,16 +504,36 @@ function LinkAbrir({ url }: { url: string | null }) {
   );
 }
 
-export function TelaPublicados({ mes, linhas }: { mes: string; linhas: LinhaPublicado[] }) {
-  // Totais por canal no mês.
-  const porCanal = new Map<string, LinhaPublicado[]>();
-  for (const l of linhas) porCanal.set(l.canal.id, [...(porCanal.get(l.canal.id) ?? []), l]);
-  const totais = [...porCanal.values()].map((ls) => {
-    const t = metricasDe(ls);
-    return { canal: ls[0].canal, marca: ls[0].conteudo.marca, quantidade: ls.length, alcance: t.alcance, engajamento: taxaEngajamento(t) };
+export function TelaPublicados({
+  mes,
+  linhas: todas,
+  midias = [],
+  ordem = "data",
+}: {
+  mes: string;
+  linhas: LinhaPublicado[];
+  /** Posts e stories do Instagram no mês (C2a), já na ordem escolhida. */
+  midias?: LinhaMidia[];
+  ordem?: OrdemMidia;
+}) {
+  // A publicação ligada a um post do Instagram aparece na seção Instagram, com os números do post.
+  const linhas = todas.filter((l) => !l.midia);
+  // Totais por canal no mês: as publicações manuais e os posts do Instagram de cada canal.
+  type Grupo = { canal: LinhaPublicado["canal"]; marca: LinhaPublicado["conteudo"]["marca"]; itens: ComMetricas[] };
+  const porCanal = new Map<string, Grupo>();
+  const juntar = (canal: Grupo["canal"], marca: Grupo["marca"], item: ComMetricas) => {
+    const g = porCanal.get(canal.id) ?? { canal, marca, itens: [] };
+    g.itens.push(item);
+    porCanal.set(canal.id, g);
+  };
+  for (const l of linhas) juntar(l.canal, l.conteudo.marca, l);
+  for (const m of midias) if (m.conta.canal) juntar(m.conta.canal, m.conta.canal.marca, m);
+  const totais = [...porCanal.values()].map((g) => {
+    const t = metricasDe(g.itens);
+    return { canal: g.canal, marca: g.marca, quantidade: g.itens.length, alcance: t.alcance, engajamento: taxaEngajamento(t) };
   });
   // Totais do mês (mesmos dados, somados).
-  const geral = metricasDe(linhas);
+  const geral = metricasDe([...linhas, ...midias]);
   const interacoes = [geral.curtidas, geral.comentarios, geral.compartilhamentos, geral.salvamentos].some((v) => v !== null)
     ? (geral.curtidas ?? 0) + (geral.comentarios ?? 0) + (geral.compartilhamentos ?? 0) + (geral.salvamentos ?? 0)
     : null;
@@ -523,7 +547,7 @@ export function TelaPublicados({ mes, linhas }: { mes: string; linhas: LinhaPubl
       />
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-4">
-        <CartaoNumero rotulo="Publicações" icone={SendIcon} valor={linhas.length} />
+        <CartaoNumero rotulo="Publicações" icone={SendIcon} valor={linhas.length + midias.length} />
         <CartaoNumero rotulo="Alcance" icone={UsersIcon} valor={fmt(geral.alcance)} />
         <CartaoNumero rotulo="Interações" icone={HeartIcon} valor={fmt(interacoes)} />
         <CartaoNumero rotulo="Engajamento médio" icone={PercentIcon} valor={pct(taxaEngajamento(geral))} />
@@ -552,7 +576,9 @@ export function TelaPublicados({ mes, linhas }: { mes: string; linhas: LinhaPubl
         </section>
       )}
 
-      {linhas.length === 0 ? (
+      {midias.length > 0 && <ListaMidiasInstagram midias={midias} ordem={ordem} mes={mes} />}
+
+      {linhas.length === 0 && midias.length > 0 ? null : linhas.length === 0 ? (
         <EstadoVazio
           icone={SendIcon}
           titulo="Nada publicado neste mês"

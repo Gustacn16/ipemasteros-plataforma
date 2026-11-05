@@ -7,7 +7,7 @@ import { somarDias } from "@/modulos/tarefas/regras/prazo";
 import { inicioDoDiaSaoPaulo } from "@/modulos/tarefas/regras/relatorio";
 import type { FiltroConteudo } from "../esquemas/conteudo";
 import { proximoMes } from "../regras/calendario";
-import { type NumerosConta, totaisDoMes } from "../regras/instagram";
+import { type NumerosConta, type OrdemMidia, ordenarMidias, totaisDoMes } from "../regras/instagram";
 
 function exigirUso(ator: UsuarioAtual) {
   if (!temPermissao(ator.papel, "conteudo:usar")) throw new ErroPermissao("conteudo:usar");
@@ -131,3 +131,40 @@ export async function visaoInstagram(ator: UsuarioAtual, f: FiltroConteudo, mes:
   };
 }
 export type VisaoInstagram = NonNullable<Awaited<ReturnType<typeof visaoInstagram>>>;
+
+/** Posts e stories do mês das contas do filtro (sem os removidos), com o conteúdo ligado, se houver. */
+export async function listarMidiasDoMes(ator: UsuarioAtual, mes: string, f: FiltroConteudo, ordem: OrdemMidia) {
+  exigirUso(ator);
+  const contas = await contasDoFiltro(f);
+  if (contas.length === 0) return [];
+  const midias = await prisma.midiaInstagram.findMany({
+    where: { contaId: { in: contas.map((c) => c.id) }, removidaEm: null, publicadoEm: limitesDoMes(mes) },
+    orderBy: { publicadoEm: "desc" },
+    select: {
+      id: true,
+      tipo: true,
+      legenda: true,
+      permalink: true,
+      miniaturaUrl: true,
+      publicadoEm: true,
+      alcance: true,
+      visualizacoes: true,
+      curtidas: true,
+      comentarios: true,
+      salvamentos: true,
+      compartilhamentos: true,
+      interacoes: true,
+      visitasPerfil: true,
+      respostas: true,
+      conta: {
+        select: {
+          usuario: true,
+          canal: { select: { id: true, plataforma: true, identificador: true, marca: { select: { nome: true, cor: true } } } },
+        },
+      },
+      publicacao: { select: { id: true, conteudo: { select: { id: true, titulo: true } } } },
+    },
+  });
+  return ordenarMidias(midias, ordem);
+}
+export type LinhaMidia = Awaited<ReturnType<typeof listarMidiasDoMes>>[number];

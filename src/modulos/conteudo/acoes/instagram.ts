@@ -7,6 +7,7 @@ import { tratarErroAcao, type EstadoAcao } from "@/lib/acoes";
 import { exigirPermissao } from "@/lib/sessao";
 import { executarAtualizacao, iniciarAtualizacao } from "../servicos/atualizacao-instagram";
 import { definirContaAtiva, ligarContaCanal } from "../servicos/integracao-instagram";
+import { candidatasParaLigar, desligarMidia, ligarMidia } from "../servicos/ligacao-instagram";
 import { repositorioPrisma } from "../servicos/repositorio-instagram";
 
 /**
@@ -46,6 +47,42 @@ export async function definirContaInstagramAtivaAcao(contaId: string, ativa: boo
     await definirContaAtiva(ator, z.string().min(1).parse(contaId), ativa === true);
     revalidatePath("/conteudo", "layout");
     return { ok: true, mensagem: ativa ? "Conta incluída na atualização." : "Conta fora da atualização." };
+  } catch (erro) {
+    return tratarErroAcao(erro);
+  }
+}
+
+const id = z.string().min(1).max(40);
+const esquemaLigarMidia = z.object({ midiaId: id, publicacaoId: id });
+
+/** Lista para o diálogo "Ligar a um conteúdo". */
+export async function candidatasParaLigarAcao(midiaId: string): Promise<EstadoAcao<Awaited<ReturnType<typeof candidatasParaLigar>>>> {
+  try {
+    const ator = await exigirPermissao("conteudo:usar");
+    return { ok: true, dados: await candidatasParaLigar(ator, id.parse(midiaId)) };
+  } catch (erro) {
+    return tratarErroAcao(erro);
+  }
+}
+
+export async function ligarMidiaAcao(dados: unknown): Promise<EstadoAcao> {
+  try {
+    const ator = await exigirPermissao("conteudo:usar");
+    const { midiaId, publicacaoId } = esquemaLigarMidia.parse(dados);
+    await ligarMidia(ator, midiaId, publicacaoId);
+    revalidatePath("/conteudo", "layout");
+    return { ok: true, mensagem: "Post ligado ao conteúdo." };
+  } catch (erro) {
+    return tratarErroAcao(erro);
+  }
+}
+
+export async function desligarMidiaAcao(midiaId: string): Promise<EstadoAcao> {
+  try {
+    const ator = await exigirPermissao("conteudo:usar");
+    await desligarMidia(ator, id.parse(midiaId));
+    revalidatePath("/conteudo", "layout");
+    return { ok: true, mensagem: "Post desligado. Os números passam a ser editáveis." };
   } catch (erro) {
     return tratarErroAcao(erro);
   }
