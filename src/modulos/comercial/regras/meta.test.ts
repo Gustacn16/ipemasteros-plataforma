@@ -6,6 +6,7 @@ import {
   metaVazia,
   metasParaCopiar,
   primeiroDiaDoMes,
+  progressoDasMetas,
   rotuloMes,
   totaisMetas,
   vendedoresParaValidar,
@@ -77,5 +78,60 @@ describe("vendedoresParaValidar", () => {
         { vendedorId: "ana", valorAlvo: "0.00", quantidadeAlvo: 2 },
       ]),
     ).toEqual(["ana"]);
+  });
+});
+
+describe("progressoDasMetas", () => {
+  const vendedores = [
+    { id: "ana", nome: "Ana", imagem: "/foto/ana" },
+    { id: "bia", nome: "Bia", imagem: null },
+    { id: "caio", nome: "Caio", imagem: null },
+    { id: "dani", nome: "Dani", imagem: null },
+  ];
+  const metas = [
+    { vendedorId: "ana", valorAlvo: "100000.00", quantidadeAlvo: 2 },
+    { vendedorId: "ana", valorAlvo: "50000.00", quantidadeAlvo: 1 },
+    { vendedorId: "bia", valorAlvo: "100000.00", quantidadeAlvo: 2 },
+    { vendedorId: "caio", valorAlvo: "100000.00", quantidadeAlvo: 1 },
+  ];
+  const vendas = [
+    { vendedorId: "ana", vendido: "120000.00", quantidade: 2 },
+    { vendedorId: "bia", vendido: "100000.00", quantidade: 2 },
+    { vendedorId: "dani", vendido: "5000.00", quantidade: 1 },
+  ];
+  const p = progressoDasMetas({ vendedores, metas, vendas });
+
+  it("soma as metas de cada vendedor e calcula o %", () => {
+    const ana = p.vendedores.find((v) => v.id === "ana")!;
+    expect(ana).toMatchObject({
+      metaValor: "150000.00",
+      metaQuantidade: 3,
+      vendido: "120000.00",
+      vendas: 2,
+      percentual: 80,
+      falta: "30000.00",
+    });
+  });
+
+  it("ordena por % da meta; sem meta vai para o fim com % nulo", () => {
+    expect(p.vendedores.map((v) => v.id)).toEqual(["bia", "ana", "caio", "dani"]);
+    expect(p.vendedores.at(-1)?.percentual).toBeNull();
+  });
+
+  it("totais do mês e o que falta (nunca negativo)", () => {
+    expect(p.total).toMatchObject({
+      metaValor: "350000.00",
+      vendido: "225000.00",
+      percentual: 64,
+      falta: "125000.00",
+      vendas: 5,
+      metaQuantidade: 6,
+    });
+    const bia = p.vendedores.find((v) => v.id === "bia")!;
+    expect(bia.falta).toBe("0.00");
+  });
+
+  it("pódio: os 3 melhores % entre quem tem meta", () => {
+    expect(p.podio.map((v) => v.id)).toEqual(["bia", "ana", "caio"]);
   });
 });

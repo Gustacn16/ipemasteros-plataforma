@@ -75,3 +75,64 @@ export function totaisMetas(metas: MetaChave[]): { porProduto: Record<string, To
     Object.fromEntries([...grupos].map(([id, g]) => [id, comoTotal(g)]));
   return { porProduto: paraObjeto(porProduto), porVendedor: paraObjeto(porVendedor), geral: comoTotal(geral) };
 }
+
+type VendedorMeta = { id: string; nome: string; imagem: string | null };
+
+export type ProgressoVendedor = {
+  id: string;
+  nome: string;
+  foto: string | null;
+  metaValor: string;
+  metaQuantidade: number;
+  vendido: string;
+  vendas: number;
+  /** Vendido ÷ meta (valor), em % inteiro; `null` sem meta. */
+  percentual: number | null;
+  /** Quanto falta para a meta (nunca negativo). */
+  falta: string;
+};
+
+/**
+ * Progresso do mês por vendedor e no total, para a visão das metas. Ordena pelo %
+ * da meta (sem meta no fim) e monta o pódio com os 3 melhores entre quem tem meta.
+ */
+export function progressoDasMetas(o: {
+  vendedores: VendedorMeta[];
+  metas: { vendedorId: string; valorAlvo: string; quantidadeAlvo: number }[];
+  vendas: { vendedorId: string; vendido: string; quantidade: number }[];
+}): { vendedores: ProgressoVendedor[]; total: Omit<ProgressoVendedor, "id" | "nome" | "foto">; podio: ProgressoVendedor[] } {
+  const linha = (metaC: number, metaQ: number, vendidoC: number, vendas: number) => ({
+    metaValor: (metaC / 100).toFixed(2),
+    metaQuantidade: metaQ,
+    vendido: (vendidoC / 100).toFixed(2),
+    vendas,
+    percentual: metaC === 0 ? null : Math.round((vendidoC / metaC) * 100),
+    falta: (Math.max(0, metaC - vendidoC) / 100).toFixed(2),
+  });
+
+  let totalMeta = 0;
+  let totalMetaQ = 0;
+  let totalVendido = 0;
+  let totalVendas = 0;
+  const vendedores = o.vendedores.map((v) => {
+    const minhas = o.metas.filter((m) => m.vendedorId === v.id);
+    const metaC = minhas.reduce((s, m) => s + centavos(m.valorAlvo), 0);
+    const metaQ = minhas.reduce((s, m) => s + m.quantidadeAlvo, 0);
+    const venda = o.vendas.find((x) => x.vendedorId === v.id);
+    const vendidoC = venda ? centavos(venda.vendido) : 0;
+    const vendas = venda?.quantidade ?? 0;
+    totalMeta += metaC;
+    totalMetaQ += metaQ;
+    totalVendido += vendidoC;
+    totalVendas += vendas;
+    return { id: v.id, nome: v.nome, foto: v.imagem, ...linha(metaC, metaQ, vendidoC, vendas) };
+  });
+  vendedores.sort(
+    (a, b) => (b.percentual ?? -1) - (a.percentual ?? -1) || Number(b.vendido) - Number(a.vendido) || a.nome.localeCompare(b.nome, "pt-BR"),
+  );
+  return {
+    vendedores,
+    total: linha(totalMeta, totalMetaQ, totalVendido, totalVendas),
+    podio: vendedores.filter((v) => v.percentual !== null).slice(0, 3),
+  };
+}
