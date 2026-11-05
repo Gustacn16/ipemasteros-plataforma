@@ -231,3 +231,12 @@ describe("Meta Ads", () => {
     }
   });
 });
+
+describe("Integração Instagram", () => {
+  it("só o admin mexe na integração com o Instagram", () => {
+    expect(temPermissao("admin", "conteudo:gerenciar_integracao_instagram")).toBe(true);
+    for (const papel of ["gestor", "colaborador", "comercial", "professor"] as const) {
+      expect(temPermissao(papel, "conteudo:gerenciar_integracao_instagram")).toBe(false);
+    }
+  });
+});

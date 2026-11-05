@@ -54,16 +54,17 @@ model Usuario {
   tarefasAtribuidas TarefaResponsavel[]
   historicoTarefas  HistoricoTarefa[]
 
-  conteudosResponsavel Conteudo[]            @relation("ConteudoResponsavel")
-  conteudosCriados     Conteudo[]            @relation("ConteudoCriadoPor")
-  conteudosAprovados   Conteudo[]            @relation("ConteudoAprovadoPor")
-  eventosCriados       EventoInstitucional[] @relation("EventoCriadoPor")
-  agendasExternas      AgendaExterna[]
-  vendasDoVendedor     Venda[]               @relation("VendasDoVendedor")
-  vendasRegistradas    Venda[]               @relation("VendasRegistradas")
-  metasDoVendedor      MetaVenda[]           @relation("MetasDoVendedor")
-  importacoesAnuncios  ImportacaoAnuncios[]
-  assinaturaAgenda     AssinaturaAgenda?
+  conteudosResponsavel  Conteudo[]             @relation("ConteudoResponsavel")
+  conteudosCriados      Conteudo[]             @relation("ConteudoCriadoPor")
+  conteudosAprovados    Conteudo[]             @relation("ConteudoAprovadoPor")
+  eventosCriados        EventoInstitucional[]  @relation("EventoCriadoPor")
+  agendasExternas       AgendaExterna[]
+  vendasDoVendedor      Venda[]                @relation("VendasDoVendedor")
+  vendasRegistradas     Venda[]                @relation("VendasRegistradas")
+  metasDoVendedor       MetaVenda[]            @relation("MetasDoVendedor")
+  importacoesAnuncios   ImportacaoAnuncios[]
+  atualizacoesInstagram AtualizacaoInstagram[]
+  assinaturaAgenda      AssinaturaAgenda?
 
   @@map("usuarios")
 }
@@ -470,8 +471,9 @@ model Canal {
   criadoEm      DateTime        @default(now()) @map("criado_em")
   atualizadoEm  DateTime        @updatedAt @map("atualizado_em")
 
-  marca       Marca        @relation(fields: [marcaId], references: [id])
-  publicacoes Publicacao[]
+  marca          Marca           @relation(fields: [marcaId], references: [id])
+  publicacoes    Publicacao[]
+  contaInstagram ContaInstagram?
 
   @@index([marcaId])
   @@map("canais")
@@ -525,11 +527,14 @@ model Publicacao {
   compartilhamentos Int?
   salvamentos       Int?
   metricasEm        DateTime?        @map("metricas_em")
+  /// `instagram` quando os números vêm de um post ligado (MidiaInstagram) e não podem ser editados à mão.
+  metricasOrigem    OrigemMetricas   @default(manual) @map("metricas_origem")
   criadoEm          DateTime         @default(now()) @map("criado_em")
   atualizadoEm      DateTime         @updatedAt @map("atualizado_em")
 
-  conteudo Conteudo @relation(fields: [conteudoId], references: [id], onDelete: Cascade)
-  canal    Canal    @relation(fields: [canalId], references: [id])
+  conteudo Conteudo        @relation(fields: [conteudoId], references: [id], onDelete: Cascade)
+  canal    Canal           @relation(fields: [canalId], references: [id])
+  midia    MidiaInstagram?
 
   @@unique([conteudoId, canalId])
   @@index([canalId, publicadoEm])
@@ -1030,4 +1035,127 @@ model ImportacaoAnuncios {
 
   @@index([iniciadoEm])
   @@map("importacoes_anuncios")
+}
+
+// ─── Conteúdo: Instagram (C2a) ───────────────────────────────────────────────
+
+enum OrigemMetricas {
+  manual
+  instagram
+}
+
+enum TipoMidiaInstagram {
+  post
+  carrossel
+  reels
+  story
+}
+
+enum PeriodoMetricaInstagram {
+  dia
+  mes
+}
+
+enum TipoAtualizacaoInstagram {
+  completa
+  stories
+}
+
+/// Conta profissional do Instagram que a chave da Meta enxerga. Só contas ativas e ligadas a um canal são importadas.
+model ContaInstagram {
+  id           String   @id @default(cuid())
+  idExterno    String   @unique @map("id_externo") @db.VarChar(40)
+  usuario      String   @db.VarChar(60)
+  nome         String?  @db.VarChar(100)
+  paginaId     String?  @map("pagina_id") @db.VarChar(40)
+  fotoUrl      String?  @map("foto_url") @db.VarChar(1000)
+  canalId      String?  @unique @map("canal_id")
+  ativa        Boolean  @default(true)
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  canal    Canal?                  @relation(fields: [canalId], references: [id])
+  midias   MidiaInstagram[]
+  metricas MetricaContaInstagram[]
+
+  @@map("contas_instagram")
+}
+
+/// Post ou story importado do Instagram, ligado opcionalmente à publicação de um conteúdo.
+model MidiaInstagram {
+  id                String             @id @default(cuid())
+  contaId           String             @map("conta_id")
+  idExterno         String             @unique @map("id_externo") @db.VarChar(40)
+  tipo              TipoMidiaInstagram
+  legenda           String?            @db.Text
+  permalink         String             @db.VarChar(500)
+  /// Trecho do link (`/p/<codigo>/`), usado para achar a publicação.
+  codigo            String             @db.VarChar(40)
+  miniaturaUrl      String?            @map("miniatura_url") @db.VarChar(1000)
+  publicadoEm       DateTime           @map("publicado_em")
+  alcance           Int?
+  visualizacoes     Int?
+  curtidas          Int?
+  comentarios       Int?
+  salvamentos       Int?
+  compartilhamentos Int?
+  interacoes        Int?
+  visitasPerfil     Int?               @map("visitas_perfil")
+  respostas         Int?
+  metricasEm        DateTime?          @map("metricas_em")
+  publicacaoId      String?            @unique @map("publicacao_id")
+  removidaEm        DateTime?          @map("removida_em")
+  criadoEm          DateTime           @default(now()) @map("criado_em")
+  atualizadoEm      DateTime           @updatedAt @map("atualizado_em")
+
+  conta      ContaInstagram @relation(fields: [contaId], references: [id])
+  publicacao Publicacao?    @relation(fields: [publicacaoId], references: [id], onDelete: SetNull)
+
+  @@index([contaId, publicadoEm])
+  @@index([codigo])
+  @@map("midias_instagram")
+}
+
+/// Números da conta por dia ou por mês (no mês, `data` é o dia 1). `seguidores` só nas linhas de dia.
+model MetricaContaInstagram {
+  id                String                  @id @default(cuid())
+  contaId           String                  @map("conta_id")
+  periodo           PeriodoMetricaInstagram
+  data              DateTime                @db.Date
+  alcance           Int?
+  visualizacoes     Int?
+  interacoes        Int?
+  curtidas          Int?
+  comentarios       Int?
+  salvamentos       Int?
+  compartilhamentos Int?
+  cliquesLink       Int?                    @map("cliques_link")
+  novosSeguidores   Int?                    @map("novos_seguidores")
+  deixaramDeSeguir  Int?                    @map("deixaram_de_seguir")
+  seguidores        Int?
+  criadoEm          DateTime                @default(now()) @map("criado_em")
+  atualizadoEm      DateTime                @updatedAt @map("atualizado_em")
+
+  conta ContaInstagram @relation(fields: [contaId], references: [id])
+
+  @@unique([contaId, periodo, data])
+  @@map("metricas_conta_instagram")
+}
+
+/// Histórico das atualizações do Instagram. Nunca guarda a chave.
+model AtualizacaoInstagram {
+  id            String                   @id @default(cuid())
+  tipo          TipoAtualizacaoInstagram
+  origem        OrigemImportacao
+  status        StatusImportacao         @default(em_andamento)
+  iniciadoEm    DateTime                 @default(now()) @map("iniciado_em")
+  finalizadoEm  DateTime?                @map("finalizado_em")
+  registros     Int                      @default(0)
+  erro          String?                  @db.Text
+  iniciadaPorId String?                  @map("iniciada_por_id")
+
+  iniciadaPor Usuario? @relation(fields: [iniciadaPorId], references: [id])
+
+  @@index([tipo, iniciadoEm])
+  @@map("atualizacoes_instagram")
 }

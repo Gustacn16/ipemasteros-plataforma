@@ -28,6 +28,7 @@ export type Permissao =
   | "conteudo:usar"
   | "conteudo:aprovar"
   | "conteudo:gerenciar_canais"
+  | "conteudo:gerenciar_integracao_instagram"
   | "agenda:usar"
   | "agenda:ver_institucional"
   | "agenda:ver_institucional_professor"
@@ -109,6 +110,8 @@ const PERMISSOES_POR_PAPEL: Record<Papel, readonly Permissao[]> = {
     "comercial:excluir_produtos",
     // Só o admin mexe na integração com a Meta (chave e importação).
     "comercial:gerenciar_integracao_meta",
+    // Só o admin mexe na integração com o Instagram (contas, canais e atualização).
+    "conteudo:gerenciar_integracao_instagram",
   ],
   gestor: [
     "core:ver_usuarios",
