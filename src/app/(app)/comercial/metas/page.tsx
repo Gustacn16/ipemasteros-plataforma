@@ -1,23 +1,23 @@
-import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import { ChevronLeftIcon, ChevronRightIcon, PencilIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { formatarReais } from "@/lib/dinheiro";
+import { Button } from "@/componentes/ui/button";
 import { exigirPermissaoPagina } from "@/lib/sessao";
-import { BotaoCopiarMetas, MetasMes } from "@/modulos/comercial/componentes/metas-mes";
+import { VisaoDasMetas } from "@/modulos/comercial/componentes/metas/visao-metas";
 import { esquemaMes } from "@/modulos/comercial/esquemas/meta";
-import { mesAnterior, mesSeguinte, rotuloMes, totaisMetas } from "@/modulos/comercial/regras/meta";
-import { obterMetasDoMes } from "@/modulos/comercial/servicos/metas";
+import { mesAnterior, mesSeguinte, rotuloMes } from "@/modulos/comercial/regras/meta";
+import { obterVisaoMetas } from "@/modulos/comercial/servicos/metas";
 
 export const metadata: Metadata = { title: "Metas — IPEMaster OS" };
 
 const botaoMes = "hover:bg-muted rounded-md border p-1.5";
 
+/** Visão das metas do mês. O cadastro fica em /comercial/metas/cadastro. */
 export default async function PaginaMetas({ searchParams }: PageProps<"/comercial/metas">) {
   const usuario = await exigirPermissaoPagina("comercial:ver");
   const { mes: mesUrl } = await searchParams;
   const mes = esquemaMes(new Date()).parse(typeof mesUrl === "string" ? mesUrl : undefined);
-  const dados = await obterMetasDoMes(usuario, mes);
-  const geral = totaisMetas(dados.metas).geral;
+  const dados = await obterVisaoMetas(usuario, mes);
 
   return (
     <div className="grid gap-6">
@@ -31,15 +31,15 @@ export default async function PaginaMetas({ searchParams }: PageProps<"/comercia
             <ChevronRightIcon className="size-4" />
           </Link>
         </div>
-        <div className="flex flex-wrap items-center gap-4 text-sm">
-          <span>
-            {dados.podeEditar ? "Meta do mês" : "Sua meta no mês"}: <strong>{formatarReais(geral.valor)}</strong> ·{" "}
-            <strong>{geral.quantidade}</strong> {geral.quantidade === 1 ? "venda" : "vendas"}
-          </span>
-          {dados.podeEditar && <BotaoCopiarMetas mes={mes} origem={rotuloMes(mesAnterior(mes))} />}
-        </div>
+        {dados.podeEditar && (
+          <Button asChild variant="outline">
+            <Link href={`/comercial/metas/cadastro?mes=${mes}`}>
+              <PencilIcon /> Cadastrar metas
+            </Link>
+          </Button>
+        )}
       </div>
-      <MetasMes dados={dados} />
+      <VisaoDasMetas dados={dados} />
     </div>
   );
 }
