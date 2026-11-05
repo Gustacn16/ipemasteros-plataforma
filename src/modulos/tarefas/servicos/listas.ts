@@ -39,14 +39,6 @@ export async function excluirLista(ator: UsuarioAtual, listaId: string) {
   await prisma.lista.update({ where: { id: listaId }, data: { excluidoEm: new Date() } });
 }
 
-export async function listarStatus(listaId: string) {
-  return prisma.statusLista.findMany({
-    where: { listaId },
-    orderBy: { ordem: "asc" },
-    select: { id: true, nome: true, cor: true, tipo: true },
-  });
-}
-
 /** Ajusta concluidaEm das tarefas de um status cujo tipo mudou (regra 4). */
 async function ajustarConclusaoDoStatus(tx: Tx, statusId: string, tipoNovo: TipoStatus) {
   if (tipoNovo === "concluido") {

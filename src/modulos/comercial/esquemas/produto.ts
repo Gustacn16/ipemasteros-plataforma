@@ -23,11 +23,6 @@ export const ROTULO_FORMA_PAGAMENTO: Record<FormaPagamento, string> = {
 export const TIPOS_COMISSAO = ["valor", "percentual"] as const;
 export type TipoComissao = (typeof TIPOS_COMISSAO)[number];
 
-export const ROTULO_TIPO_COMISSAO: Record<TipoComissao, string> = {
-  valor: "R$",
-  percentual: "%",
-};
-
 export const CATEGORIAS_LINK = ["vendas", "aulas", "outro"] as const;
 export type CategoriaLink = (typeof CATEGORIAS_LINK)[number];
 
