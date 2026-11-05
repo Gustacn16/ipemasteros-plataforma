@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { segredoValido } from "@/lib/cron";
 import { importarMetaAds } from "@/modulos/comercial/servicos/importacao-meta";
+import { atualizarInstagram } from "@/modulos/conteudo/servicos/atualizacao-instagram";
 
 // Jobs agendados (docs/02-arquitetura.md): o cron da Hostinger chama
 // GET /api/cron/<tarefa> com "Authorization: Bearer $CRON_SECRET".
@@ -10,6 +11,14 @@ const TAREFAS: Record<string, () => Promise<Record<string, unknown>>> = {
   "importar-meta-ads": async () => {
     const r = await importarMetaAds({ origem: "agendada" });
     // A mensagem de erro fica na tela da integração, não na resposta.
+    return { ok: r.status === "concluida", status: r.status, registros: r.registros };
+  },
+  "importar-instagram": async () => {
+    const r = await atualizarInstagram({ tipo: "completa", origem: "agendada" });
+    return { ok: r.status === "concluida", status: r.status, registros: r.registros };
+  },
+  "importar-stories-instagram": async () => {
+    const r = await atualizarInstagram({ tipo: "stories", origem: "agendada" });
     return { ok: r.status === "concluida", status: r.status, registros: r.registros };
   },
 };

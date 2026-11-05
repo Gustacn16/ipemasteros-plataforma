@@ -13,6 +13,7 @@ import {
   podeIniciarAtualizacao,
   postRecente,
   tipoDaMidia,
+  atualizacaoRodando,
 } from "./instagram";
 
 describe("tipoDaMidia", () => {
@@ -234,5 +235,14 @@ describe("podeIniciarAtualizacao", () => {
     expect(podeIniciarAtualizacao(null, agora)).toEqual({ pode: true, expirada: false });
     expect(podeIniciarAtualizacao({ iniciadoEm: new Date("2026-11-05T11:45:00Z") }, agora)).toEqual({ pode: false, expirada: false });
     expect(podeIniciarAtualizacao({ iniciadoEm: new Date("2026-11-05T11:20:00Z") }, agora)).toEqual({ pode: true, expirada: true });
+  });
+});
+
+describe("atualizacaoRodando", () => {
+  it("só conta a em andamento há menos de 30 minutos", () => {
+    const agora = new Date("2026-11-05T12:00:00Z");
+    expect(atualizacaoRodando([{ status: "em_andamento", iniciadoEm: "2026-11-05T11:50:00Z" }], agora)).toBe(true);
+    expect(atualizacaoRodando([{ status: "em_andamento", iniciadoEm: "2026-11-05T11:00:00Z" }], agora)).toBe(false);
+    expect(atualizacaoRodando([{ status: "concluida", iniciadoEm: "2026-11-05T11:59:00Z" }], agora)).toBe(false);
   });
 });

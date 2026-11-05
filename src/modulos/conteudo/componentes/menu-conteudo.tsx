@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDownIcon, PlusIcon, SettingsIcon } from "lucide-react";
+import { ChevronDownIcon, PlugIcon, PlusIcon, SettingsIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/componentes/ui/button";
@@ -22,9 +22,9 @@ const VISOES = [
 const estiloItem =
   "hover:bg-muted focus-visible:ring-ring flex w-full min-w-0 items-center gap-2 truncate rounded-md px-2 py-1.5 text-left text-sm focus-visible:ring-2 focus-visible:outline-none";
 
-type Props = { contas: Conta[]; podeConfigurar: boolean; filtro: FiltroConteudo };
+type Props = { contas: Conta[]; podeConfigurar: boolean; podeIntegrar?: boolean; filtro: FiltroConteudo };
 
-function Conteudo({ contas, podeConfigurar, filtro }: Props) {
+function Conteudo({ contas, podeConfigurar, podeIntegrar, filtro }: Props) {
   const caminho = usePathname();
   const router = useRouter();
   const { aplicar } = useAplicarFiltro();
@@ -64,12 +64,20 @@ function Conteudo({ contas, podeConfigurar, filtro }: Props) {
         <div className="flex items-center justify-between px-2">
           <p className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">Contas</p>
           {podeConfigurar && (
-            <Link href="/conteudo/configuracoes" className="text-muted-foreground hover:text-foreground rounded p-1" aria-label="Configurar contas e canais">
+            <Link
+              href="/conteudo/configuracoes"
+              className="text-muted-foreground hover:text-foreground rounded p-1"
+              aria-label="Configurar contas e canais"
+            >
               <SettingsIcon className="size-3.5" />
             </Link>
           )}
         </div>
-        <button type="button" onClick={() => filtrar({ marca: undefined, canal: undefined })} className={cn(estiloItem, !marca && !canal && "font-medium")}>
+        <button
+          type="button"
+          onClick={() => filtrar({ marca: undefined, canal: undefined })}
+          className={cn(estiloItem, !marca && !canal && "font-medium")}
+        >
           Todas as contas
         </button>
         {contas.length === 0 && (
@@ -103,6 +111,20 @@ function Conteudo({ contas, podeConfigurar, filtro }: Props) {
           </div>
         ))}
       </div>
+
+      {podeIntegrar && (
+        <Link
+          href="/conteudo/integracao-instagram"
+          aria-current={caminho === "/conteudo/integracao-instagram" ? "page" : undefined}
+          className={cn(
+            estiloItem,
+            "text-muted-foreground",
+            caminho === "/conteudo/integracao-instagram" && "bg-muted text-foreground font-medium",
+          )}
+        >
+          <PlugIcon className="size-3.5" aria-hidden /> Integração Instagram
+        </Link>
+      )}
     </nav>
   );
 }

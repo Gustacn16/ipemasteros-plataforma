@@ -222,3 +222,8 @@ export function podeIniciarAtualizacao(emAndamento: { iniciadoEm: Date } | null,
   const expirada = agora.getTime() - emAndamento.iniciadoEm.getTime() > LIMITE_EM_ANDAMENTO_MS;
   return { pode: expirada, expirada };
 }
+
+/** Se há uma atualização rodando agora, para a tela se atualizar sozinha (some depois de 30 minutos). */
+export function atualizacaoRodando(atualizacoes: { status: string; iniciadoEm: string }[], agora: Date): boolean {
+  return atualizacoes.some((a) => a.status === "em_andamento" && agora.getTime() - Date.parse(a.iniciadoEm) < LIMITE_EM_ANDAMENTO_MS);
+}

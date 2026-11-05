@@ -13,7 +13,12 @@ export default async function LayoutConteudo({ children }: { children: React.Rea
 
   return (
     <div className="-m-4 flex flex-1 flex-col md:-m-8 md:flex-row">
-      <MenuConteudo contas={contas} filtro={filtro} podeConfigurar={temPermissao(usuario.papel, "conteudo:gerenciar_canais")} />
+      <MenuConteudo
+        contas={contas}
+        filtro={filtro}
+        podeConfigurar={temPermissao(usuario.papel, "conteudo:gerenciar_canais")}
+        podeIntegrar={temPermissao(usuario.papel, "conteudo:gerenciar_integracao_instagram")}
+      />
       <div className="min-w-0 flex-1 p-4 md:p-8">
         <BarraFiltros filtro={filtro} contas={contas} pessoas={pessoas} />
         {children}
