@@ -33,6 +33,14 @@ describe("periodosImportacao", () => {
     expect(periodosImportacao({ temDados: true, hoje: "2026-11-02" })).toEqual([{ desde: "2026-10-26", ate: "2026-11-01" }]);
   });
 
+  it("blocos menores quando pedido (números por anúncio)", () => {
+    const blocos = periodosImportacao({ temDados: false, hoje: "2026-01-20", diasPorBloco: 7 });
+    expect(blocos.slice(0, 2)).toEqual([
+      { desde: "2026-01-01", ate: "2026-01-07" },
+      { desde: "2026-01-08", ate: "2026-01-14" },
+    ]);
+  });
+
   it("sem dados: desde 2026-01-01 até ontem, em blocos contíguos de até 30 dias", () => {
     const blocos = periodosImportacao({ temDados: false, hoje: "2026-03-05" });
     expect(blocos[0]?.desde).toBe("2026-01-01");

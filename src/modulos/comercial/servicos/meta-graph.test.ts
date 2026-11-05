@@ -57,6 +57,7 @@ describe("cliente da Graph API", () => {
     const anuncios = new URL(urls[0]!);
     expect(anuncios.pathname).toMatch(/\/act_111\/ads$/);
     expect(anuncios.searchParams.get("fields")).toContain("creative{thumbnail_url,image_url}");
+    expect(JSON.parse(anuncios.searchParams.get("effective_status")!)).toContain("ARCHIVED");
     const insights = new URL(urls[1]!);
     expect(insights.searchParams.get("level")).toBe("ad");
     expect(insights.searchParams.get("fields")).toContain("ad_id");

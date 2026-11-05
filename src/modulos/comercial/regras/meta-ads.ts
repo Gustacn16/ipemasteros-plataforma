@@ -46,12 +46,13 @@ const DIAS_REFEITOS = 7;
  * Períodos a importar até ontem: com dados, refaz os últimos 7 dias (a Meta ajusta
  * números retroativamente); sem dados, todo o histórico em blocos de até 30 dias.
  */
-export function periodosImportacao(o: { temDados: boolean; hoje: string }): { desde: string; ate: string }[] {
+export function periodosImportacao(o: { temDados: boolean; hoje: string; diasPorBloco?: number }): { desde: string; ate: string }[] {
+  const porBloco = o.diasPorBloco ?? DIAS_POR_BLOCO;
   const ontem = somarDias(o.hoje, -1);
   if (o.temDados) return [{ desde: somarDias(o.hoje, -DIAS_REFEITOS), ate: ontem }];
   const blocos: { desde: string; ate: string }[] = [];
-  for (let desde = INICIO_HISTORICO; desde <= ontem; desde = somarDias(desde, DIAS_POR_BLOCO)) {
-    const fim = somarDias(desde, DIAS_POR_BLOCO - 1);
+  for (let desde = INICIO_HISTORICO; desde <= ontem; desde = somarDias(desde, porBloco)) {
+    const fim = somarDias(desde, porBloco - 1);
     blocos.push({ desde, ate: fim < ontem ? fim : ontem });
   }
   return blocos;

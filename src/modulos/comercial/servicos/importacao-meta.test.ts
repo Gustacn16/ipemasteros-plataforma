@@ -107,22 +107,24 @@ const banco = vi.hoisted(() => {
       }) => upsertPor(estado.criativos, (c) => c.idExterno === where.idExterno, create, update),
     },
     metricaDiariaCriativo: {
-      upsert: async ({
-        where,
-        create,
-        update,
-      }: {
-        where: { criativoId_data: { criativoId: string; data: Date } };
-        create: Record<string, unknown>;
-        update: Record<string, unknown>;
-      }) =>
-        upsertPor(
-          estado.metricasCriativo,
-          (m) => m.criativoId === where.criativoId_data.criativoId && +(m.data as Date) === +where.criativoId_data.data,
-          create,
-          update,
-        ),
+      deleteMany: async ({ where }: { where: { criativo: { campanha: { contaId: string } }; data: { gte: Date; lte: Date } } }) => {
+        const daConta = (criativoId: unknown) => {
+          const criativo = estado.criativos.find((c) => c.id === criativoId);
+          return estado.campanhas.find((c) => c.id === criativo?.campanhaId)?.contaId === where.criativo.campanha.contaId;
+        };
+        const antes = estado.metricasCriativo.length;
+        const ficam = estado.metricasCriativo.filter(
+          (m) => !(daConta(m.criativoId) && (m.data as Date) >= where.data.gte && (m.data as Date) <= where.data.lte),
+        );
+        estado.metricasCriativo.splice(0, estado.metricasCriativo.length, ...ficam);
+        return { count: antes - ficam.length };
+      },
+      createMany: async ({ data }: { data: Record<string, unknown>[] }) => {
+        for (const d of data) estado.metricasCriativo.push({ id: novoId(), ...d });
+        return { count: data.length };
+      },
     },
+    $transaction: async (passos: Promise<unknown>[]) => Promise.all(passos),
   };
   return { estado, prisma };
 });
@@ -145,6 +147,7 @@ function clienteFalso(
     falharAnuncios?: (conta: string) => boolean;
     pedidos?: string[];
     pedidosAnuncios?: string[];
+    limitarDados?: boolean;
   } = {},
 ): ClienteMeta {
   return {
@@ -168,8 +171,9 @@ function clienteFalso(
         },
       ];
     },
-    listarInsightsAnuncios: async (conta, desde) => {
+    listarInsightsAnuncios: async (conta, desde, ate) => {
       o.pedidosAnuncios?.push(`${conta}:${desde}`);
+      if (o.limitarDados && desde !== ate) throw new ErroMeta("Erro da Meta: Please reduce the amount of data", 1);
       const linha: InsightAnuncioMeta = {
         ad_id: `ad_${conta}`,
         campaign_id: `camp_${conta}`,
@@ -239,7 +243,7 @@ describe("importarMetaAds", () => {
     expect(doA()[0]).toMatchObject({ investimento: "5.00", impressoes: 100, cliquesLink: 3, leadsFormulario: 2 });
     const antes = doA().length;
     await importarMetaAds({ origem: "manual", agora: AGORA, cliente: clienteFalso() });
-    expect(doA().length).toBe(antes + 1); // só o dia novo dos "últimos 7 dias"
+    expect(doA().length).toBe(antes); // o bloco dos "últimos 7 dias" é refeito, sem duplicar
   });
 
   it("falha nos anúncios não atrapalha as campanhas e refaz o histórico dos anúncios depois", async () => {
@@ -254,6 +258,13 @@ describe("importarMetaAds", () => {
     await importarMetaAds({ origem: "agendada", agora: AGORA, cliente: clienteFalso({ pedidosAnuncios }) });
     expect(pedidosAnuncios).toContain("act_B:2026-01-01");
     expect(pedidosAnuncios).not.toContain("act_A:2026-01-01");
+  });
+
+  it("se a Meta pedir menos dados, refaz o bloco de anúncios dia a dia", async () => {
+    const r = await importarMetaAds({ origem: "manual", agora: AGORA, cliente: clienteFalso({ limitarDados: true }) });
+    expect(r.status).toBe("concluida");
+    expect(banco.estado.importacoes.at(-1)?.erro ?? "").not.toContain("criativos");
+    expect(banco.estado.metricasCriativo.length).toBeGreaterThan(2);
   });
 
   it("chave sem contas atribuídas: conclui com o aviso do que fazer", async () => {

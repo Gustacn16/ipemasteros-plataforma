@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { diaEmSaoPaulo } from "@/modulos/tarefas/regras/prazo";
+import { diaEmSaoPaulo, somarDias } from "@/modulos/tarefas/regras/prazo";
 import { centavosDoGasto, lerLeads, periodosImportacao, podeIniciarImportacao } from "../regras/meta-ads";
 import { type ClienteMeta, ErroMeta, criarClienteMeta } from "./meta-graph";
 
@@ -8,6 +8,7 @@ import { type ClienteMeta, ErroMeta, criarClienteMeta } from "./meta-graph";
 export const MENSAGEM_SEM_CONTAS =
   "Nenhuma conta de anúncio encontrada para esta chave. No Business Manager, atribua as contas de anúncio ao usuário do sistema.";
 const MAX_TIPOS_IGNORADOS = 60;
+const DIAS_POR_BLOCO_CRIATIVOS = 7;
 const LIMITE_EM_ANDAMENTO_MS = 30 * 60_000;
 const dataDoDia = (dia: string) => new Date(`${dia}T00:00:00Z`);
 const inteiro = (v: string | undefined) => Math.trunc(Number(v ?? 0)) || 0;
@@ -167,6 +168,7 @@ export async function executarImportacao({
         try {
           registros += await importarCriativos({
             cliente,
+            contaId: conta.id,
             contaIdExterno: conta.idExterno,
             hoje,
             campanhaDe,
@@ -208,6 +210,7 @@ export async function executarImportacao({
 /** Anúncios da conta (com a miniatura) e os números de cada um por dia. Devolve quantas linhas gravou. */
 async function importarCriativos(o: {
   cliente: ClienteMeta;
+  contaId: string;
   contaIdExterno: string;
   hoje: string;
   temDados: boolean;
@@ -246,29 +249,47 @@ async function importarCriativos(o: {
     });
   }
 
+  // Por anúncio a Meta recusa períodos grandes ("reduce the amount of data"): blocos de 7 dias e, se ainda
+  // assim recusar (código 1), o bloco é pedido dia a dia.
+  const lerBloco = async (desde: string, ate: string) => {
+    try {
+      return await o.cliente.listarInsightsAnuncios(o.contaIdExterno, desde, ate);
+    } catch (erro) {
+      if (!(erro instanceof ErroMeta) || erro.codigo !== 1 || desde === ate) throw erro;
+      const linhas = [];
+      for (let dia = desde; dia <= ate; dia = somarDias(dia, 1))
+        linhas.push(...(await o.cliente.listarInsightsAnuncios(o.contaIdExterno, dia, dia)));
+      return linhas;
+    }
+  };
+
   let registros = 0;
-  const periodos = periodosImportacao({ temDados: o.temDados, hoje: o.hoje });
-  for (const p of periodos) o.dias.push(p.desde, p.ate);
-  for (const periodo of periodos) {
-    for (const l of await o.cliente.listarInsightsAnuncios(o.contaIdExterno, periodo.desde, periodo.ate)) {
+  for (const periodo of periodosImportacao({ temDados: o.temDados, hoje: o.hoje, diasPorBloco: DIAS_POR_BLOCO_CRIATIVOS })) {
+    const linhas = await lerBloco(periodo.desde, periodo.ate);
+    const novas = [];
+    for (const l of linhas) {
       const criativoId = idPorExterno.get(l.ad_id) ?? (await criativoDe(l.ad_id, l.campaign_id));
       const leads = lerLeads(l.actions);
-      const numeros = {
+      novas.push({
+        criativoId,
+        data: dataDoDia(l.date_start),
         investimento: (centavosDoGasto(l.spend) / 100).toFixed(2),
         impressoes: inteiro(l.impressions),
         cliquesLink: inteiro(l.inline_link_clicks),
         leadsFormulario: leads.leadsFormulario,
         leadsSite: leads.leadsSite,
         conversasIniciadas: leads.conversasIniciadas,
-      };
-      const data = dataDoDia(l.date_start);
-      await prisma.metricaDiariaCriativo.upsert({
-        where: { criativoId_data: { criativoId, data } },
-        create: { criativoId, data, ...numeros },
-        update: numeros,
       });
-      registros++;
     }
+    // O bloco inteiro é refeito de uma vez (muito mais rápido que um upsert por linha).
+    await prisma.$transaction([
+      prisma.metricaDiariaCriativo.deleteMany({
+        where: { criativo: { campanha: { contaId: o.contaId } }, data: { gte: dataDoDia(periodo.desde), lte: dataDoDia(periodo.ate) } },
+      }),
+      prisma.metricaDiariaCriativo.createMany({ data: novas }),
+    ]);
+    o.dias.push(periodo.desde, periodo.ate);
+    registros += novas.length;
   }
   return registros;
 }

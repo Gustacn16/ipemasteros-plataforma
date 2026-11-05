@@ -50,6 +50,21 @@ export type InsightAnuncioMeta = {
   actions?: { action_type: string; value: string }[];
 };
 
+/** Todas as situações de anúncio menos "excluído" (a Meta não devolve excluídos nesta lista). */
+const SITUACOES_ANUNCIO = [
+  "ACTIVE",
+  "PAUSED",
+  "ARCHIVED",
+  "CAMPAIGN_PAUSED",
+  "ADSET_PAUSED",
+  "IN_PROCESS",
+  "WITH_ISSUES",
+  "DISAPPROVED",
+  "PENDING_REVIEW",
+  "PREAPPROVED",
+  "PENDING_BILLING_INFO",
+];
+
 export function criarClienteMeta(token: string, fetchFn: typeof fetch = fetch) {
   async function pedir<T>(url: string): Promise<Pagina<T>> {
     let resposta: Response;
@@ -92,7 +107,12 @@ export function criarClienteMeta(token: string, fetchFn: typeof fetch = fetch) {
         limit: "500",
       }),
     listarAnuncios: (contaId: string) =>
-      todas<AnuncioMeta>(`${contaId}/ads`, { fields: "id,name,status,campaign_id,creative{thumbnail_url,image_url}", limit: "200" }),
+      todas<AnuncioMeta>(`${contaId}/ads`, {
+        fields: "id,name,status,campaign_id,creative{thumbnail_url,image_url}",
+        // Sem isto a Meta deixa de fora os arquivados, que têm gasto no histórico.
+        effective_status: JSON.stringify(SITUACOES_ANUNCIO),
+        limit: "200",
+      }),
     listarInsightsAnuncios: (contaId: string, desde: string, ate: string) =>
       todas<InsightAnuncioMeta>(`${contaId}/insights`, {
         level: "ad",
