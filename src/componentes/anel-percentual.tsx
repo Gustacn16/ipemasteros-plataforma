@@ -17,11 +17,13 @@ export function AnelPercentual({
   tamanho = 72,
   faixa: faixaDe = faixaDoPercentual,
   rotulo = "no prazo",
+  semDados = "Sem dados de prazo",
 }: {
   percentual: number | null;
   tamanho?: number;
   faixa?: (p: number | null) => Faixa;
   rotulo?: string;
+  semDados?: string;
 }) {
   const valido = percentual !== null && Number.isFinite(percentual);
   const arredondado = valido ? Math.round(percentual) : null;
@@ -38,7 +40,7 @@ export function AnelPercentual({
       height={tamanho}
       viewBox={`0 0 ${tamanho} ${tamanho}`}
       role="img"
-      aria-label={arredondado === null ? `Sem dados (${rotulo})` : `${arredondado}% ${rotulo}`}
+      aria-label={arredondado === null ? semDados : `${arredondado}% ${rotulo}`}
       className="shrink-0"
     >
       <circle cx={centro} cy={centro} r={raio} fill="none" strokeWidth={espessura} className="stroke-muted" />

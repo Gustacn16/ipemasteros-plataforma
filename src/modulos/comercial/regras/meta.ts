@@ -106,7 +106,8 @@ export function progressoDasMetas(o: {
     metaQuantidade: metaQ,
     vendido: (vendidoC / 100).toFixed(2),
     vendas,
-    percentual: metaC === 0 ? null : Math.round((vendidoC / metaC) * 100),
+    // Para baixo: 99,6% não aparece como 100% (verde) com meta ainda por bater.
+    percentual: metaC === 0 ? null : Math.floor((vendidoC / metaC) * 100),
     falta: (Math.max(0, metaC - vendidoC) / 100).toFixed(2),
   });
 
@@ -133,6 +134,6 @@ export function progressoDasMetas(o: {
   return {
     vendedores,
     total: linha(totalMeta, totalMetaQ, totalVendido, totalVendas),
-    podio: vendedores.filter((v) => v.percentual !== null).slice(0, 3),
+    podio: vendedores.filter((v) => (v.percentual ?? 0) > 0).slice(0, 3),
   };
 }

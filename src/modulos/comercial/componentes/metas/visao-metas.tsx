@@ -18,6 +18,12 @@ const faixaDaMeta = (p: number | null) => {
   return f ? COR_DA_FAIXA[f] : null;
 };
 
+/** Primeiro nome no gráfico; nome completo quando dois vendedores têm o mesmo primeiro nome. */
+function rotuloGrafico(nome: string, todos: { nome: string }[]) {
+  const primeiro = (n: string) => n.trim().split(/\s+/)[0] ?? n;
+  return todos.filter((o) => primeiro(o.nome) === primeiro(nome)).length > 1 ? nome : primeiro(nome);
+}
+
 const cartao = "bg-card text-card-foreground rounded-xl border p-4";
 
 function iniciais(nome: string) {
@@ -72,17 +78,17 @@ export function VisaoDasMetas({ dados }: { dados: VisaoMetas }) {
     <div className="grid gap-6">
       <section aria-label="Meta do mês" className="grid gap-3 md:grid-cols-[auto_1fr]">
         <div className={cn(cartao, "flex items-center gap-4")}>
-          <AnelPercentual percentual={t.percentual} tamanho={120} faixa={faixaDaMeta} rotulo="da meta do mês" />
+          <AnelPercentual percentual={t.percentual} tamanho={120} faixa={faixaDaMeta} rotulo="da meta do mês" semDados="Sem meta no mês" />
           <div className="grid gap-1">
             <p className="text-muted-foreground text-sm">{dados.equipe ? "Meta da equipe" : "Sua meta"}</p>
             <p className="text-2xl font-semibold tabular-nums">{formatarReais(t.vendido)}</p>
-            <p className="text-muted-foreground text-sm">de {formatarReais(t.metaValor)}</p>
+            <p className="text-muted-foreground text-sm">{semMeta ? "sem meta cadastrada" : `de ${formatarReais(t.metaValor)}`}</p>
           </div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <CartaoNumero rotulo="Meta do mês" valor={formatarReais(t.metaValor)} />
+          <CartaoNumero rotulo="Meta do mês" valor={semMeta ? "—" : formatarReais(t.metaValor)} />
           <CartaoNumero rotulo="Vendido" valor={formatarReais(t.vendido)} tom={faixaDaMeta(t.percentual) ?? "neutro"} />
-          <CartaoNumero rotulo="Falta vender" valor={Number(t.falta) === 0 && !semMeta ? "Meta batida" : formatarReais(t.falta)} />
+          <CartaoNumero rotulo="Falta vender" valor={semMeta ? "—" : Number(t.falta) === 0 ? "Meta batida" : formatarReais(t.falta)} />
           <CartaoNumero rotulo="Vendas" valor={t.vendas}>
             {t.metaQuantidade > 0 ? `de ${t.metaQuantidade} na meta` : "sem meta de quantidade"}
           </CartaoNumero>
@@ -97,7 +103,7 @@ export function VisaoDasMetas({ dados }: { dados: VisaoMetas }) {
             </h2>
             <GraficoMetas
               pontos={dados.vendedores.map((v) => ({
-                nome: v.nome.split(" ")[0] ?? v.nome,
+                nome: rotuloGrafico(v.nome, dados.vendedores),
                 vendido: Number(v.vendido),
                 meta: Number(v.metaValor),
               }))}
@@ -135,7 +141,7 @@ export function VisaoDasMetas({ dados }: { dados: VisaoMetas }) {
                       {v.metaQuantidade > 0 && ` de ${v.metaQuantidade}`}
                     </p>
                   </div>
-                  <AnelPercentual percentual={v.percentual} tamanho={64} faixa={faixaDaMeta} rotulo="da meta" />
+                  <AnelPercentual percentual={v.percentual} tamanho={64} faixa={faixaDaMeta} rotulo="da meta" semDados="Sem meta" />
                 </div>
                 <dl className="grid grid-cols-3 gap-2 text-sm">
                   <div>

@@ -131,7 +131,16 @@ describe("progressoDasMetas", () => {
     expect(bia.falta).toBe("0.00");
   });
 
-  it("pódio: os 3 melhores % entre quem tem meta", () => {
-    expect(p.podio.map((v) => v.id)).toEqual(["bia", "ana", "caio"]);
+  it("pódio: os 3 melhores % entre quem tem meta e já vendeu", () => {
+    expect(p.podio.map((v) => v.id)).toEqual(["bia", "ana"]);
+  });
+
+  it("arredonda o % para baixo: só mostra 100% com a meta batida", () => {
+    const quase = progressoDasMetas({
+      vendedores: [{ id: "ana", nome: "Ana", imagem: null }],
+      metas: [{ vendedorId: "ana", valorAlvo: "100000.00", quantidadeAlvo: 1 }],
+      vendas: [{ vendedorId: "ana", vendido: "99600.00", quantidade: 1 }],
+    });
+    expect(quase.total).toMatchObject({ percentual: 99, falta: "400.00" });
   });
 });
