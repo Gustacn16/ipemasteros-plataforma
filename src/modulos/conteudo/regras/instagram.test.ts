@@ -14,6 +14,9 @@ import {
   postRecente,
   tipoDaMidia,
   atualizacaoRodando,
+  totaisDoMes,
+  variacao,
+  type NumerosConta,
 } from "./instagram";
 
 describe("tipoDaMidia", () => {
@@ -244,5 +247,60 @@ describe("atualizacaoRodando", () => {
     expect(atualizacaoRodando([{ status: "em_andamento", iniciadoEm: "2026-11-05T11:50:00Z" }], agora)).toBe(true);
     expect(atualizacaoRodando([{ status: "em_andamento", iniciadoEm: "2026-11-05T11:00:00Z" }], agora)).toBe(false);
     expect(atualizacaoRodando([{ status: "concluida", iniciadoEm: "2026-11-05T11:59:00Z" }], agora)).toBe(false);
+  });
+});
+
+describe("variacao e totaisDoMes", () => {
+  const conta = (n: Partial<NumerosConta>): NumerosConta => ({
+    alcance: null,
+    visualizacoes: null,
+    interacoes: null,
+    curtidas: null,
+    comentarios: null,
+    salvamentos: null,
+    compartilhamentos: null,
+    cliquesLink: null,
+    novosSeguidores: null,
+    deixaramDeSeguir: null,
+    ...n,
+  });
+
+  it("variação em % arredondada; divisor zero ou ausente é null", () => {
+    expect(variacao(112, 100)).toBe(12);
+    expect(variacao(90, 120)).toBe(-25);
+    expect(variacao(10, 0)).toBeNull();
+    expect(variacao(null, 10)).toBeNull();
+    expect(variacao(10, null)).toBeNull();
+  });
+
+  it("monta os cartões do mês", () => {
+    const c = totaisDoMes({
+      mes: conta({ alcance: 5000, visualizacoes: 9000, interacoes: 300, cliquesLink: 40, novosSeguidores: 80 }),
+      mesAnterior: conta({ alcance: 4000, visualizacoes: 9000, interacoes: 0, cliquesLink: 50 }),
+      seguidores: 1100,
+      seguidoresAnterior: 1000,
+      visitasPerfil: 60,
+      visitasPerfilAnterior: 40,
+    });
+    expect(c.alcance).toEqual({ valor: 5000, variacao: 25 });
+    expect(c.visualizacoes).toEqual({ valor: 9000, variacao: 0 });
+    expect(c.interacoes).toEqual({ valor: 300, variacao: null });
+    expect(c.cliquesLink).toEqual({ valor: 40, variacao: -20 });
+    expect(c.seguidores).toEqual({ valor: 1100, variacao: 10, ganhos: 100 });
+    expect(c.visitasPerfil).toEqual({ valor: 60, variacao: 50 });
+    expect(c.novosSeguidores).toEqual({ valor: 80, variacao: null });
+  });
+
+  it("sem mês anterior nem seguidores, tudo sem variação", () => {
+    const c = totaisDoMes({
+      mes: null,
+      mesAnterior: null,
+      seguidores: null,
+      seguidoresAnterior: null,
+      visitasPerfil: null,
+      visitasPerfilAnterior: null,
+    });
+    expect(c.alcance).toEqual({ valor: null, variacao: null });
+    expect(c.seguidores).toEqual({ valor: null, variacao: null, ganhos: null });
   });
 });

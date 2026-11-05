@@ -227,3 +227,48 @@ export function podeIniciarAtualizacao(emAndamento: { iniciadoEm: Date } | null,
 export function atualizacaoRodando(atualizacoes: { status: string; iniciadoEm: string }[], agora: Date): boolean {
   return atualizacoes.some((a) => a.status === "em_andamento" && agora.getTime() - Date.parse(a.iniciadoEm) < LIMITE_EM_ANDAMENTO_MS);
 }
+
+/** Variação em % (arredondada) contra o mês anterior; divisor zero ou ausente vira `null` ("—"). */
+export function variacao(atual: number | null, anterior: number | null): number | null {
+  if (atual === null || anterior === null || anterior === 0) return null;
+  return Math.round(((atual - anterior) / anterior) * 100);
+}
+
+type Cartao = { valor: number | null; variacao: number | null };
+export type CartoesInstagram = {
+  seguidores: Cartao & { ganhos: number | null };
+  alcance: Cartao;
+  visualizacoes: Cartao;
+  interacoes: Cartao;
+  visitasPerfil: Cartao;
+  cliquesLink: Cartao;
+  novosSeguidores: Cartao;
+};
+
+/** Cartões do bloco Instagram (regra 5.17). */
+export function totaisDoMes(o: {
+  mes: NumerosConta | null;
+  mesAnterior: NumerosConta | null;
+  seguidores: number | null;
+  seguidoresAnterior: number | null;
+  visitasPerfil: number | null;
+  visitasPerfilAnterior: number | null;
+}): CartoesInstagram {
+  const daConta = (campo: keyof NumerosConta): Cartao => {
+    const valor = o.mes?.[campo] ?? null;
+    return { valor, variacao: variacao(valor, o.mesAnterior?.[campo] ?? null) };
+  };
+  return {
+    seguidores: {
+      valor: o.seguidores,
+      variacao: variacao(o.seguidores, o.seguidoresAnterior),
+      ganhos: o.seguidores !== null && o.seguidoresAnterior !== null ? o.seguidores - o.seguidoresAnterior : null,
+    },
+    alcance: daConta("alcance"),
+    visualizacoes: daConta("visualizacoes"),
+    interacoes: daConta("interacoes"),
+    visitasPerfil: { valor: o.visitasPerfil, variacao: variacao(o.visitasPerfil, o.visitasPerfilAnterior) },
+    cliquesLink: daConta("cliquesLink"),
+    novosSeguidores: daConta("novosSeguidores"),
+  };
+}

@@ -35,6 +35,8 @@ import { BadgeEtapa, Cartao, ChipPublicacao, NomeCanal, SeloPlataforma } from ".
 import { EditorConteudo } from "./editor-conteudo";
 import { PublicacoesConteudo } from "./publicacoes-conteudo";
 import { SeletorEtapa } from "./seletor-etapa";
+import { BlocoInstagram } from "./bloco-instagram";
+import type { VisaoInstagram } from "../servicos/visao-instagram";
 
 const numero = new Intl.NumberFormat("pt-BR");
 const fmt = (v: number | null) => (v === null ? "—" : numero.format(v));
@@ -112,7 +114,16 @@ function Bloco(props: {
 const estiloLinkNumero =
   "focus-visible:ring-ring rounded-xl focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none hover:[&>div]:bg-muted/50 [&>div]:transition-colors";
 
-export function TelaVisaoGeral({ v, agora = new Date() }: { v: DadosVisaoGeral; agora?: Date }) {
+export function TelaVisaoGeral({
+  v,
+  instagram,
+  agora = new Date(),
+}: {
+  v: DadosVisaoGeral;
+  /** Bloco do Instagram (C2a); `dados` é `null` quando nenhuma conta do filtro está ligada. */
+  instagram?: { dados: VisaoInstagram | null; podeIntegrar: boolean };
+  agora?: Date;
+}) {
   // Publicados do mês por plataforma.
   const porPlataforma = new Map<Plataforma, number>();
   for (const p of v.publicadosMes) porPlataforma.set(p.canal.plataforma, (porPlataforma.get(p.canal.plataforma) ?? 0) + 1);
@@ -123,7 +134,12 @@ export function TelaVisaoGeral({ v, agora = new Date() }: { v: DadosVisaoGeral; 
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-4">
         <Link href="/conteudo/planejamento" className={estiloLinkNumero}>
-          <CartaoNumero rotulo="Atrasados" icone={CalendarX} valor={v.atrasados.length} tom={v.atrasados.length > 0 ? "perigo" : "neutro"} />
+          <CartaoNumero
+            rotulo="Atrasados"
+            icone={CalendarX}
+            valor={v.atrasados.length}
+            tom={v.atrasados.length > 0 ? "perigo" : "neutro"}
+          />
         </Link>
         <Link href="/conteudo/planejamento" className={estiloLinkNumero}>
           <CartaoNumero rotulo="Banco de ideias" icone={LightbulbIcon} valor={v.ideias} />
@@ -151,10 +167,27 @@ export function TelaVisaoGeral({ v, agora = new Date() }: { v: DadosVisaoGeral; 
         </ul>
       )}
 
+      {instagram && <BlocoInstagram dados={instagram.dados} podeIntegrar={instagram.podeIntegrar} />}
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Bloco id="bloco-atrasados" titulo="Atrasados" itens={v.atrasados} vazio="Nada atrasado." icone={CalendarX} perigo agora={agora} />
-        <Bloco id="bloco-proximos" titulo="Publicar nos próximos 7 dias" itens={v.proximos} vazio="Nada previsto para a semana." icone={SendIcon} agora={agora} />
-        <Bloco id="bloco-gravacoes" titulo="Gravações marcadas" itens={v.gravacoes} vazio="Nenhuma gravação marcada." icone={VideoIcon} gravacao agora={agora} />
+        <Bloco
+          id="bloco-proximos"
+          titulo="Publicar nos próximos 7 dias"
+          itens={v.proximos}
+          vazio="Nada previsto para a semana."
+          icone={SendIcon}
+          agora={agora}
+        />
+        <Bloco
+          id="bloco-gravacoes"
+          titulo="Gravações marcadas"
+          itens={v.gravacoes}
+          vazio="Nenhuma gravação marcada."
+          icone={VideoIcon}
+          gravacao
+          agora={agora}
+        />
       </div>
     </div>
   );
@@ -162,7 +195,13 @@ export function TelaVisaoGeral({ v, agora = new Date() }: { v: DadosVisaoGeral; 
 
 // ---------------------------------------------------------------- Planejamento
 
-export function TelaPlanejamento({ quadro, agora = new Date() }: { quadro: Record<(typeof ETAPAS_DO_QUADRO)[number], CartaoConteudo[]>; agora?: Date }) {
+export function TelaPlanejamento({
+  quadro,
+  agora = new Date(),
+}: {
+  quadro: Record<(typeof ETAPAS_DO_QUADRO)[number], CartaoConteudo[]>;
+  agora?: Date;
+}) {
   const total = ETAPAS_DO_QUADRO.reduce((n, e) => n + quadro[e].length, 0);
   return (
     <div className="grid grid-cols-1 gap-4">
@@ -278,7 +317,10 @@ export function TelaCalendario({
             return (
               <div
                 key={dia}
-                className={cn("min-h-28 min-w-0 border-r border-b p-1.5 [&:nth-child(7n)]:border-r-0", !doMes && "bg-muted/30 text-muted-foreground")}
+                className={cn(
+                  "min-h-28 min-w-0 border-r border-b p-1.5 [&:nth-child(7n)]:border-r-0",
+                  !doMes && "bg-muted/30 text-muted-foreground",
+                )}
               >
                 <p
                   className={cn(
@@ -301,7 +343,10 @@ export function TelaCalendario({
                         )}
                         style={
                           tipo === "publicacao"
-                            ? { backgroundColor: `color-mix(in oklab, ${COR_ETAPA[item.etapa]} 14%, transparent)`, borderColor: COR_ETAPA[item.etapa] }
+                            ? {
+                                backgroundColor: `color-mix(in oklab, ${COR_ETAPA[item.etapa]} 14%, transparent)`,
+                                borderColor: COR_ETAPA[item.etapa],
+                              }
                             : undefined
                         }
                       >
@@ -332,7 +377,15 @@ export function TelaCalendario({
 
 // ---------------------------------------------------------------- Gravações
 
-export function TelaGravacoes({ aGravar, gravados, agora = new Date() }: { aGravar: CartaoConteudo[]; gravados: (CartaoConteudo & { linkMaterial: string | null })[]; agora?: Date }) {
+export function TelaGravacoes({
+  aGravar,
+  gravados,
+  agora = new Date(),
+}: {
+  aGravar: CartaoConteudo[];
+  gravados: (CartaoConteudo & { linkMaterial: string | null })[];
+  agora?: Date;
+}) {
   return (
     <div className="grid grid-cols-1 gap-8">
       <CabecalhoPagina titulo="Gravações" descricao="Agenda de gravação e o banco de material gravado que ainda não foi publicado." />
@@ -349,7 +402,13 @@ export function TelaGravacoes({ aGravar, gravados, agora = new Date() }: { aGrav
         ) : (
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {aGravar.map((i) => (
-              <Cartao key={i.id} item={i} agora={agora} mostrarGravacao acoes={<SeletorEtapa conteudoId={i.id} etapa={i.etapa} compacto />} />
+              <Cartao
+                key={i.id}
+                item={i}
+                agora={agora}
+                mostrarGravacao
+                acoes={<SeletorEtapa conteudoId={i.id} etapa={i.etapa} compacto />}
+              />
             ))}
           </div>
         )}
@@ -484,7 +543,8 @@ export function TelaPublicados({ mes, linhas }: { mes: string; linhas: LinhaPubl
                 </p>
                 <NomeCanal plataforma={t.canal.plataforma} identificador={t.canal.identificador} />
                 <p className="text-muted-foreground">
-                  {t.quantidade} {t.quantidade === 1 ? "publicação" : "publicações"} · alcance {fmt(t.alcance)} · engajamento {pct(t.engajamento)}
+                  {t.quantidade} {t.quantidade === 1 ? "publicação" : "publicações"} · alcance {fmt(t.alcance)} · engajamento{" "}
+                  {pct(t.engajamento)}
                 </p>
               </div>
             ))}
@@ -523,7 +583,10 @@ export function TelaPublicados({ mes, linhas }: { mes: string; linhas: LinhaPubl
                 {linhas.map((l) => (
                   <tr key={l.id} className="hover:bg-muted/50 border-t">
                     <td className="max-w-72 px-3 py-2">
-                      <Link href={`/conteudo/itens/${l.conteudo.id}`} className="text-foreground block truncate font-medium hover:underline">
+                      <Link
+                        href={`/conteudo/itens/${l.conteudo.id}`}
+                        className="text-foreground block truncate font-medium hover:underline"
+                      >
                         {l.conteudo.titulo}
                       </Link>
                       <span className="text-muted-foreground text-xs">
@@ -553,7 +616,10 @@ export function TelaPublicados({ mes, linhas }: { mes: string; linhas: LinhaPubl
               <li key={l.id} className="bg-card text-card-foreground grid min-w-0 gap-2 rounded-xl border p-3 text-sm">
                 <div className="flex min-w-0 items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <Link href={`/conteudo/itens/${l.conteudo.id}`} className="text-foreground block font-medium break-words hover:underline">
+                    <Link
+                      href={`/conteudo/itens/${l.conteudo.id}`}
+                      className="text-foreground block font-medium break-words hover:underline"
+                    >
                       {l.conteudo.titulo}
                     </Link>
                     <span className="text-muted-foreground text-xs">
@@ -593,7 +659,6 @@ export function TelaPublicados({ mes, linhas }: { mes: string; linhas: LinhaPubl
   );
 }
 
-
 // ---------------------------------------------------------------- Detalhe
 
 export type DadosItemConteudo = Awaited<ReturnType<typeof obterConteudo>>;
@@ -602,7 +667,9 @@ export function TelaItemConteudo({ conteudo, pessoas, podeAprovar }: DadosItemCo
   const liberada = conteudo.etapa === "aprovado" || conteudo.etapa === "publicado";
   const autoria =
     `Criado por ${conteudo.criadoPor.nome} em ${formatarDataHora(conteudo.criadoEm)}` +
-    (conteudo.aprovadoPor && conteudo.aprovadoEm ? ` · Aprovado por ${conteudo.aprovadoPor.nome} em ${formatarDataHora(conteudo.aprovadoEm)}` : "");
+    (conteudo.aprovadoPor && conteudo.aprovadoEm
+      ? ` · Aprovado por ${conteudo.aprovadoPor.nome} em ${formatarDataHora(conteudo.aprovadoEm)}`
+      : "");
 
   return (
     // A key remonta os formulários quando o conteúdo muda no servidor.
@@ -622,7 +689,9 @@ export function TelaItemConteudo({ conteudo, pessoas, podeAprovar }: DadosItemCo
           <BadgeEtapa etapa={conteudo.etapa} tamanho="md" />
           <ChipPublicacao dataPublicacao={conteudo.dataPublicacao} etapa={conteudo.etapa} tamanho="md" />
           <SeletorEtapa conteudoId={conteudo.id} etapa={conteudo.etapa} />
-          {conteudo.etapa === "revisao" && !podeAprovar && <span className="text-muted-foreground text-sm">Aguardando aprovação de um gestor.</span>}
+          {conteudo.etapa === "revisao" && !podeAprovar && (
+            <span className="text-muted-foreground text-sm">Aguardando aprovação de um gestor.</span>
+          )}
         </div>
       </div>
 
