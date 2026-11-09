@@ -9,6 +9,7 @@ import { temPermissao } from "@/lib/permissoes";
 import { exigirUsuario } from "@/lib/sessao";
 import { AlternarVisao } from "@/modulos/tarefas/componentes/alternar-visao";
 import { ConfigurarStatus } from "@/modulos/tarefas/componentes/configurar-status";
+import { EditarLista } from "@/modulos/tarefas/componentes/editar-lista";
 import { FiltrosDaLista } from "@/modulos/tarefas/componentes/filtros-lista";
 import { NovaTarefaRapida } from "@/modulos/tarefas/componentes/nova-tarefa-rapida";
 import { ID_MODELO } from "@/modulos/tarefas/componentes/modelo-url";
@@ -95,6 +96,12 @@ export default async function PaginaLista({ params, searchParams }: PageProps<"/
             <AlternarVisao visao={visao} />
             <FiltrosDaLista pessoas={dados.atribuiveis} etiquetas={dados.etiquetas} />
             {podeGerenciar && <ConfigurarStatus listaId={listaId} status={dados.status} />}
+            {podeGerenciar && (
+              <EditarLista
+                lista={{ id: listaId, nome: dados.lista.nome }}
+                totalTarefas={filtrando ? null : dados.principais.length + dados.subtarefas.length}
+              />
+            )}
           </>
         }
       />
