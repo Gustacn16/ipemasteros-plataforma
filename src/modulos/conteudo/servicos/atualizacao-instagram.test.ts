@@ -150,7 +150,15 @@ const midia = (id: string, data: string, tipo: "post" | "reels" | "story" = "pos
 });
 
 /** Cliente falso: posts, stories e respostas configuráveis por teste. */
-function clienteFalso(o: { midias?: MidiaMeta[]; stories?: MidiaMeta[]; erroMidia?: Record<string, ErroMeta>; erroConta?: ErroMeta } = {}) {
+function clienteFalso(
+  o: {
+    midias?: MidiaMeta[];
+    stories?: MidiaMeta[];
+    erroMidia?: Record<string, ErroMeta>;
+    erroConta?: ErroMeta;
+    limite30Dias?: boolean;
+  } = {},
+) {
   const pedidos = { insightsMidia: [] as string[], insightsConta: 0, listarMidiasDesde: [] as Date[] };
   const cliente: ClienteInstagram = {
     listarContas: async () => [{ idExterno: "IG1", usuario: "ipemaster", nome: "IPEMaster", paginaId: "P1", fotoUrl: null }],
@@ -165,9 +173,12 @@ function clienteFalso(o: { midias?: MidiaMeta[]; stories?: MidiaMeta[]; erroMidi
       if (erro) throw erro;
       return [{ name: "reach", values: [{ value: 100 }] }];
     },
-    insightsConta: async () => {
+    insightsConta: async (_conta, desde, ate) => {
       pedidos.insightsConta++;
       if (o.erroConta) throw o.erroConta;
+      // Como a Meta: mais de 30 dias entre since e until é recusado.
+      if (o.limite30Dias && (Date.parse(ate) - Date.parse(desde)) / 86_400_000 + 1 > 30)
+        throw new ErroMeta("Erro da Meta: (#100) There cannot be more than 30 days (2592000 s) between since and until.", 100);
       return [{ name: "reach", total_value: { value: 50 } }];
     },
     seguidores: async () => 1000,
@@ -335,5 +346,14 @@ describe("atualização do Instagram", () => {
     const avisos = (falso.estado.atualizacoes.at(-1)?.erro ?? "").split("\n");
     expect(avisos).toHaveLength(1);
     expect(avisos[0]).toMatch(/^Números da conta: \d+ períodos sem números \(Erro da Meta: métrica indisponível\)\.$/);
+  });
+  it("mês de 31 dias é pedido em duas partes e não vira aviso", async () => {
+    const contaId = await contaLigada();
+    const r = await rodar(clienteFalso({ limite30Dias: true }).cliente);
+    expect(r.status).toBe("concluida");
+    expect(falso.estado.atualizacoes.at(-1)?.erro ?? null).toBeNull();
+    // Alcance dos primeiros 30 dias; o resto soma o dia 31 (o falso devolve 50 por pedido).
+    expect(falso.estado.linhas.get(`${contaId}|mes|2026-10-01`)).toMatchObject({ alcance: 50 });
+    expect(falso.estado.linhas.get(`${contaId}|mes|2026-01-01`)).toBeDefined();
   });
 });

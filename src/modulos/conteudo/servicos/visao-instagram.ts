@@ -3,11 +3,11 @@ import type { Prisma } from "@/generated/prisma/client";
 import { ErroPermissao, temPermissao } from "@/lib/permissoes";
 import { prisma } from "@/lib/prisma";
 import type { UsuarioAtual } from "@/lib/sessao";
-import { somarDias } from "@/modulos/tarefas/regras/prazo";
+import { diaEmSaoPaulo, somarDias } from "@/modulos/tarefas/regras/prazo";
 import { inicioDoDiaSaoPaulo } from "@/modulos/tarefas/regras/relatorio";
 import type { FiltroConteudo } from "../esquemas/conteudo";
 import { proximoMes } from "../regras/calendario";
-import { type NumerosConta, type OrdemMidia, ordenarMidias, totaisDoMes } from "../regras/instagram";
+import { type NumerosConta, type OrdemMidia, alcanceAproximado, ordenarMidias, totaisDoMes } from "../regras/instagram";
 
 function exigirUso(ator: UsuarioAtual) {
   if (!temPermissao(ator.papel, "conteudo:usar")) throw new ErroPermissao("conteudo:usar");
@@ -84,6 +84,7 @@ export async function visaoInstagram(ator: UsuarioAtual, f: FiltroConteudo, mes:
   if (contas.length === 0) return null;
   const ids = contas.map((c) => c.id);
   const anterior = mesAnterior(mes);
+  const hoje = diaEmSaoPaulo(new Date());
 
   const linhasMes = (m: string) =>
     prisma.metricaContaInstagram.findMany({ where: { contaId: { in: ids }, periodo: "mes", data: dataDoDia(`${m}-01`) } });
@@ -126,6 +127,8 @@ export async function visaoInstagram(ator: UsuarioAtual, f: FiltroConteudo, mes:
       visitasPerfil: visitas,
       visitasPerfilAnterior: visitasAnterior,
     }),
+    // A Meta só dá o alcance de 30 dias: num mês de 31, o número (e a comparação) é aproximado.
+    alcanceAproximado: alcanceAproximado(mes, hoje) || alcanceAproximado(anterior, hoje),
     seguidoresPorDia: [...seguidoresPorDia].map(([data, total]) => ({ data, seguidores: total })),
     atualizadoEm: ultima?.finalizadoEm ?? null,
   };

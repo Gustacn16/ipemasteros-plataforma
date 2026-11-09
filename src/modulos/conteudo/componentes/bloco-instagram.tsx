@@ -65,7 +65,9 @@ export function BlocoInstagram({ dados, podeIntegrar }: { dados: VisaoInstagram 
               : null}
         </CartaoNumero>
         <CartaoNumero rotulo="Alcance" icone={UsersIcon} valor={valor(c.alcance.valor)} variacao={c.alcance.variacao}>
-          Pessoas diferentes que viram o perfil
+          {dados.alcanceAproximado
+            ? "Pessoas diferentes; aproximado, porque a Meta só dá 30 dias de alcance"
+            : "Pessoas diferentes que viram o perfil"}
         </CartaoNumero>
         <CartaoNumero rotulo="Visualizações" icone={EyeIcon} valor={valor(c.visualizacoes.valor)} variacao={c.visualizacoes.variacao} />
         <CartaoNumero rotulo="Interações" icone={HeartIcon} valor={valor(c.interacoes.valor)} variacao={c.interacoes.variacao}>

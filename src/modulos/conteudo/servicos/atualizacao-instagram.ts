@@ -13,6 +13,8 @@ import {
   type NumerosMidia,
   type TipoMidia,
   codigoDoPermalink,
+  dividirPeriodoConta,
+  juntarNumerosConta,
   escolherPublicacao,
   lerInsightsConta,
   lerInsightsMidia,
@@ -231,12 +233,7 @@ async function atualizarConta(
   let primeiroErro = "";
   for (const p of pedidos) {
     try {
-      await repo.salvarLinhaConta(
-        conta.id,
-        p.periodo,
-        p.dia,
-        lerInsightsConta(await cliente.insightsConta(conta.idExterno, p.desde, p.ate)),
-      );
+      await repo.salvarLinhaConta(conta.id, p.periodo, p.dia, await numerosDoPeriodo(cliente, conta.idExterno, p.desde, p.ate));
       r.registros++;
     } catch (erro) {
       if (ehFatal(erro)) throw erro;
@@ -251,6 +248,13 @@ async function atualizarConta(
 
   const seguidores = await cliente.seguidores(conta.idExterno);
   if (seguidores !== null) await repo.salvarSeguidores(conta.id, hoje, seguidores);
+}
+
+/** Números da conta num período; mês de 31 dias vai em dois pedidos (a Meta aceita no máximo 30 dias). */
+async function numerosDoPeriodo(cliente: ClienteInstagram, contaId: string, desde: string, ate: string): Promise<NumerosConta> {
+  const { principal, extra } = dividirPeriodoConta(desde, ate);
+  const base = lerInsightsConta(await cliente.insightsConta(contaId, principal.desde, principal.ate));
+  return extra ? juntarNumerosConta(base, lerInsightsConta(await cliente.insightsConta(contaId, extra, extra))) : base;
 }
 
 async function atualizarStories(

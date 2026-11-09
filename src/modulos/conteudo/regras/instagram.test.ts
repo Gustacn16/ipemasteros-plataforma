@@ -20,6 +20,9 @@ import {
   ordenarCandidatas,
   ordenarMidias,
   lerOrdem,
+  dividirPeriodoConta,
+  juntarNumerosConta,
+  alcanceAproximado,
   type NumerosConta,
 } from "./instagram";
 
@@ -354,5 +357,43 @@ describe("ordenarMidias e lerOrdem", () => {
     expect(lerOrdem("alcance")).toBe("alcance");
     expect(lerOrdem("x")).toBe("data");
     expect(lerOrdem(undefined)).toBe("data");
+  });
+});
+
+describe("meses de 31 dias (a Meta aceita no máximo 30 dias por pedido)", () => {
+  it("divide o mês em 30 dias mais o dia 31", () => {
+    expect(dividirPeriodoConta("2026-10-01", "2026-10-31")).toEqual({
+      principal: { desde: "2026-10-01", ate: "2026-10-30" },
+      extra: "2026-10-31",
+    });
+    expect(dividirPeriodoConta("2026-11-01", "2026-11-30")).toEqual({ principal: { desde: "2026-11-01", ate: "2026-11-30" }, extra: null });
+    expect(dividirPeriodoConta("2026-11-01", "2026-11-08")).toEqual({ principal: { desde: "2026-11-01", ate: "2026-11-08" }, extra: null });
+  });
+
+  it("junta o dia 31 somando tudo, menos o alcance (pessoas únicas)", () => {
+    const base = lerInsightsConta([
+      { name: "reach", total_value: { value: 1000 } },
+      { name: "views", total_value: { value: 5000 } },
+      { name: "profile_links_taps", total_value: { value: 10 } },
+    ]);
+    const dia31 = lerInsightsConta([
+      { name: "reach", total_value: { value: 300 } },
+      { name: "views", total_value: { value: 200 } },
+      { name: "total_interactions", total_value: { value: 7 } },
+    ]);
+    expect(juntarNumerosConta(base, dia31)).toMatchObject({
+      alcance: 1000,
+      visualizacoes: 5200,
+      cliquesLink: 10,
+      interacoes: 7,
+      curtidas: null,
+    });
+  });
+
+  it("o alcance do mês é aproximado só quando o mês de 31 dias chegou ao dia 31", () => {
+    expect(alcanceAproximado("2026-10", "2026-11-09")).toBe(true);
+    expect(alcanceAproximado("2026-11", "2026-12-09")).toBe(false);
+    expect(alcanceAproximado("2026-12", "2026-12-15")).toBe(false);
+    expect(alcanceAproximado("2026-12", "2027-01-01")).toBe(true);
   });
 });

@@ -308,3 +308,29 @@ export function ordenarMidias<T extends { publicadoEm: Date; alcance: number | n
   const chave = (m: T) => (ordem === "data" ? m.publicadoEm.getTime() : (m[ordem] ?? -Infinity));
   return [...midias].sort((a, b) => chave(b) - chave(a));
 }
+
+/** A Meta recusa `since`/`until` com mais de 30 dias. */
+const MAX_DIAS_POR_PEDIDO = 30;
+
+/** Mês de 31 dias vira 30 dias mais o dia 31; períodos de até 30 dias ficam como estão. */
+export function dividirPeriodoConta(desde: string, ate: string): { principal: { desde: string; ate: string }; extra: string | null } {
+  const fim = somarDias(desde, MAX_DIAS_POR_PEDIDO - 1);
+  if (ate <= fim) return { principal: { desde, ate }, extra: null };
+  return { principal: { desde, ate: fim }, extra: ate };
+}
+
+/** Soma os números do dia 31 aos do resto do mês. O alcance (pessoas únicas) não soma: fica o dos 30 dias. */
+export function juntarNumerosConta(base: NumerosConta, extra: NumerosConta): NumerosConta {
+  const junto = { ...base };
+  for (const campo of Object.keys(base) as (keyof NumerosConta)[]) {
+    if (campo === "alcance" || extra[campo] === null) continue;
+    junto[campo] = (base[campo] ?? 0) + extra[campo];
+  }
+  return junto;
+}
+
+/** O alcance do mês ("AAAA-MM") cobre só 30 dias quando o mês tem 31 e o dia 31 já passou. */
+export function alcanceAproximado(mes: string, hoje: string): boolean {
+  const dia31 = `${mes}-31`;
+  return somarDias(`${mes}-01`, 30) === dia31 && hoje > dia31;
+}
