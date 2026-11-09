@@ -119,12 +119,14 @@ export async function obterTarefa(ator: UsuarioAtual, tarefaId: string) {
 
 export async function criarTarefa(
   ator: UsuarioAtual,
-  dados: { listaId: string; titulo: string; tarefaPaiId?: string },
+  dados: { listaId: string; titulo: string; tarefaPaiId?: string; subtarefas?: string[] },
 ) {
   exigirPermissaoTarefas(ator, "tarefas:usar");
   if (!podeEditarTarefa(ator)) throw new ErroPermissao("tarefas:criar");
   await exigirLista(ator, dados.listaId);
 
+  const subtarefas = dados.subtarefas ?? [];
+  if (dados.tarefaPaiId && subtarefas.length) throw new ErroNegocio("Subtarefa não pode ter subtarefas.");
   if (dados.tarefaPaiId) {
     const pai = await exigirTarefa(ator, dados.tarefaPaiId);
     if (pai.tarefaPaiId) throw new ErroNegocio("Subtarefa não pode ter subtarefas.");
@@ -137,19 +139,36 @@ export async function criarTarefa(
   });
   if (!statusInicial) throw new ErroNegocio("A lista não tem status aberto.");
 
-  const maior = await prisma.tarefa.aggregate({
-    _max: { ordem: true },
-    where: { listaId: dados.listaId, statusId: statusInicial.id },
-  });
-  return prisma.tarefa.create({
-    data: {
-      listaId: dados.listaId,
-      tarefaPaiId: dados.tarefaPaiId ?? null,
-      titulo: dados.titulo,
-      statusId: statusInicial.id,
-      ordem: proximaOrdem(maior._max.ordem),
-      criadoPorId: ator.id,
-    },
+  return prisma.$transaction(async (tx) => {
+    const maior = await tx.tarefa.aggregate({
+      _max: { ordem: true },
+      where: { listaId: dados.listaId, statusId: statusInicial.id },
+    });
+    const ordem = proximaOrdem(maior._max.ordem);
+    const tarefa = await tx.tarefa.create({
+      data: {
+        listaId: dados.listaId,
+        tarefaPaiId: dados.tarefaPaiId ?? null,
+        titulo: dados.titulo,
+        statusId: statusInicial.id,
+        ordem,
+        criadoPorId: ator.id,
+      },
+    });
+    // Subtarefas digitadas junto: mesma lista e status, na ordem em que vieram.
+    if (subtarefas.length) {
+      await tx.tarefa.createMany({
+        data: subtarefas.map((titulo, i) => ({
+          listaId: dados.listaId,
+          tarefaPaiId: tarefa.id,
+          titulo,
+          statusId: statusInicial.id,
+          ordem: ordem + 1 + i,
+          criadoPorId: ator.id,
+        })),
+      });
+    }
+    return tarefa;
   });
 }
 

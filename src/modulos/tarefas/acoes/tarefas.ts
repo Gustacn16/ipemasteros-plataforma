@@ -32,6 +32,7 @@ export async function criarTarefaAcao(dados: {
   listaId: string;
   titulo: string;
   tarefaPaiId?: string;
+  subtarefas?: string[];
 }): Promise<EstadoAcao<{ id: string }>> {
   try {
     const ator = await exigirPermissao("tarefas:usar");

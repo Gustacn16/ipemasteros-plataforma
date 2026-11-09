@@ -39,6 +39,22 @@ describe("esquemas de tarefa", () => {
     expect(esquemaNovaTarefa.safeParse({ listaId: "l1", titulo: "   " }).success).toBe(false);
   });
 
+  it("aceita subtarefas na criação, descartando linhas vazias", () => {
+    const r = esquemaNovaTarefa.parse({ listaId: "l1", titulo: "Lançamento", subtarefas: [" Arte ", "", "  ", "Texto"] });
+    expect(r.subtarefas).toEqual(["Arte", "Texto"]);
+    expect(esquemaNovaTarefa.parse({ listaId: "l1", titulo: "Sem subtarefas" }).subtarefas).toEqual([]);
+  });
+
+  it("recusa subtarefas dentro de uma subtarefa", () => {
+    const r = esquemaNovaTarefa.safeParse({ listaId: "l1", titulo: "Sub", tarefaPaiId: "t1", subtarefas: ["Neta"] });
+    expect(r.success).toBe(false);
+  });
+
+  it("recusa mais de 50 subtarefas e título de subtarefa longo demais", () => {
+    expect(esquemaNovaTarefa.safeParse({ listaId: "l1", titulo: "T", subtarefas: Array(51).fill("x") }).success).toBe(false);
+    expect(esquemaNovaTarefa.safeParse({ listaId: "l1", titulo: "T", subtarefas: ["x".repeat(201)] }).success).toBe(false);
+  });
+
   it("converte datas do formulário e vazio em null", () => {
     const r = esquemaAtualizarTarefa.parse(base);
     expect(r.dataEntrega?.toISOString()).toBe("2026-11-27T00:00:00.000Z");

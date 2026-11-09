@@ -20,11 +20,23 @@ const data = z
   .nullish()
   .transform((v) => (v ? new Date(`${v}T00:00:00Z`) : null));
 
-export const esquemaNovaTarefa = z.object({
-  listaId: id,
-  titulo,
-  tarefaPaiId: id.optional(),
-});
+/** Subtarefas digitadas junto com a tarefa: linhas vazias são descartadas. */
+const subtarefas = z.preprocess(
+  (v) => (Array.isArray(v) ? v.filter((t) => typeof t !== "string" || t.trim() !== "") : v),
+  z.array(titulo).max(50, "No máximo 50 subtarefas de uma vez").default([]),
+);
+
+export const esquemaNovaTarefa = z
+  .object({
+    listaId: id,
+    titulo,
+    tarefaPaiId: id.optional(),
+    subtarefas,
+  })
+  .refine((d) => !d.tarefaPaiId || d.subtarefas.length === 0, {
+    message: "Subtarefa não pode ter subtarefas.",
+    path: ["subtarefas"],
+  });
 
 export const esquemaAtualizarTarefa = z
   .object({
