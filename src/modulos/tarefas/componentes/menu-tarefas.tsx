@@ -1,10 +1,11 @@
 "use client";
 
-import { ChevronDownIcon, PlusIcon, SettingsIcon } from "lucide-react";
+import { ChevronDownIcon, PencilIcon, PlusIcon, SettingsIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { NovaLista, NovoEspaco } from "./dialogos-estrutura";
+import { EditarLista } from "./editar-lista";
 
 export type EspacoMenu = { id: string; nome: string; cor: string; listas: { id: string; nome: string }[] };
 
@@ -76,11 +77,35 @@ function ArvoreEspacos({ espacos, podeCriarEspaco, podeCriarLista }: Props & { e
               />
             )}
           </div>
-          {espaco.listas.map((lista) => (
-            <ItemLink key={lista.id} href={`/tarefas/listas/${lista.id}`} recuo>
-              {lista.nome}
-            </ItemLink>
-          ))}
+          {espaco.listas.map((lista) =>
+            podeCriarLista ? (
+              <div key={lista.id} className="group/lista relative grid">
+                <ItemLink href={`/tarefas/listas/${lista.id}`} recuo>
+                  <span className="block truncate pr-6">{lista.nome}</span>
+                </ItemLink>
+                <EditarLista
+                  lista={lista}
+                  totalTarefas={null}
+                  gatilho={
+                    <button
+                      type="button"
+                      className={cn(
+                        botaoIcone,
+                        "absolute top-1/2 right-1 -translate-y-1/2 opacity-0 group-hover/lista:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100",
+                      )}
+                      aria-label={`Editar a lista ${lista.nome}`}
+                    >
+                      <PencilIcon className="size-3.5" />
+                    </button>
+                  }
+                />
+              </div>
+            ) : (
+              <ItemLink key={lista.id} href={`/tarefas/listas/${lista.id}`} recuo>
+                {lista.nome}
+              </ItemLink>
+            ),
+          )}
         </div>
       ))}
     </div>

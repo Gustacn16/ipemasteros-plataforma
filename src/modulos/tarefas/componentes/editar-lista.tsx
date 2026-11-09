@@ -1,8 +1,8 @@
 "use client";
 
 import { PencilIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useState, useTransition, type ReactNode } from "react";
 import { Button } from "@/componentes/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/componentes/ui/dialog";
 import { Input } from "@/componentes/ui/input";
@@ -12,15 +12,17 @@ import { avisar } from "./avisar";
 
 type Lista = { id: string; nome: string };
 
-/** Renomear e excluir a lista, no cabeçalho da página dela. */
-export function EditarLista({ lista, totalTarefas }: { lista: Lista; totalTarefas: number | null }) {
+/** Renomear e excluir a lista: no cabeçalho da página dela e no lápis do menu de Tarefas. */
+export function EditarLista({ lista, totalTarefas, gatilho }: { lista: Lista; totalTarefas: number | null; gatilho?: ReactNode }) {
   const [aberto, setAberto] = useState(false);
   return (
     <Dialog open={aberto} onOpenChange={setAberto}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <PencilIcon /> Editar lista
-        </Button>
+        {gatilho ?? (
+          <Button variant="outline" size="sm">
+            <PencilIcon /> Editar lista
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -35,6 +37,7 @@ export function EditarLista({ lista, totalTarefas }: { lista: Lista; totalTarefa
 
 function Formulario({ lista, totalTarefas, fechar }: { lista: Lista; totalTarefas: number | null; fechar: () => void }) {
   const router = useRouter();
+  const caminho = usePathname();
   const [nome, setNome] = useState(lista.nome);
   const [pendente, iniciar] = useTransition();
   const nomeLimpo = nome.trim();
@@ -61,7 +64,8 @@ function Formulario({ lista, totalTarefas, fechar }: { lista: Lista; totalTarefa
     iniciar(async () => {
       if (avisar(await excluirListaAcao(lista.id))) {
         fechar();
-        router.push("/tarefas/minhas");
+        // Só sai da página se ela for a da lista excluída.
+        if (caminho === `/tarefas/listas/${lista.id}`) router.push("/tarefas/minhas");
       }
     });
   };
