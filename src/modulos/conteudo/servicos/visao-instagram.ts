@@ -7,6 +7,16 @@ import { diaEmSaoPaulo, somarDias } from "@/modulos/tarefas/regras/prazo";
 import { inicioDoDiaSaoPaulo } from "@/modulos/tarefas/regras/relatorio";
 import type { FiltroConteudo } from "../esquemas/conteudo";
 import { proximoMes } from "../regras/calendario";
+import {
+  DIAS_ANALISE,
+  type PostAnalise,
+  desempenhoPorFormato,
+  destaques,
+  engajamento,
+  porDiaDaSemana,
+  porPeriodoDoDia,
+  sugestoesDeConteudo,
+} from "../regras/desempenho-instagram";
 import { type NumerosConta, type OrdemMidia, alcanceAproximado, diasFechados, ordenarMidias, relatorioDoMes } from "../regras/instagram";
 
 function exigirUso(ator: UsuarioAtual) {
@@ -105,7 +115,7 @@ export async function relatorioInstagram(ator: UsuarioAtual, f: FiltroConteudo, 
   // No mês em andamento, compara com os mesmos dias do mês anterior (sem passar do fim dele).
   const fimComparacao = parcial ? [somarDias(`${anterior}-01`, dias), `${mes}-01`].sort()[0]! : `${mes}-01`;
 
-  const [atual, diasAnteriores, mesPassado, porDia, visitas, visitasAnterior, midias, ultima] = await Promise.all([
+  const [atual, diasAnteriores, mesPassado, porDia, visitas, visitasAnterior, midias, analise, ultima] = await Promise.all([
     prisma.metricaContaInstagram.findMany({ where: { contaId: { in: ids }, periodo: "mes", data: dataDoDia(`${mes}-01`) } }),
     parcial
       ? prisma.metricaContaInstagram.findMany({
@@ -123,6 +133,7 @@ export async function relatorioInstagram(ator: UsuarioAtual, f: FiltroConteudo, 
     visitasPerfil(ids, `${mes}-01`, parcial ? somarDias(`${mes}-01`, dias) : `${proximoMes(mes)}-01`),
     visitasPerfil(ids, `${anterior}-01`, fimComparacao),
     midiasDasContas(ids, mes),
+    postsParaAnalise(ids, mes),
     prisma.atualizacaoInstagram.findFirst({
       where: { tipo: "completa", status: "concluida" },
       orderBy: { finalizadoEm: "desc" },
@@ -145,13 +156,28 @@ export async function relatorioInstagram(ator: UsuarioAtual, f: FiltroConteudo, 
     ? ids.reduce((t, id) => t + (contas.find((c) => c.id === id)?.seguidores ?? 0), 0)
     : null;
 
+  const numerosMes = somar(atual);
+  const comAlcance = midias.filter((m) => m.alcance !== null);
   return {
     contas,
     contaId: conta?.id ?? null,
+    posts: {
+      quantidade: midias.length,
+      alcanceMedio: comAlcance.length ? Math.round(comAlcance.reduce((t, m) => t + m.alcance!, 0) / comAlcance.length) : null,
+      engajamento: engajamento(numerosMes?.alcance ?? null, numerosMes?.interacoes ?? null),
+    },
+    analise: {
+      quantidade: analise.length,
+      formatos: desempenhoPorFormato(analise),
+      dias: porDiaDaSemana(analise),
+      periodos: porPeriodoDoDia(analise),
+      destaques: destaques(analise),
+      sugestoes: sugestoesDeConteudo(analise),
+    },
     parcial,
     diasComparados: dias,
     cartoes: relatorioDoMes({
-      mes: somar(atual),
+      mes: numerosMes,
       comparacao: somar(parcial ? diasAnteriores : mesPassado),
       parcial,
       seguidores,
@@ -191,6 +217,36 @@ const SELECAO_MIDIA = {
   },
   publicacao: { select: { id: true, conteudo: { select: { id: true, titulo: true } } } },
 } satisfies Prisma.MidiaInstagramSelect;
+
+/** Posts e stories dos últimos 90 dias até o fim do mês (ou até agora), para formatos, horários e sugestões. */
+async function postsParaAnalise(contaIds: string[], mes: string): Promise<PostAnalise[]> {
+  const fim = new Date(Math.min(Date.now(), inicioDoDiaSaoPaulo(`${proximoMes(mes)}-01`).getTime()));
+  const midias = await prisma.midiaInstagram.findMany({
+    where: {
+      contaId: { in: contaIds },
+      removidaEm: null,
+      publicadoEm: { gte: new Date(fim.getTime() - DIAS_ANALISE * 86_400_000), lt: fim },
+    },
+    select: {
+      id: true,
+      tipo: true,
+      legenda: true,
+      permalink: true,
+      publicadoEm: true,
+      alcance: true,
+      visualizacoes: true,
+      interacoes: true,
+      salvamentos: true,
+      compartilhamentos: true,
+      comentarios: true,
+      publicacao: { select: { conteudo: { select: { titulo: true } } } },
+    },
+  });
+  return midias.map(({ publicacao, ...m }) => ({
+    ...m,
+    titulo: publicacao?.conteudo.titulo ?? (m.legenda?.split("\n")[0]?.slice(0, 80) || "Sem legenda"),
+  }));
+}
 
 function midiasDasContas(contaIds: string[], mes: string) {
   return prisma.midiaInstagram.findMany({
