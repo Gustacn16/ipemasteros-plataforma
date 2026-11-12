@@ -2,7 +2,8 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
+/* .tema-claro fixa as cores claras num trecho da tela mesmo com o tema escuro ligado (ex.: telas de acesso). */
+@custom-variant dark (&:is(.dark *):not(:is(.tema-claro, .tema-claro *)));
 
 @theme inline {
   --color-background: var(--background);
@@ -59,7 +60,8 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-:root {
+:root,
+.tema-claro {
   --background: #f7f7f9;
   --foreground: #111416;
   --card: #ffffff;

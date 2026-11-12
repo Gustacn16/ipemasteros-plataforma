@@ -6,18 +6,19 @@ type Props = { children: ReactNode; frase?: string };
 /**
  * Moldura das telas de acesso: painel escuro decorativo à esquerda e o
  * conteúdo (cartão com formulário) à direita. Os cartões dentro dela perdem a
- * borda e a cor primária vira laranja, para casar com o painel.
+ * borda e a cor primária vira laranja, para casar com o painel. Fica sempre no
+ * tema claro (.tema-claro), mesmo com o tema escuro ligado.
  */
 export function TelaAutenticacao({
   children,
   frase = "Toda a operação da IPEMaster em um só lugar.",
 }: Props) {
   return (
-    <main className="flex flex-1 items-center justify-center overflow-hidden bg-neutral-100 p-4">
+    <main className="tema-claro text-foreground flex flex-1 items-center justify-center overflow-hidden bg-neutral-100 p-4">
       <div className="flex w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-xl md:min-h-[36rem] md:flex-row">
         <PainelDecorativo frase={frase} />
 
-        <div className="flex flex-col justify-center p-8 text-neutral-900 md:w-1/2 md:p-12 [--primary:var(--color-orange-500)] [--primary-foreground:var(--color-white)] [--ring:var(--color-orange-500)] [&_[data-slot=card]]:gap-6 [&_[data-slot=card]]:bg-transparent [&_[data-slot=card]]:ring-0 [&_[data-slot=card]]:[--card-spacing:0px] [&_[data-slot=card-title]]:text-3xl [&_[data-slot=card-title]]:tracking-tight [&_[data-slot=button]]:hover:bg-orange-600">
+        <div className="flex flex-col justify-center p-8 text-neutral-900 md:w-1/2 md:p-12 [--primary:var(--color-orange-500)] [--primary-foreground:var(--color-white)] [--ring:var(--color-orange-500)] [&_[data-slot=card]]:gap-6 [&_[data-slot=card]]:bg-transparent [&_[data-slot=card]]:ring-0 [&_[data-slot=card]]:[--card-spacing:0px] [&_[data-slot=card-title]]:text-3xl [&_[data-slot=card-title]]:tracking-tight [&_[data-slot=button]]:h-11 [&_[data-slot=button]]:hover:bg-orange-600 [--muted-foreground:var(--color-neutral-600)] [&_[data-slot=input]]:h-11 [&_[data-slot=input]]:border-neutral-300">
           <SunIcon className="mb-4 size-10 text-orange-500" aria-hidden />
           {children}
         </div>
