@@ -235,41 +235,49 @@ export function variacao(atual: number | null, anterior: number | null): number 
 }
 
 type Cartao = { valor: number | null; variacao: number | null };
-export type CartoesInstagram = {
-  seguidores: Cartao & { ganhos: number | null };
+export type CartoesRelatorio = {
+  seguidores: { valor: number | null; novos: number | null; sairam: number | null; saldo: number | null };
   alcance: Cartao;
   visualizacoes: Cartao;
-  interacoes: Cartao;
+  interacoes: Cartao & Pick<NumerosConta, "curtidas" | "comentarios" | "salvamentos" | "compartilhamentos">;
   visitasPerfil: Cartao;
-  cliquesLink: Cartao;
-  novosSeguidores: Cartao;
 };
 
-/** Cartões do bloco Instagram (regra 5.17). */
-export function totaisDoMes(o: {
+/** Dias fechados do mês que entram na comparação: no mês atual, até ontem; num mês que já passou, `null` (inteiro). */
+export function diasFechados(mes: string, hoje: string): number | null {
+  return mes === hoje.slice(0, 7) ? Number(hoje.slice(8, 10)) - 1 : null;
+}
+
+/**
+ * Cartões da aba Relatórios. `comparacao` é o mês anterior inteiro ou, no mês em andamento (`parcial`),
+ * os mesmos dias do mês anterior; aí o alcance fica sem comparação, porque pessoas únicas não se somam por dia.
+ */
+export function relatorioDoMes(o: {
   mes: NumerosConta | null;
-  mesAnterior: NumerosConta | null;
+  comparacao: NumerosConta | null;
+  parcial: boolean;
   seguidores: number | null;
-  seguidoresAnterior: number | null;
   visitasPerfil: number | null;
   visitasPerfilAnterior: number | null;
-}): CartoesInstagram {
+}): CartoesRelatorio {
   const daConta = (campo: keyof NumerosConta): Cartao => {
     const valor = o.mes?.[campo] ?? null;
-    return { valor, variacao: variacao(valor, o.mesAnterior?.[campo] ?? null) };
+    return { valor, variacao: variacao(valor, o.comparacao?.[campo] ?? null) };
   };
+  const novos = o.mes?.novosSeguidores ?? null;
+  const sairam = o.mes?.deixaramDeSeguir ?? null;
   return {
-    seguidores: {
-      valor: o.seguidores,
-      variacao: variacao(o.seguidores, o.seguidoresAnterior),
-      ganhos: o.seguidores !== null && o.seguidoresAnterior !== null ? o.seguidores - o.seguidoresAnterior : null,
-    },
-    alcance: daConta("alcance"),
+    seguidores: { valor: o.seguidores, novos, sairam, saldo: novos !== null && sairam !== null ? novos - sairam : null },
+    alcance: o.parcial ? { valor: o.mes?.alcance ?? null, variacao: null } : daConta("alcance"),
     visualizacoes: daConta("visualizacoes"),
-    interacoes: daConta("interacoes"),
+    interacoes: {
+      ...daConta("interacoes"),
+      curtidas: o.mes?.curtidas ?? null,
+      comentarios: o.mes?.comentarios ?? null,
+      salvamentos: o.mes?.salvamentos ?? null,
+      compartilhamentos: o.mes?.compartilhamentos ?? null,
+    },
     visitasPerfil: { valor: o.visitasPerfil, variacao: variacao(o.visitasPerfil, o.visitasPerfilAnterior) },
-    cliquesLink: daConta("cliquesLink"),
-    novosSeguidores: daConta("novosSeguidores"),
   };
 }
 

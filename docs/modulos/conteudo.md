@@ -36,7 +36,8 @@ Especificação da C1: `docs/superpowers/specs/2026-11-02-conteudo-c1-design.md`
 - `/conteudo/itens/[id]`: detalhe, edição e registro das publicações e métricas.
 - `/conteudo/configuracoes`: contas e canais (admin/gestor).
 - `/conteudo/integracao-instagram` (C2a, só admin): situação da chave, contas do Instagram ligadas aos canais, últimas atualizações e "Atualizar agora".
-- C2a: a visão geral ganhou o bloco **Instagram no mês** (seguidores, alcance, visualizações, interações, visitas ao perfil e cliques no link da bio, com variação e gráfico de seguidores); Publicados ganhou a seção **Instagram** com todos os posts e stories do mês e o botão "Ligar a um conteúdo"; no detalhe, a publicação ligada mostra os números "do Instagram", sem edição.
+- `/conteudo/relatorios` (C2a): Instagrams conectados (uma conta ou todas somadas) e os números do mês: seguidores (novos, deixaram de seguir e saldo), alcance, visualizações, interações por tipo, visitas ao perfil (só posts comuns e stories; a Meta não informa as de Reels), gráfico por dia e os 5 posts de maior alcance. No mês em andamento, a comparação é com os mesmos dias do mês anterior e o alcance só compara quando o mês fecha. Os cliques no link da bio não existem mais na API da Meta (`profile_links_taps` conta só os botões de contato), por isso não aparecem.
+- Publicados ganhou a seção **Instagram** com todos os posts e stories do mês e o botão "Ligar a um conteúdo"; no detalhe, a publicação ligada mostra os números "do Instagram", sem edição.
 - Visual novo: cabeçalho padrão, números em cartões, chips de etapa, prazo e plataforma, telas vazias; tokens do tema.
 
 Todas as visões têm uma barra de filtros (conta, canal, responsável, formato e etapa). O filtro fica salvo no cookie `conteudo_filtro` (só ids e códigos, por navegador, validade de 1 ano) e vale em todas as visões até a pessoa clicar em "Limpar filtros". As contas do menu lateral usam o mesmo filtro. O mês continua na URL (`?mes=`).

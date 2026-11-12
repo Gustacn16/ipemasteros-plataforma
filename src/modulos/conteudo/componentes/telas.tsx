@@ -35,10 +35,10 @@ import { BadgeEtapa, Cartao, ChipPublicacao, NomeCanal, SeloPlataforma } from ".
 import { EditorConteudo } from "./editor-conteudo";
 import { PublicacoesConteudo } from "./publicacoes-conteudo";
 import { SeletorEtapa } from "./seletor-etapa";
-import { BlocoInstagram } from "./bloco-instagram";
+import { FotoConta, RelatorioInstagram as BlocoRelatorio } from "./relatorio-instagram";
 import { ListaMidiasInstagram } from "./ligar-midia";
 import type { OrdemMidia } from "../regras/instagram";
-import type { LinhaMidia, VisaoInstagram } from "../servicos/visao-instagram";
+import type { LinhaMidia, RelatorioInstagram } from "../servicos/visao-instagram";
 
 const numero = new Intl.NumberFormat("pt-BR");
 const fmt = (v: number | null) => (v === null ? "—" : numero.format(v));
@@ -116,16 +116,7 @@ function Bloco(props: {
 const estiloLinkNumero =
   "focus-visible:ring-ring rounded-xl focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none hover:[&>div]:bg-muted/50 [&>div]:transition-colors";
 
-export function TelaVisaoGeral({
-  v,
-  instagram,
-  agora = new Date(),
-}: {
-  v: DadosVisaoGeral;
-  /** Bloco do Instagram (C2a); `dados` é `null` quando nenhuma conta do filtro está ligada. */
-  instagram?: { dados: VisaoInstagram | null; podeIntegrar: boolean };
-  agora?: Date;
-}) {
+export function TelaVisaoGeral({ v, agora = new Date() }: { v: DadosVisaoGeral; agora?: Date }) {
   // Publicados do mês por plataforma.
   const porPlataforma = new Map<Plataforma, number>();
   for (const p of v.publicadosMes) porPlataforma.set(p.canal.plataforma, (porPlataforma.get(p.canal.plataforma) ?? 0) + 1);
@@ -168,8 +159,6 @@ export function TelaVisaoGeral({
           ))}
         </ul>
       )}
-
-      {instagram && <BlocoInstagram dados={instagram.dados} podeIntegrar={instagram.podeIntegrar} />}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Bloco id="bloco-atrasados" titulo="Atrasados" itens={v.atrasados} vazio="Nada atrasado." icone={CalendarX} perigo agora={agora} />
@@ -748,6 +737,114 @@ export function TelaItemConteudo({ conteudo, pessoas, podeAprovar }: DadosItemCo
         </div>
         <PublicacoesConteudo publicacoes={conteudo.publicacoes} liberada={liberada} />
       </section>
+    </div>
+  );
+}
+
+const formatoAtualizado = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: "America/Sao_Paulo",
+  day: "2-digit",
+  month: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+/** Aba Relatórios: Instagrams conectados e os números do mês da conta escolhida (ou de todas). */
+export function TelaRelatorios({
+  mes,
+  dados,
+  podeIntegrar,
+}: {
+  mes: string;
+  /** `null` quando nenhuma conta do filtro tem Instagram ligado. */
+  dados: RelatorioInstagram | null;
+  podeIntegrar: boolean;
+}) {
+  const url = (o: { mes?: string; conta?: string | null }) => {
+    const p = new URLSearchParams({ mes: o.mes ?? mes });
+    const conta = o.conta === undefined ? dados?.contaId : o.conta;
+    if (conta) p.set("conta", conta);
+    return `/conteudo/relatorios?${p}`;
+  };
+  const estiloConta = (ativa: boolean) =>
+    cn(
+      "bg-card focus-visible:ring-ring flex min-w-0 items-center gap-3 rounded-xl border p-3 text-left text-sm focus-visible:ring-2 focus-visible:outline-none",
+      ativa ? "border-primary ring-primary/30 ring-1" : "hover:bg-muted/50",
+    );
+
+  return (
+    <div className="grid grid-cols-1 gap-6">
+      <CabecalhoPagina
+        titulo="Relatórios"
+        descricao={`${nomeMes(mes)} · números do Instagram de cada conta conectada.`}
+        acoes={<NavegacaoMes mes={mes} url={(m) => url({ mes: m })} mostrarHoje />}
+      />
+
+      {!dados ? (
+        <EstadoVazio
+          icone={UsersIcon}
+          titulo="Nenhum Instagram conectado"
+          descricao="Os números aparecem aqui quando uma conta do Instagram está ligada a um canal."
+          acao={
+            podeIntegrar ? (
+              <Link href="/conteudo/integracao-instagram" className="text-primary text-sm underline-offset-4 hover:underline">
+                Abrir a integração
+              </Link>
+            ) : undefined
+          }
+        />
+      ) : (
+        <>
+          <section aria-labelledby="sec-contas" className="grid gap-3">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 id="sec-contas" className={CLASSE_TITULO_SECAO}>
+                Instagrams conectados
+              </h2>
+              <p className="text-muted-foreground text-xs">
+                {dados.atualizadoEm
+                  ? `Atualizados em ${formatoAtualizado.format(dados.atualizadoEm).replace(",", " às")}`
+                  : "Ainda sem atualização concluída."}
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {dados.contas.length > 1 && (
+                <Link
+                  href={url({ conta: null })}
+                  aria-current={!dados.contaId ? "true" : undefined}
+                  className={estiloConta(!dados.contaId)}
+                >
+                  <span className="bg-muted text-muted-foreground flex size-10 shrink-0 items-center justify-center rounded-full">
+                    <UsersIcon className="size-5" aria-hidden />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium">Todas as contas</span>
+                    <span className="text-muted-foreground text-xs">{dados.contas.length} contas somadas</span>
+                  </span>
+                </Link>
+              )}
+              {dados.contas.map((c) => {
+                const ativa = dados.contaId === c.id || dados.contas.length === 1;
+                return (
+                  <Link key={c.id} href={url({ conta: c.id })} aria-current={ativa ? "true" : undefined} className={estiloConta(ativa)}>
+                    <FotoConta url={c.fotoUrl} />
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium">@{c.usuario}</span>
+                      <span className="text-muted-foreground flex items-center gap-1.5 truncate text-xs">
+                        {c.canal?.marca && (
+                          <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: c.canal.marca.cor }} />
+                        )}
+                        {c.canal?.marca?.nome}
+                        {c.seguidores !== null && ` · ${numero.format(c.seguidores)} seguidores`}
+                      </span>
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
+          <BlocoRelatorio dados={dados} mes={mes} />
+        </>
+      )}
     </div>
   );
 }

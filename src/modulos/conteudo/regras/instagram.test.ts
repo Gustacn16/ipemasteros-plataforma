@@ -14,7 +14,8 @@ import {
   postRecente,
   tipoDaMidia,
   atualizacaoRodando,
-  totaisDoMes,
+  relatorioDoMes,
+  diasFechados,
   variacao,
   validarLigacao,
   ordenarCandidatas,
@@ -257,7 +258,7 @@ describe("atualizacaoRodando", () => {
   });
 });
 
-describe("variacao e totaisDoMes", () => {
+describe("variacao e relatorioDoMes", () => {
   const conta = (n: Partial<NumerosConta>): NumerosConta => ({
     alcance: null,
     visualizacoes: null,
@@ -280,35 +281,62 @@ describe("variacao e totaisDoMes", () => {
     expect(variacao(10, null)).toBeNull();
   });
 
-  it("monta os cartões do mês", () => {
-    const c = totaisDoMes({
-      mes: conta({ alcance: 5000, visualizacoes: 9000, interacoes: 300, cliquesLink: 40, novosSeguidores: 80 }),
-      mesAnterior: conta({ alcance: 4000, visualizacoes: 9000, interacoes: 0, cliquesLink: 50 }),
+  it("dias fechados: no mês atual, até ontem; mês passado é inteiro (null)", () => {
+    expect(diasFechados("2026-11", "2026-11-12")).toBe(11);
+    expect(diasFechados("2026-11", "2026-11-01")).toBe(0);
+    expect(diasFechados("2026-10", "2026-11-12")).toBeNull();
+  });
+
+  it("monta os cartões do mês fechado, comparando com o mês anterior inteiro", () => {
+    const c = relatorioDoMes({
+      mes: conta({
+        alcance: 5000,
+        visualizacoes: 9000,
+        interacoes: 300,
+        curtidas: 200,
+        comentarios: 50,
+        salvamentos: 30,
+        compartilhamentos: 20,
+        novosSeguidores: 80,
+        deixaramDeSeguir: 30,
+      }),
+      comparacao: conta({ alcance: 4000, visualizacoes: 9000, interacoes: 0 }),
+      parcial: false,
       seguidores: 1100,
-      seguidoresAnterior: 1000,
       visitasPerfil: 60,
       visitasPerfilAnterior: 40,
     });
     expect(c.alcance).toEqual({ valor: 5000, variacao: 25 });
     expect(c.visualizacoes).toEqual({ valor: 9000, variacao: 0 });
-    expect(c.interacoes).toEqual({ valor: 300, variacao: null });
-    expect(c.cliquesLink).toEqual({ valor: 40, variacao: -20 });
-    expect(c.seguidores).toEqual({ valor: 1100, variacao: 10, ganhos: 100 });
+    expect(c.interacoes).toEqual({ valor: 300, variacao: null, curtidas: 200, comentarios: 50, salvamentos: 30, compartilhamentos: 20 });
+    expect(c.seguidores).toEqual({ valor: 1100, novos: 80, sairam: 30, saldo: 50 });
     expect(c.visitasPerfil).toEqual({ valor: 60, variacao: 50 });
-    expect(c.novosSeguidores).toEqual({ valor: 80, variacao: null });
   });
 
-  it("sem mês anterior nem seguidores, tudo sem variação", () => {
-    const c = totaisDoMes({
-      mes: null,
-      mesAnterior: null,
+  it("no mês em andamento, o alcance fica sem comparação (pessoas únicas não se somam por dia)", () => {
+    const c = relatorioDoMes({
+      mes: conta({ alcance: 5000, visualizacoes: 1200 }),
+      comparacao: conta({ alcance: 9000, visualizacoes: 1000 }),
+      parcial: true,
       seguidores: null,
-      seguidoresAnterior: null,
+      visitasPerfil: null,
+      visitasPerfilAnterior: null,
+    });
+    expect(c.alcance).toEqual({ valor: 5000, variacao: null });
+    expect(c.visualizacoes).toEqual({ valor: 1200, variacao: 20 });
+  });
+
+  it("sem números, tudo vazio e saldo só com novos e saídas", () => {
+    const c = relatorioDoMes({
+      mes: conta({ novosSeguidores: 10 }),
+      comparacao: null,
+      parcial: false,
+      seguidores: null,
       visitasPerfil: null,
       visitasPerfilAnterior: null,
     });
     expect(c.alcance).toEqual({ valor: null, variacao: null });
-    expect(c.seguidores).toEqual({ valor: null, variacao: null, ganhos: null });
+    expect(c.seguidores).toEqual({ valor: null, novos: 10, sairam: null, saldo: null });
   });
 });
 

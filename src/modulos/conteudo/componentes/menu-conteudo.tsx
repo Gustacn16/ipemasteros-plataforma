@@ -17,6 +17,7 @@ const VISOES = [
   { href: "/conteudo/calendario", rotulo: "Calendário" },
   { href: "/conteudo/gravacoes", rotulo: "Gravações" },
   { href: "/conteudo/publicados", rotulo: "Publicados" },
+  { href: "/conteudo/relatorios", rotulo: "Relatórios" },
 ];
 
 const estiloItem =

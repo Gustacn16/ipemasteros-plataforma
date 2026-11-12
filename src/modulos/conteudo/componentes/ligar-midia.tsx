@@ -17,7 +17,7 @@ const numero = new Intl.NumberFormat("pt-BR");
 const fmt = (v: number | null) => (v === null ? "—" : numero.format(v));
 const formatoData = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric" });
 
-const TIPO: Record<TipoMidia, { rotulo: string; icone: LucideIcon }> = {
+export const TIPO_MIDIA: Record<TipoMidia, { rotulo: string; icone: LucideIcon }> = {
   post: { rotulo: "Post", icone: ImageIcon },
   carrossel: { rotulo: "Carrossel", icone: GalleryHorizontalIcon },
   reels: { rotulo: "Reels", icone: FilmIcon },
@@ -26,9 +26,9 @@ const TIPO: Record<TipoMidia, { rotulo: string; icone: LucideIcon }> = {
 const ROTULO_ORDEM: Record<OrdemMidia, string> = { data: "Mais recentes", alcance: "Maior alcance", interacoes: "Mais interações" };
 
 /** Miniatura do post; o link da Meta expira, então cai para o ícone do tipo quando não carrega. */
-function Miniatura({ url, tipo }: { url: string | null; tipo: TipoMidia }) {
+export function Miniatura({ url, tipo }: { url: string | null; tipo: TipoMidia }) {
   const [falhou, setFalhou] = useState(false);
-  const Icone = TIPO[tipo].icone;
+  const Icone = TIPO_MIDIA[tipo].icone;
   if (!url || falhou)
     return (
       <span className="bg-muted text-muted-foreground flex size-12 shrink-0 items-center justify-center rounded-md">
@@ -135,7 +135,7 @@ export function ListaMidiasInstagram({ midias, ordem, mes }: { midias: LinhaMidi
       </div>
       <ul className="grid gap-2">
         {midias.map((m) => {
-          const tipo = TIPO[m.tipo];
+          const tipo = TIPO_MIDIA[m.tipo];
           return (
             <li key={m.id} className="bg-card text-card-foreground flex min-w-0 flex-wrap items-start gap-3 rounded-xl border p-3 text-sm">
               <Miniatura url={m.miniaturaUrl} tipo={m.tipo} />
