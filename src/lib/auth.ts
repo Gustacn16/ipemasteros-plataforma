@@ -1,11 +1,24 @@
 import "server-only";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
+import { APIError, createAuthMiddleware } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { SENHA_MIN } from "@/lib/auth-config";
 import { escaparHtml, enviarEmail } from "@/lib/email";
 import { prisma } from "@/lib/prisma";
+import { chaveLimite, LIMITES, type RegraLimite } from "@/modulos/core/regras/limite-tentativas";
+import { CABECALHO_ESPERA, mensagemMuitasTentativas } from "@/modulos/core/regras/mensagem-limite";
+import {
+  armazenamentoBetterAuth,
+  CABECALHOS_IP,
+  ipDaRequisicao,
+  limitador,
+} from "@/modulos/core/servicos/limite-tentativas";
+
+function regraBetterAuth(regra: RegraLimite) {
+  return { window: regra.janelaSeg, max: regra.max };
+}
 
 /**
  * Better Auth com e-mail e senha. Não há cadastro público (disableSignUp):
@@ -70,14 +83,56 @@ export const auth = betterAuth({
     },
   },
 
+  // Limite de tentativas por IP em todo /api/auth, gravado no MySQL (vale entre
+  // reinícios e instâncias). O limite por e-mail do login fica em `hooks` abaixo.
   rateLimit: {
     enabled: true,
-    window: 60,
-    max: 100,
+    window: LIMITES.geral.janelaSeg,
+    max: LIMITES.geral.max,
+    customStorage: armazenamentoBetterAuth,
     customRules: {
-      "/sign-in/email": { window: 60, max: 5 },
-      "/request-password-reset": { window: 60 * 15, max: 3 },
+      "/sign-in/email": regraBetterAuth(LIMITES.loginIp),
+      "/request-password-reset": regraBetterAuth(LIMITES.pedidoSenha),
+      "/reset-password": regraBetterAuth(LIMITES.redefinirSenha),
+      "/reset-password/*": regraBetterAuth(LIMITES.redefinirSenha),
     },
+  },
+
+  hooks: {
+    // Valem também para auth.api.signInEmail chamado nas Server Actions.
+    before: createAuthMiddleware(async (ctx) => {
+      const email = typeof ctx.body?.email === "string" ? ctx.body.email : "";
+      let regras: [string, RegraLimite][];
+      if (ctx.path === "/sign-in/email") {
+        const ip = ipDaRequisicao(ctx.headers ?? new Headers());
+        regras = [
+          [chaveLimite("login-ip-email", ip, email), LIMITES.loginIpEmail],
+          [chaveLimite("login-email", email), LIMITES.loginEmail],
+        ];
+      } else if (ctx.path === "/request-password-reset") {
+        regras = [[chaveLimite("pedido-senha-email", email), LIMITES.pedidoSenhaEmail]];
+      } else {
+        return;
+      }
+      for (const [chave, regra] of regras) {
+        const r = await limitador.consumir(chave, regra);
+        if (!r.permitido) {
+          throw new APIError(
+            "TOO_MANY_REQUESTS",
+            { message: mensagemMuitasTentativas(r.esperarSeg), code: "MUITAS_TENTATIVAS" },
+            { [CABECALHO_ESPERA]: String(r.esperarSeg) },
+          );
+        }
+      }
+    }),
+    // Login certo zera o contador daquele IP + e-mail (quem erra a senha e
+    // acerta depois não fica preso). O contador só do e-mail continua.
+    after: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== "/sign-in/email" || !ctx.context.newSession) return;
+      const email = typeof ctx.body?.email === "string" ? ctx.body.email : "";
+      const ip = ipDaRequisicao(ctx.headers ?? new Headers());
+      await limitador.zerar(chaveLimite("login-ip-email", ip, email));
+    }),
   },
 
   databaseHooks: {
@@ -114,7 +169,7 @@ export const auth = betterAuth({
   },
 
   advanced: {
-    ipAddress: { ipAddressHeaders: ["x-forwarded-for", "x-real-ip"] },
+    ipAddress: { ipAddressHeaders: CABECALHOS_IP },
   },
 
   // nextCookies precisa ser o último plugin: grava os cookies em Server Actions.

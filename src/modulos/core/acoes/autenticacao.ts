@@ -7,18 +7,26 @@ import { registrarAuditoria } from "@/lib/auditoria";
 import { auth } from "@/lib/auth";
 import { obterUsuarioAtual } from "@/lib/sessao";
 import { esquemaAceitarConvite, esquemaPerfil, esquemaPrimeiroAcesso } from "../esquemas/usuario";
+import { LIMITES } from "../regras/limite-tentativas";
 import { aceitarConvite } from "../servicos/convites";
+import { exigirDentroDoLimite } from "../servicos/limite-tentativas";
 import { completarCadastro, lerFoto } from "../servicos/perfil";
 import { criarPrimeiroAdmin } from "../servicos/primeiro-acesso";
 
+/** Entra logo após criar a conta. Se o login falhar (ex.: limite de tentativas), manda para o /login. */
 async function entrarComSenha(email: string, senha: string) {
-  await auth.api.signInEmail({ body: { email, password: senha }, headers: await headers() });
+  try {
+    await auth.api.signInEmail({ body: { email, password: senha }, headers: await headers() });
+  } catch {
+    redirect("/login");
+  }
 }
 
 export async function aceitarConviteAcao(_: EstadoAcao, formData: FormData): Promise<EstadoAcao> {
   let email: string;
   let senha: string;
   try {
+    await exigirDentroDoLimite("convite", await headers(), LIMITES.convite);
     const dados = esquemaAceitarConvite.parse(dadosDoFormulario(formData));
     ({ email } = await aceitarConvite(dados, await lerFoto(formData)));
     senha = dados.senha;
@@ -33,6 +41,7 @@ export async function primeiroAcessoAcao(_: EstadoAcao, formData: FormData): Pro
   let email: string;
   let senha: string;
   try {
+    await exigirDentroDoLimite("primeiro-acesso", await headers(), LIMITES.convite);
     const dados = esquemaPrimeiroAcesso.parse(dadosDoFormulario(formData));
     ({ email } = await criarPrimeiroAdmin(dados));
     senha = dados.senha;

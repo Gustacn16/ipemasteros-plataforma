@@ -9,6 +9,7 @@ import { Button } from "@/componentes/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/componentes/ui/card";
 import { SENHA_MIN } from "@/lib/auth-config";
 import { authClient } from "@/lib/auth-client";
+import { CABECALHO_ESPERA, mensagemMuitasTentativas, segundosDoCabecalho } from "@/modulos/core/regras/mensagem-limite";
 
 function FormularioRedefinir() {
   const router = useRouter();
@@ -28,10 +29,18 @@ function FormularioRedefinir() {
     }
     setErro(null);
     setEnviando(true);
-    const { error } = await authClient.resetPassword({ newPassword: senha, token: token! });
+    let espera: number | null = null;
+    const { error } = await authClient.resetPassword(
+      { newPassword: senha, token: token! },
+      { onError: ({ response }) => void (espera = segundosDoCabecalho(response.headers.get(CABECALHO_ESPERA))) },
+    );
     setEnviando(false);
     if (error) {
-      setErro("Não foi possível redefinir. O link pode ter expirado; peça um novo.");
+      setErro(
+        error.status === 429
+          ? mensagemMuitasTentativas(espera)
+          : "Não foi possível redefinir. O link pode ter expirado; peça um novo.",
+      );
       return;
     }
     router.replace("/login?senha=redefinida");

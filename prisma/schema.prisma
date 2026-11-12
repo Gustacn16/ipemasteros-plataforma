@@ -172,6 +172,17 @@ model LogAuditoria {
   @@map("logs_auditoria")
 }
 
+/// Contador do limite de tentativas (login, senha, convite). A chave é um hash:
+/// a tabela não guarda IP nem e-mail. Linhas vencidas são apagadas pela aplicação.
+model LimiteTentativa {
+  chave    String   @id @db.Char(64)
+  contagem Int
+  inicio   DateTime @map("inicio_janela") @db.DateTime(3)
+
+  @@index([inicio])
+  @@map("limites_tentativas")
+}
+
 enum TipoSolicitacaoTitular {
   acesso
   correcao

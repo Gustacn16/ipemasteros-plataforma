@@ -7,6 +7,7 @@ import { Campo } from "@/componentes/campo";
 import { Alert, AlertDescription } from "@/componentes/ui/alert";
 import { Button } from "@/componentes/ui/button";
 import { authClient } from "@/lib/auth-client";
+import { CABECALHO_ESPERA, mensagemMuitasTentativas, segundosDoCabecalho } from "@/modulos/core/regras/mensagem-limite";
 
 export function FormularioLogin() {
   const router = useRouter();
@@ -18,15 +19,19 @@ export function FormularioLogin() {
     const form = new FormData(evento.currentTarget);
     setErro(null);
     setEnviando(true);
-    const { error } = await authClient.signIn.email({
-      email: String(form.get("email") ?? "").trim().toLowerCase(),
-      password: String(form.get("senha") ?? ""),
-    });
+    let espera: number | null = null;
+    const { error } = await authClient.signIn.email(
+      {
+        email: String(form.get("email") ?? "").trim().toLowerCase(),
+        password: String(form.get("senha") ?? ""),
+      },
+      { onError: ({ response }) => void (espera = segundosDoCabecalho(response.headers.get(CABECALHO_ESPERA))) },
+    );
     setEnviando(false);
     if (error) {
       setErro(
         error.status === 429
-          ? "Muitas tentativas. Aguarde um minuto e tente de novo."
+          ? mensagemMuitasTentativas(espera)
           : "E-mail ou senha incorretos, ou acesso desativado.",
       );
       return;
