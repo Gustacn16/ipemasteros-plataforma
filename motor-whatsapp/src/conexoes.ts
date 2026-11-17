@@ -1,9 +1,13 @@
 import { mkdir, readdir, rm } from "node:fs/promises";
 import path from "node:path";
-import makeWASocket, { DisconnectReason, useMultiFileAuthState, type WASocket } from "baileys";
+import makeWASocket, { DisconnectReason, useMultiFileAuthState, type WAMessage, type WASocket } from "baileys";
 import pino from "pino";
+import { converterConversas, converterMensagem, emLotes } from "./conversao.ts";
 import { esperaReconexao } from "./espera.ts";
-import { telefoneDoJid, type EventoMotor } from "./tipos.ts";
+import { telefoneDoJid, type ConversaMotor, type EventoMotor, type MensagemMotor } from "./tipos.ts";
+
+/** Itens por evento de conversas ou mensagens (o sistema aceita até 100 mensagens e 500 conversas). */
+const TAMANHO_LOTE = 100;
 
 /**
  * O que fazer quando a conexão fecha.
@@ -176,6 +180,7 @@ export class Conexoes {
           vaga.aberta = true;
           vaga.tentativa = 0;
           this.avisarConectado(numeroId, sock);
+          void this.enviarGrupos(numeroId, sock, atual);
         }
         if (u.connection === "close") {
           const status = statusDoErro(u.lastDisconnect?.error);
@@ -183,6 +188,18 @@ export class Conexoes {
             console.error(`[conexoes] ${numeroId}: falha ao tratar queda (${nomeDoErro(erro)})`),
           );
         }
+      });
+      // Histórico pode chegar em várias partes: cada uma sai como vem.
+      sock.ev.on("messaging-history.set", ({ chats, messages }) => {
+        if (!atual()) return;
+        this.enviarConversas(numeroId, converterConversas([], chats ?? []));
+        const enviadas = this.enviarMensagens(numeroId, "historico", messages ?? []);
+        console.info(`[conexoes] ${numeroId}: ${enviadas} mensagens do histórico`);
+      });
+      // "append" pode trazer mensagens antigas: vão como ao vivo (o sistema não duplica pelo idExterno).
+      sock.ev.on("messages.upsert", ({ messages }) => {
+        if (!atual()) return;
+        this.enviarMensagens(numeroId, "ao_vivo", messages ?? []);
       });
     } finally {
       vaga.abrindo = false;
@@ -273,6 +290,41 @@ export class Conexoes {
     } catch (erro) {
       console.error(`[conexoes] ${numeroId}: falha ao reabrir (${nomeDoErro(erro)})`);
       if (this.vigente(numeroId, vaga) && !vaga.sock) this.agendarReconexao(numeroId, vaga);
+    }
+  }
+
+  /** Converte e envia em lotes; devolve quantas mensagens saíram. */
+  private enviarMensagens(numeroId: string, origem: "historico" | "ao_vivo", brutas: WAMessage[]): number {
+    const mensagens: MensagemMotor[] = [];
+    for (const m of brutas) {
+      try {
+        const convertida = converterMensagem(m);
+        if (convertida) mensagens.push(convertida);
+      } catch {
+        // Mensagem num formato inesperado: fica de fora sem derrubar as outras.
+      }
+    }
+    for (const lote of emLotes(mensagens, TAMANHO_LOTE)) {
+      this.opcoes.aoEvento({ tipo: "mensagens", numeroId, origem, mensagens: lote });
+    }
+    return mensagens.length;
+  }
+
+  private enviarConversas(numeroId: string, conversas: ConversaMotor[]): void {
+    for (const lote of emLotes(conversas, TAMANHO_LOTE)) {
+      this.opcoes.aoEvento({ tipo: "conversas", numeroId, conversas: lote });
+    }
+  }
+
+  /** Grupos de que o número participa; lento ou com erro não derruba nada (só registra). */
+  private async enviarGrupos(numeroId: string, sock: WASocket, atual: () => boolean): Promise<void> {
+    try {
+      const grupos = Object.values(await sock.groupFetchAllParticipating());
+      if (!atual()) return;
+      this.enviarConversas(numeroId, converterConversas(grupos, []));
+      console.info(`[conexoes] ${numeroId}: ${grupos.length} grupos`);
+    } catch (erro) {
+      console.error(`[conexoes] ${numeroId}: falha ao buscar grupos (${nomeDoErro(erro)})`);
     }
   }
 
