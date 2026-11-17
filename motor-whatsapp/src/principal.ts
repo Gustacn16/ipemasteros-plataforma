@@ -18,16 +18,23 @@ function enviarSinal(): void {
 }
 
 async function executar(comando: ComandoMotor): Promise<void> {
+  let resultado: { situacao: "concluido" } | { situacao: "falhou"; erro: string };
   try {
     if (comando.tipo === "conectar") await conexoes.conectar(comando.numeroId);
     else await conexoes.desconectar(comando.numeroId);
-    await responderComando(comando.id, { situacao: "concluido" });
+    resultado = { situacao: "concluido" };
   } catch (erro) {
     const texto = erro instanceof Error ? erro.message : "erro desconhecido";
     console.error(`[comandos] ${comando.tipo} ${comando.numeroId} falhou: ${texto}`);
-    await responderComando(comando.id, { situacao: "falhou", erro: texto.slice(0, 255) }).catch(
-      () => {},
-    );
+    resultado = { situacao: "falhou", erro: texto.slice(0, 255) };
+  }
+  // Falha ao responder não muda o resultado: o sistema devolve o comando à fila em 2 min,
+  // e conectar/desconectar podem ser repetidos sem efeito colateral.
+  try {
+    await responderComando(comando.id, resultado);
+  } catch (erro) {
+    const texto = erro instanceof Error ? erro.message : "erro desconhecido";
+    console.warn(`[comandos] não consegui responder o comando de ${comando.numeroId}: ${texto}`);
   }
 }
 
