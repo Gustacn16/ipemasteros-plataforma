@@ -21,7 +21,7 @@
 - A pasta `motor-whatsapp/` é um projeto à parte: fica fora do `tsconfig.json`, do ESLint e do Vitest da raiz, e o build da Hostinger não a usa.
 
 ## Review Focus
-1. **QR velho:** o QR muda a cada ~20 s e a Baileys desiste depois de algumas tentativas. Se `qrEm` tem mais de 60 s e a vaga segue `aguardando_qr`, a tela diz "O QR expirou. Clique em Conectar de novo." e não mostra o QR antigo (teste em Task 3).
+1. **QR velho:** o QR muda a cada ~20 s e a Baileys desiste depois de algumas tentativas. Se `qrEm` tem mais de 90 s e a vaga segue `aguardando_qr`, a tela diz "O QR expirou. Clique em Conectar de novo." e não mostra o QR antigo (teste em Task 3).
 2. **Clique duplo em Conectar:** nunca cria dois comandos `conectar` pendentes para a mesma vaga (teste em Task 5).
 3. **Motor desligado:** o comando fica pendente e a tela mostra "Motor sem resposta" quando `ultimoSinalEm` é nulo ou tem mais de 5 min (teste em Task 3). Comando preso `em_andamento` há mais de 2 min volta para a fila; na 3ª tentativa vira `falhou` (teste em Task 5).
 4. **Desconectado pelo celular:** quando o celular remove o aparelho, o motor apaga a sessão e manda `desconectado` com motivo `removido_no_celular`; a tela pede para ler o QR de novo (testes em Tasks 5 e 8).
@@ -72,14 +72,14 @@
 **Interfaces:**
 - Produces:
   ```ts
-  export const QR_VALIDO_MS = 60_000;
+  export const QR_VALIDO_MS = 90_000;
   export const MOTOR_SEM_SINAL_MS = 5 * 60_000;
   export type EstadoTela = "conectado" | "aguardando_qr" | "qr_expirado" | "desconectado" | "removido_no_celular" | "erro" | "motor_sem_resposta";
   export const ROTULO_ESTADO: Record<EstadoTela, string>;
   export function estadoNaTela(n: { situacao: SituacaoNumeroWhatsapp; qrEm: Date | null; ultimoSinalEm: Date | null; erro: string | null }, agora: Date): EstadoTela;
   export function telefoneDoJid(jid: string): string | null; // "5562999999999:12@s.whatsapp.net" → "5562999999999"
   ```
-  Ordem de `estadoNaTela`: (1) `desconectado` → `removido_no_celular` se `erro === "removido_no_celular"`, senão `desconectado` (o sinal não importa); (2) motor sem sinal (nulo ou > 5 min) → `motor_sem_resposta`; (3) `aguardando_qr` com `qrEm` preenchido há mais de 60 s → `qr_expirado` (com `qrEm` nulo continua `aguardando_qr`); (4) senão, a própria situação (`conectado`, `aguardando_qr`, `erro`).
+  Ordem de `estadoNaTela`: (1) `desconectado` → `removido_no_celular` se `erro === "removido_no_celular"`, senão `desconectado` (o sinal não importa); (2) motor sem sinal (nulo ou > 5 min) → `motor_sem_resposta`; (3) `aguardando_qr` com `qrEm` preenchido há mais de 90 s → `qr_expirado` (com `qrEm` nulo continua `aguardando_qr`); (4) senão, a própria situação (`conectado`, `aguardando_qr`, `erro`).
   Rótulos exatos: conectado "Conectado"; aguardando_qr "Aguardando leitura do QR"; qr_expirado "O QR expirou. Clique em Conectar de novo."; desconectado "Desconectado"; removido_no_celular "Removido no celular. Leia o QR de novo."; erro "Erro na conexão"; motor_sem_resposta "Motor sem resposta".
 
 - [ ] **Step 1: Write the failing tests:** `conectado` com sinal de 1 min → `"conectado"`; `conectado` com sinal de 6 min → `"motor_sem_resposta"`; `conectado` com sinal nulo → `"motor_sem_resposta"`; `aguardando_qr` com `qrEm` de 30 s e sinal recente → `"aguardando_qr"`; com `qrEm` de 61 s → `"qr_expirado"`; `desconectado` com `erro: "removido_no_celular"` → `"removido_no_celular"`; `desconectado` sem sinal → `"desconectado"`; `telefoneDoJid("5562999999999:12@s.whatsapp.net")` → `"5562999999999"`, `telefoneDoJid("5562999999999@s.whatsapp.net")` → `"5562999999999"`, `telefoneDoJid("abc@lid")` → `null`.

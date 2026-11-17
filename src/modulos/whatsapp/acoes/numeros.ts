@@ -63,12 +63,12 @@ export async function desconectarNumeroAcao(numeroId: string): Promise<EstadoAca
 /** Consultada a cada 2 s pelo diálogo de conexão. O QR vira SVG aqui, no servidor, e nunca vai para log nem URL. */
 export async function situacaoNumeroAcao(
   numeroId: string,
-): Promise<EstadoAcao<{ estado: EstadoTela; rotulo: string; qrSvg: string | null }>> {
+): Promise<EstadoAcao<{ estado: EstadoTela; rotulo: string; detalhe: string | null; qrSvg: string | null }>> {
   try {
     const ator = await exigirUsuario();
-    const { estado, rotulo, qr } = await situacaoParaTela(ator, idNumero.parse(numeroId));
+    const { estado, rotulo, detalhe, qr } = await situacaoParaTela(ator, idNumero.parse(numeroId));
     const qrSvg = qr ? await QRCode.toString(qr, { type: "svg", margin: 1 }) : null;
-    return { ok: true, dados: { estado, rotulo, qrSvg } };
+    return { ok: true, dados: { estado, rotulo, detalhe, qrSvg } };
   } catch (erro) {
     return tratarErroAcao(erro);
   }

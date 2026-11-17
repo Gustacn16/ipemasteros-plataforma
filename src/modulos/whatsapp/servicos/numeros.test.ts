@@ -153,10 +153,20 @@ describe("excluirNumero", () => {
     expect(banco.estado.numeros[0]!.excluidoEm).toBeNull();
   });
 
-  it("exclui vaga desconectada e audita", async () => {
+  it("exclui vaga desconectada, audita e pede ao motor para encerrar a sessão", async () => {
     await excluirNumero(gestor, "esc");
     expect(banco.estado.numeros[0]!.excluidoEm).toBeInstanceOf(Date);
     expect(banco.estado.auditorias[0]!.acao).toBe("whatsapp.numero_excluido");
+    expect(banco.estado.comandos).toMatchObject([{ numeroId: "esc", tipo: "desconectar", situacao: "pendente" }]);
+  });
+
+  it("exclui vaga presa aguardando QR ou em erro", async () => {
+    banco.estado.numeros[0]!.situacao = "aguardando_qr";
+    banco.estado.numeros[1]!.situacao = "erro";
+    await excluirNumero(gestor, "esc");
+    await excluirNumero(gestor, "va");
+    expect(banco.estado.numeros[0]!.excluidoEm).toBeInstanceOf(Date);
+    expect(banco.estado.numeros[1]!.excluidoEm).toBeInstanceOf(Date);
   });
 
   it("comercial não exclui", async () => {
@@ -169,6 +179,12 @@ describe("listarNumeros", () => {
     const lista = await listarNumeros(ana);
     expect(lista.map((n) => n.id)).toEqual(["va"]);
     expect(lista[0]!.dono).toBe("Aninha");
+  });
+
+  it("linha em erro traz o detalhe", async () => {
+    Object.assign(banco.estado.numeros[1]!, { situacao: "erro", erro: "Sessão aberta em outro lugar." });
+    const lista = await listarNumeros(ana);
+    expect(lista[0]).toMatchObject({ estado: "erro", detalhe: "Sessão aberta em outro lugar." });
   });
 
   it("gestão vê todas, com dono pelo nome quando não há apelido", async () => {
@@ -207,6 +223,18 @@ describe("situacaoParaTela", () => {
     Object.assign(banco.estado.numeros[1]!, { situacao: "aguardando_qr", qrAtual: "QR", qrEm: agora() });
     const r = await situacaoParaTela(ana, "va");
     expect(r).toMatchObject({ estado: "aguardando_qr", qr: "QR" });
+  });
+
+  it("em erro devolve o detalhe gravado pelo motor", async () => {
+    Object.assign(banco.estado.numeros[1]!, { situacao: "erro", erro: "Acesso recusado pelo WhatsApp." });
+    const r = await situacaoParaTela(ana, "va");
+    expect(r).toMatchObject({ estado: "erro", detalhe: "Acesso recusado pelo WhatsApp.", qr: null });
+  });
+
+  it("fora do estado de erro não devolve detalhe", async () => {
+    Object.assign(banco.estado.numeros[1]!, { situacao: "desconectado", erro: "removido_no_celular" });
+    const r = await situacaoParaTela(ana, "va");
+    expect(r).toMatchObject({ estado: "removido_no_celular", detalhe: null });
   });
 
   it("não devolve o QR quando ele expirou", async () => {

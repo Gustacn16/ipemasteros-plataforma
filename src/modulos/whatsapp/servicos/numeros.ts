@@ -5,7 +5,7 @@ import { ErroNegocio } from "@/lib/erros";
 import { prisma } from "@/lib/prisma";
 import { ErroPermissao, temPermissao } from "@/lib/permissoes";
 import type { UsuarioAtual } from "@/lib/sessao";
-import { estadoNaTela, ROTULO_ESTADO, type EstadoTela } from "../regras/conexao";
+import { detalheNaTela, estadoNaTela, ROTULO_ESTADO, type EstadoTela } from "../regras/conexao";
 import { esquemaNovoNumero } from "../esquemas/numero";
 
 export type NumeroNaTela = {
@@ -16,6 +16,8 @@ export type NumeroNaTela = {
   telefone: string | null;
   estado: EstadoTela;
   rotulo: string;
+  /** Texto do erro gravado pelo motor; só no estado de erro. */
+  detalhe: string | null;
   conectadoEm: Date | null;
   ultimoSinalEm: Date | null;
 };
@@ -52,6 +54,7 @@ export async function listarNumeros(ator: UsuarioAtual): Promise<NumeroNaTela[]>
       telefone: n.telefone,
       estado,
       rotulo: ROTULO_ESTADO[estado],
+      detalhe: detalheNaTela(estado, n.erro),
       conectadoEm: n.conectadoEm,
       ultimoSinalEm: n.ultimoSinalEm,
     };
@@ -90,8 +93,12 @@ export async function criarNumero(ator: UsuarioAtual, dados: unknown): Promise<{
 export async function excluirNumero(ator: UsuarioAtual, numeroId: string): Promise<void> {
   if (!temPermissao(ator.papel, ESCOPO_GESTAO)) throw new ErroPermissao(ESCOPO_GESTAO);
   const numero = await vagaDoAtor(ator, numeroId);
-  if (numero.situacao !== "desconectado") throw new ErroNegocio("Desconecte o número antes de excluir.");
+  // Vaga presa aguardando QR ou em erro também pode sair; só a conectada exige desconectar antes.
+  if (numero.situacao === "conectado") throw new ErroNegocio("Desconecte o número antes de excluir.");
   await prisma.$transaction(async (tx) => {
+    // O motor pode ter uma sessão aberta ou salva (QR em leitura, erro que guardou a sessão):
+    // o desconectar encerra e apaga; é entregue mesmo com a vaga já excluída.
+    await enfileirar(tx, numero.id, "desconectar");
     await tx.numeroWhatsapp.update({ where: { id: numero.id }, data: { excluidoEm: new Date() } });
     await registrarAuditoria(
       {
@@ -168,10 +175,15 @@ export async function solicitarDesconexao(ator: UsuarioAtual, numeroId: string):
 export async function situacaoParaTela(
   ator: UsuarioAtual,
   numeroId: string,
-): Promise<{ estado: EstadoTela; rotulo: string; qr: string | null }> {
+): Promise<{ estado: EstadoTela; rotulo: string; detalhe: string | null; qr: string | null }> {
   const numero = await vagaDoAtor(ator, numeroId);
   const estado = estadoNaTela(numero, new Date());
-  return { estado, rotulo: ROTULO_ESTADO[estado], qr: estado === "aguardando_qr" ? numero.qrAtual : null };
+  return {
+    estado,
+    rotulo: ROTULO_ESTADO[estado],
+    detalhe: detalheNaTela(estado, numero.erro),
+    qr: estado === "aguardando_qr" ? numero.qrAtual : null,
+  };
 }
 
 /** Vendedores (papel comercial, ativos) que podem ser donos de um número. Só para quem gerencia números. */

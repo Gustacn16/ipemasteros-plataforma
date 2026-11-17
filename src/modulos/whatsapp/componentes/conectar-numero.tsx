@@ -11,9 +11,15 @@ import type { EstadoTela } from "../regras/conexao";
 const INTERVALO_MS = 2000;
 const FECHAR_APOS_CONECTAR_MS = 2000;
 /** Nestes estados a consulta para e a tela oferece "Tentar de novo". */
-const ESTADOS_DE_PARADA: readonly EstadoTela[] = ["qr_expirado", "erro", "motor_sem_resposta", "removido_no_celular"];
+const ESTADOS_DE_PARADA: readonly EstadoTela[] = [
+  "qr_expirado",
+  "erro",
+  "motor_sem_resposta",
+  "removido_no_celular",
+  "desconectado",
+];
 
-type Situacao = { estado: EstadoTela; rotulo: string; qrSvg: string | null };
+type Situacao = { estado: EstadoTela; rotulo: string; detalhe: string | null; qrSvg: string | null };
 
 export function ConectarNumero({ numeroId, nome }: { numeroId: string; nome: string }) {
   const router = useRouter();
@@ -37,6 +43,8 @@ export function ConectarNumero({ numeroId, nome }: { numeroId: string; nome: str
 
     function falha(r?: { mensagem?: string }) {
       avisar({ ok: false, mensagem: r?.mensagem ?? "Não foi possível consultar a conexão." });
+      // Sem consulta, o QR que estava na tela já não é confiável.
+      setSituacao((s) => (s ? { ...s, qrSvg: null } : s));
       setFalhou(true);
     }
 
@@ -97,6 +105,8 @@ export function ConectarNumero({ numeroId, nome }: { numeroId: string; nome: str
               <p className="text-muted-foreground text-sm">{situacao ? situacao.rotulo : falhou ? "Não foi possível conectar." : "Preparando o QR…"}</p>
             )}
             {situacao?.qrSvg && <p className="text-muted-foreground text-sm">{situacao.rotulo}</p>}
+            {/* Texto curto escrito pelo motor (React escapa o conteúdo). */}
+            {situacao?.detalhe && <p className="text-destructive text-sm">{situacao.detalhe}</p>}
             {parou && <Button onClick={() => {
                   setSituacao(null);
                   setFalhou(false);

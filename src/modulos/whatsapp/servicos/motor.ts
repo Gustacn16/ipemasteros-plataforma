@@ -35,16 +35,21 @@ export async function aplicarEventos(
         where: { id: numero.id },
         data: { situacao: "conectado", telefone: ev.telefone, conectadoEm: agora, qrAtual: null, qrEm: null, erro: null },
       });
-    } else {
-      const erro =
-        ev.motivo === "pedido"
-          ? null
-          : ev.motivo === "removido_no_celular"
-            ? "removido_no_celular"
-            : (ev.detalhe ?? "erro").slice(0, 255);
+    } else if (ev.motivo === "erro") {
+      // Erro do motor (acesso recusado, sessão em outro lugar, conexão que não abriu): a tela mostra o detalhe.
       await prisma.numeroWhatsapp.update({
         where: { id: numero.id },
-        data: { situacao: "desconectado", qrAtual: null, qrEm: null, erro },
+        data: { situacao: "erro", qrAtual: null, qrEm: null, erro: (ev.detalhe || "Erro informado pelo motor.").slice(0, 255) },
+      });
+    } else {
+      await prisma.numeroWhatsapp.update({
+        where: { id: numero.id },
+        data: {
+          situacao: "desconectado",
+          qrAtual: null,
+          qrEm: null,
+          erro: ev.motivo === "removido_no_celular" ? "removido_no_celular" : null,
+        },
       });
     }
     aplicados++;
@@ -52,7 +57,10 @@ export async function aplicarEventos(
   return { aplicados, ignorados };
 }
 
-/** Comandos para o motor executar: os pendentes e os que ficaram presos há mais de 2 min. */
+/**
+ * Comandos para o motor executar: os pendentes e os que ficaram presos há mais de 2 min.
+ * `conectar` de vaga excluída falha; `desconectar` segue, para o motor encerrar a sessão dela.
+ */
 export async function entregarComandos(
   agora: Date = new Date(),
 ): Promise<{ id: string; numeroId: string; tipo: TipoComandoWhatsapp }[]> {
@@ -71,13 +79,14 @@ export async function entregarComandos(
     OR: [{ situacao: "pendente" as const }, { situacao: "em_andamento" as const, iniciadoEm: { lt: presoAntesDe } }],
   });
   for (const c of candidatos) {
-    if (c.numero.excluidoEm || c.tentativas >= MAX_TENTATIVAS) {
+    const conectarExcluido = c.tipo === "conectar" && c.numero.excluidoEm !== null;
+    if (conectarExcluido || c.tentativas >= MAX_TENTATIVAS) {
       await prisma.comandoWhatsapp.updateMany({
         where: aindaDisponivel(c.id),
         data: {
           situacao: "falhou",
           concluidoEm: agora,
-          erro: c.numero.excluidoEm ? "Número excluído." : "O motor não concluiu o comando.",
+          erro: conectarExcluido ? "Número excluído." : "O motor não concluiu o comando.",
         },
       });
     } else {

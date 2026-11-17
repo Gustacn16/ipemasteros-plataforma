@@ -96,12 +96,28 @@ describe("aplicarEventos", () => {
     expect(banco.estado.numeros[0]).toMatchObject({ situacao: "desconectado", erro: "removido_no_celular" });
   });
 
-  it("desconectado a pedido deixa erro nulo e com erro grava o detalhe", async () => {
+  it("desconectado a pedido deixa erro nulo", async () => {
     banco.estado.numeros[0]!.erro = "velho";
     await aplicarEventos([{ tipo: "desconectado", numeroId: "n1", motivo: "pedido" }], AGORA);
-    expect(banco.estado.numeros[0]!.erro).toBeNull();
-    await aplicarEventos([{ tipo: "desconectado", numeroId: "n1", motivo: "erro", detalhe: "boom" }], AGORA);
-    expect(banco.estado.numeros[0]!.erro).toBe("boom");
+    expect(banco.estado.numeros[0]).toMatchObject({ situacao: "desconectado", erro: null });
+  });
+
+  it("desconectado com motivo erro põe a vaga em erro e grava o detalhe", async () => {
+    Object.assign(banco.estado.numeros[0]!, { situacao: "aguardando_qr", qrAtual: "QR1", qrEm: AGORA });
+    await aplicarEventos(
+      [{ tipo: "desconectado", numeroId: "n1", motivo: "erro", detalhe: "Acesso recusado pelo WhatsApp." }],
+      AGORA,
+    );
+    expect(banco.estado.numeros[0]).toMatchObject({
+      situacao: "erro", erro: "Acesso recusado pelo WhatsApp.", qrAtual: null, qrEm: null,
+    });
+  });
+
+  it("motivo erro sem detalhe (ou com detalhe vazio) grava um texto padrão", async () => {
+    await aplicarEventos([{ tipo: "desconectado", numeroId: "n1", motivo: "erro", detalhe: "" }], AGORA);
+    expect(banco.estado.numeros[0]).toMatchObject({ situacao: "erro", erro: "Erro informado pelo motor." });
+    await aplicarEventos([{ tipo: "desconectado", numeroId: "n2", motivo: "erro" }], AGORA);
+    expect(banco.estado.numeros[1]).toMatchObject({ situacao: "erro", erro: "Erro informado pelo motor." });
   });
 
   it("vaga excluída conta como ignorada e o resto do lote é aplicado", async () => {
@@ -151,10 +167,16 @@ describe("entregarComandos", () => {
     expect(banco.estado.comandos[0]).toMatchObject({ situacao: "falhou", erro: "O motor não concluiu o comando." });
   });
 
-  it("comando de vaga excluída falha sem ser entregue", async () => {
+  it("conectar de vaga excluída falha sem ser entregue", async () => {
     banco.estado.comandos = [comando("c1", { numeroId: "nx" })];
     expect(await entregarComandos(AGORA)).toEqual([]);
-    expect(banco.estado.comandos[0]!.situacao).toBe("falhou");
+    expect(banco.estado.comandos[0]).toMatchObject({ situacao: "falhou", erro: "Número excluído." });
+  });
+
+  it("desconectar de vaga excluída ainda é entregue (encerra a sessão no motor)", async () => {
+    banco.estado.comandos = [comando("c1", { numeroId: "nx", tipo: "desconectar" })];
+    expect(await entregarComandos(AGORA)).toEqual([{ id: "c1", numeroId: "nx", tipo: "desconectar" }]);
+    expect(banco.estado.comandos[0]).toMatchObject({ situacao: "em_andamento", tentativas: 1 });
   });
 
   it("duas consultas ao mesmo tempo não entregam o mesmo comando duas vezes", async () => {

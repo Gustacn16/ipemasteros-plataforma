@@ -59,7 +59,10 @@ export function ListaNumeros({ numeros, podeExcluir }: { numeros: Linha[]; podeE
               <TableCell>{ROTULO_FINALIDADE[n.finalidade]}</TableCell>
               <TableCell>{n.dono ?? "—"}</TableCell>
               <TableCell>{n.telefone ?? "—"}</TableCell>
-              <TableCell>{n.rotulo}</TableCell>
+              <TableCell>
+                {n.rotulo}
+                {n.detalhe && <span className="text-muted-foreground block text-xs">{n.detalhe}</span>}
+              </TableCell>
               <TableCell>{data(n.conectadoEm)}</TableCell>
               <TableCell>{data(n.ultimoSinalEm)}</TableCell>
               <TableCell>
@@ -78,7 +81,7 @@ export function ListaNumeros({ numeros, podeExcluir }: { numeros: Linha[]; podeE
                       Desconectar
                     </Button>
                   )}
-                  {podeExcluir && (n.estado === "desconectado" || n.estado === "removido_no_celular") && (
+                  {podeExcluir && n.estado !== "conectado" && (
                     <Button
                       size="sm"
                       variant="destructive"

@@ -1,7 +1,10 @@
 import type { SituacaoNumeroWhatsapp } from "@/generated/prisma/client";
 
-/** O QR muda a cada ~20 s; depois de 60 s o que está na tela já não serve. */
-export const QR_VALIDO_MS = 60_000;
+/**
+ * O primeiro QR da Baileys vale 60 s e os seguintes ~20 s. A folga de 90 s evita marcar como
+ * expirado um QR que ainda vale (o motor manda o próximo antes disso).
+ */
+export const QR_VALIDO_MS = 90_000;
 /** Sem sinal do motor por mais de 5 min, a tela avisa que ele não responde. */
 export const MOTOR_SEM_SINAL_MS = 5 * 60_000;
 
@@ -39,6 +42,11 @@ export function estadoNaTela(
     return "qr_expirado";
   }
   return n.situacao;
+}
+
+/** Detalhe gravado pelo motor (texto curto e seguro), mostrado só no estado de erro. */
+export function detalheNaTela(estado: EstadoTela, erro: string | null): string | null {
+  return estado === "erro" ? erro : null;
 }
 
 /** "5562999999999:12@s.whatsapp.net" → "5562999999999"; JID que não é telefone (ex.: @lid) → null. */
