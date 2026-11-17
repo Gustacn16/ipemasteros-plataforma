@@ -1,5 +1,3 @@
-Loaded Prisma config from prisma.config.ts.
-
 -- CreateTable
 CREATE TABLE `conversas_nexu` (
     `id` VARCHAR(191) NOT NULL,
@@ -95,7 +93,6 @@ ALTER TABLE `usos_ia` ADD CONSTRAINT `usos_ia_usuario_id_fkey` FOREIGN KEY (`usu
 
 -- AddForeignKey
 ALTER TABLE `configuracoes_ia` ADD CONSTRAINT `configuracoes_ia_atualizado_por_id_fkey` FOREIGN KEY (`atualizado_por_id`) REFERENCES `usuarios`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
-
 
 -- Configuração única do Nexu com os valores padrão (US$ 20 por mês, 50 perguntas por pessoa por dia).
 INSERT INTO `configuracoes_ia` (`id`, `modelo`, `limite_mensal_micro_usd`, `perguntas_por_dia`, `atualizado_em`)
