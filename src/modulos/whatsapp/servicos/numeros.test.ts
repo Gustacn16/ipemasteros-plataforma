@@ -1,0 +1,203 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ErroPermissao } from "@/lib/permissoes";
+import type { UsuarioAtual } from "@/lib/sessao";
+
+type Linha = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+
+// Banco em memória só com o que o serviço de números usa.
+const banco = vi.hoisted(() => {
+  const estado = {
+    numeros: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
+    comandos: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
+    usuarios: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
+    auditorias: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
+    seq: 0,
+  };
+  const prisma = {
+    numeroWhatsapp: {
+      findUnique: async ({ where }: { where: { id: string } }) => estado.numeros.find((n) => n.id === where.id) ?? null,
+      findMany: async ({ where }: { where: { excluidoEm: null; usuarioId?: string } }) =>
+        estado.numeros
+          .filter((n) => n.excluidoEm === null && (where.usuarioId === undefined || n.usuarioId === where.usuarioId))
+          .map((n) => ({ ...n, usuario: estado.usuarios.find((u) => u.id === n.usuarioId) ?? null })),
+      create: async ({ data }: { data: Linha }) => {
+        const n = {
+          id: `n${++estado.seq}`, telefone: null, situacao: "desconectado", qrAtual: null, qrEm: null,
+          conectadoEm: null, ultimoSinalEm: null, erro: null, excluidoEm: null, ...data,
+        };
+        estado.numeros.push(n);
+        return n;
+      },
+      update: async ({ where, data }: { where: { id: string }; data: Linha }) =>
+        Object.assign(estado.numeros.find((n) => n.id === where.id)!, data),
+    },
+    comandoWhatsapp: {
+      findFirst: async ({ where }: { where: { numeroId: string; tipo: string; situacao: { in: string[] } } }) =>
+        estado.comandos.find(
+          (c) => c.numeroId === where.numeroId && c.tipo === where.tipo && where.situacao.in.includes(c.situacao),
+        ) ?? null,
+      create: async ({ data }: { data: Linha }) => {
+        const c = { id: `c${++estado.seq}`, situacao: "pendente", tentativas: 0, ...data };
+        estado.comandos.push(c);
+        return c;
+      },
+    },
+    usuario: {
+      findFirst: async ({ where }: { where: { id: string; ativo: boolean; papel: string } }) =>
+        estado.usuarios.find((u) => u.id === where.id && u.ativo === where.ativo && u.papel === where.papel) ?? null,
+    },
+    $transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma),
+  };
+  return { estado, prisma };
+});
+
+vi.mock("server-only", () => ({}));
+vi.mock("@/lib/prisma", () => ({ prisma: banco.prisma }));
+vi.mock("@/lib/auditoria", () => ({
+  registrarAuditoria: async (dados: Linha) => {
+    banco.estado.auditorias.push(dados);
+  },
+}));
+
+const { criarNumero, excluirNumero, listarNumeros, situacaoParaTela, solicitarConexao, solicitarDesconexao } =
+  await import("./numeros");
+
+const gestor = { id: "g1", papel: "gestor" } as UsuarioAtual;
+const ana = { id: "u1", papel: "comercial" } as UsuarioAtual;
+const beto = { id: "u2", papel: "comercial" } as UsuarioAtual;
+
+const agora = () => new Date();
+
+beforeEach(() => {
+  const e = banco.estado;
+  e.seq = 0;
+  e.comandos = [];
+  e.auditorias = [];
+  e.usuarios = [
+    { id: "u1", nome: "Ana Souza", apelido: "Aninha", papel: "comercial", ativo: true },
+    { id: "u2", nome: "Beto", apelido: null, papel: "comercial", ativo: true },
+    { id: "u3", nome: "Caio", apelido: null, papel: "comercial", ativo: false },
+    { id: "u4", nome: "Dora", apelido: null, papel: "gestor", ativo: true },
+  ];
+  const base = { telefone: null, qrAtual: null, qrEm: null, conectadoEm: null, erro: null, excluidoEm: null };
+  e.numeros = [
+    { id: "esc", nome: "Escola", finalidade: "escola", usuarioId: null, situacao: "desconectado", ultimoSinalEm: agora(), ...base },
+    { id: "va", nome: "Ana", finalidade: "vendedor", usuarioId: "u1", situacao: "desconectado", ultimoSinalEm: agora(), ...base },
+    { id: "vb", nome: "Beto", finalidade: "vendedor", usuarioId: "u2", situacao: "desconectado", ultimoSinalEm: agora(), ...base },
+  ];
+});
+
+describe("solicitarConexao", () => {
+  it("comercial dono conecta a própria vaga", async () => {
+    await solicitarConexao(ana, "va");
+    expect(banco.estado.comandos).toHaveLength(1);
+    expect(banco.estado.numeros[1]!.situacao).toBe("aguardando_qr");
+    expect(banco.estado.auditorias[0]!.acao).toBe("whatsapp.conexao_solicitada");
+  });
+
+  it("comercial que não é dono recebe ErroPermissao", async () => {
+    await expect(solicitarConexao(beto, "va")).rejects.toBeInstanceOf(ErroPermissao);
+    expect(banco.estado.comandos).toHaveLength(0);
+  });
+
+  it("dois pedidos seguidos deixam um comando pendente", async () => {
+    await solicitarConexao(ana, "va");
+    await solicitarConexao(ana, "va");
+    expect(banco.estado.comandos.filter((c) => c.tipo === "conectar" && c.situacao === "pendente")).toHaveLength(1);
+  });
+
+  it("limpa QR e erro anteriores", async () => {
+    Object.assign(banco.estado.numeros[1]!, { qrAtual: "velho", qrEm: agora(), erro: "x" });
+    await solicitarConexao(gestor, "va");
+    expect(banco.estado.numeros[1]).toMatchObject({ qrAtual: null, qrEm: null, erro: null });
+  });
+
+  it("vaga excluída não é encontrada", async () => {
+    banco.estado.numeros[1]!.excluidoEm = agora();
+    await expect(solicitarConexao(gestor, "va")).rejects.toThrow("Número não encontrado.");
+  });
+});
+
+describe("solicitarDesconexao", () => {
+  it("cria um só comando desconectar e audita", async () => {
+    await solicitarDesconexao(ana, "va");
+    await solicitarDesconexao(ana, "va");
+    expect(banco.estado.comandos.filter((c) => c.tipo === "desconectar")).toHaveLength(1);
+    expect(banco.estado.auditorias[0]!.acao).toBe("whatsapp.desconexao_solicitada");
+  });
+});
+
+describe("excluirNumero", () => {
+  it("recusa vaga conectada", async () => {
+    banco.estado.numeros[0]!.situacao = "conectado";
+    await expect(excluirNumero(gestor, "esc")).rejects.toThrow("Desconecte o número antes de excluir.");
+    expect(banco.estado.numeros[0]!.excluidoEm).toBeNull();
+  });
+
+  it("exclui vaga desconectada e audita", async () => {
+    await excluirNumero(gestor, "esc");
+    expect(banco.estado.numeros[0]!.excluidoEm).toBeInstanceOf(Date);
+    expect(banco.estado.auditorias[0]!.acao).toBe("whatsapp.numero_excluido");
+  });
+
+  it("comercial não exclui", async () => {
+    await expect(excluirNumero(ana, "va")).rejects.toBeInstanceOf(ErroPermissao);
+  });
+});
+
+describe("listarNumeros", () => {
+  it("comercial só vê as suas vagas", async () => {
+    const lista = await listarNumeros(ana);
+    expect(lista.map((n) => n.id)).toEqual(["va"]);
+    expect(lista[0]!.dono).toBe("Aninha");
+  });
+
+  it("gestão vê todas, com dono pelo nome quando não há apelido", async () => {
+    const lista = await listarNumeros(gestor);
+    expect(lista.map((n) => [n.id, n.dono])).toEqual([["esc", null], ["va", "Aninha"], ["vb", "Beto"]]);
+  });
+});
+
+describe("criarNumero", () => {
+  it("gestão cria vaga da escola e audita só nome e finalidade", async () => {
+    const { id } = await criarNumero(gestor, { nome: "Nova", finalidade: "escola" });
+    expect(banco.estado.numeros.some((n) => n.id === id)).toBe(true);
+    expect(banco.estado.auditorias[0]).toMatchObject({
+      acao: "whatsapp.numero_criado",
+      diff: { nome: "Nova", finalidade: "escola" },
+    });
+  });
+
+  it("vendedor exige usuário comercial ativo", async () => {
+    await expect(criarNumero(gestor, { nome: "X", finalidade: "vendedor", usuarioId: "u3" })).rejects.toThrow(
+      "Escolha o vendedor dono do número.",
+    );
+    await expect(criarNumero(gestor, { nome: "X", finalidade: "vendedor", usuarioId: "u4" })).rejects.toThrow(
+      "Escolha o vendedor dono do número.",
+    );
+    await expect(criarNumero(gestor, { nome: "X", finalidade: "vendedor", usuarioId: "u1" })).resolves.toHaveProperty("id");
+  });
+
+  it("comercial não cria", async () => {
+    await expect(criarNumero(ana, { nome: "X", finalidade: "escola" })).rejects.toBeInstanceOf(ErroPermissao);
+  });
+});
+
+describe("situacaoParaTela", () => {
+  it("devolve o QR enquanto aguarda leitura", async () => {
+    Object.assign(banco.estado.numeros[1]!, { situacao: "aguardando_qr", qrAtual: "QR", qrEm: agora() });
+    const r = await situacaoParaTela(ana, "va");
+    expect(r).toMatchObject({ estado: "aguardando_qr", qr: "QR" });
+  });
+
+  it("não devolve o QR quando ele expirou", async () => {
+    Object.assign(banco.estado.numeros[1]!, {
+      situacao: "aguardando_qr",
+      qrAtual: "QR",
+      qrEm: new Date(Date.now() - 120_000),
+    });
+    const r = await situacaoParaTela(ana, "va");
+    expect(r.estado).toBe("qr_expirado");
+    expect(r.qr).toBeNull();
+  });
+});
