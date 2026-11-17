@@ -173,3 +173,14 @@ export async function situacaoParaTela(
   const estado = estadoNaTela(numero, new Date());
   return { estado, rotulo: ROTULO_ESTADO[estado], qr: estado === "aguardando_qr" ? numero.qrAtual : null };
 }
+
+/** Vendedores (papel comercial, ativos) que podem ser donos de um número. Só para quem gerencia números. */
+export async function listarVendedoresAtivos(ator: UsuarioAtual): Promise<{ id: string; nome: string }[]> {
+  if (!temPermissao(ator.papel, ESCOPO_GESTAO)) throw new ErroPermissao(ESCOPO_GESTAO);
+  const usuarios = await prisma.usuario.findMany({
+    where: { ativo: true, papel: "comercial" },
+    select: { id: true, nome: true, apelido: true },
+    orderBy: { nome: "asc" },
+  });
+  return usuarios.map((u) => ({ id: u.id, nome: u.apelido ?? u.nome }));
+}

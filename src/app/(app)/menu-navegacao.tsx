@@ -9,6 +9,7 @@ import {
   HouseIcon,
   ListChecksIcon,
   LogOutIcon,
+  MessageCircleIcon,
   ShieldCheckIcon,
   UsersIcon,
 } from "lucide-react";
@@ -29,6 +30,7 @@ const ICONES = {
   agenda: <CalendarIcon />,
   academico: <GraduationCapIcon />,
   comercial: <BriefcaseBusinessIcon />,
+  whatsapp: <MessageCircleIcon />,
   usuarios: <UsersIcon />,
   auditoria: <ShieldCheckIcon />,
 };

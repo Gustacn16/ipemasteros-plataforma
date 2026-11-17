@@ -11,6 +11,9 @@ export default async function LayoutApp({ children }: { children: React.ReactNod
     ...(temPermissao(usuario.papel, "agenda:usar") ? [{ href: "/agenda", rotulo: "Agenda", icone: "agenda" } as const] : []),
     ...(temPermissao(usuario.papel, "academico:ver") ? [{ href: "/academico", rotulo: "Acadêmico", icone: "academico" } as const] : []),
     ...(temPermissao(usuario.papel, "comercial:ver") ? [{ href: "/comercial", rotulo: "Comercial", icone: "comercial" } as const] : []),
+    ...(temPermissao(usuario.papel, "whatsapp:gerenciar_numeros") || temPermissao(usuario.papel, "whatsapp:conectar_proprio")
+      ? [{ href: "/whatsapp", rotulo: "WhatsApp", icone: "whatsapp" } as const]
+      : []),
   ];
 
   const admin: ItemMenu[] = [

@@ -1,0 +1,75 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import QRCode from "qrcode";
+import { z } from "zod";
+import { tratarErroAcao, type EstadoAcao } from "@/lib/acoes";
+import { exigirPermissao, exigirUsuario } from "@/lib/sessao";
+import type { EstadoTela } from "../regras/conexao";
+import {
+  criarNumero,
+  excluirNumero,
+  situacaoParaTela,
+  solicitarConexao,
+  solicitarDesconexao,
+} from "../servicos/numeros";
+
+const idNumero = z.string().min(1).max(40);
+
+export async function criarNumeroAcao(dados: unknown): Promise<EstadoAcao<{ id: string }>> {
+  try {
+    const ator = await exigirPermissao("whatsapp:gerenciar_numeros");
+    const criado = await criarNumero(ator, dados);
+    revalidatePath("/whatsapp/numeros");
+    return { ok: true, mensagem: "Número criado.", dados: criado };
+  } catch (erro) {
+    return tratarErroAcao(erro);
+  }
+}
+
+export async function excluirNumeroAcao(numeroId: string): Promise<EstadoAcao> {
+  try {
+    const ator = await exigirUsuario();
+    await excluirNumero(ator, idNumero.parse(numeroId));
+    revalidatePath("/whatsapp/numeros");
+    return { ok: true, mensagem: "Número excluído." };
+  } catch (erro) {
+    return tratarErroAcao(erro);
+  }
+}
+
+export async function conectarNumeroAcao(numeroId: string): Promise<EstadoAcao> {
+  try {
+    const ator = await exigirUsuario();
+    await solicitarConexao(ator, idNumero.parse(numeroId));
+    revalidatePath("/whatsapp/numeros");
+    return { ok: true };
+  } catch (erro) {
+    return tratarErroAcao(erro);
+  }
+}
+
+export async function desconectarNumeroAcao(numeroId: string): Promise<EstadoAcao> {
+  try {
+    const ator = await exigirUsuario();
+    await solicitarDesconexao(ator, idNumero.parse(numeroId));
+    revalidatePath("/whatsapp/numeros");
+    return { ok: true, mensagem: "Desconexão solicitada." };
+  } catch (erro) {
+    return tratarErroAcao(erro);
+  }
+}
+
+/** Consultada a cada 2 s pelo diálogo de conexão. O QR vira SVG aqui, no servidor, e nunca vai para log nem URL. */
+export async function situacaoNumeroAcao(
+  numeroId: string,
+): Promise<EstadoAcao<{ estado: EstadoTela; rotulo: string; qrSvg: string | null }>> {
+  try {
+    const ator = await exigirUsuario();
+    const { estado, rotulo, qr } = await situacaoParaTela(ator, idNumero.parse(numeroId));
+    const qrSvg = qr ? await QRCode.toString(qr, { type: "svg", margin: 1 }) : null;
+    return { ok: true, dados: { estado, rotulo, qrSvg } };
+  } catch (erro) {
+    return tratarErroAcao(erro);
+  }
+}
