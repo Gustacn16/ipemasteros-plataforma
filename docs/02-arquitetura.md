@@ -55,7 +55,7 @@ prisma/
 Regras:
 - Leituras em Server Components chamam serviços. Nada de `fetch` para a própria API.
 - Route Handlers só são usados para o que vem de fora: webhooks, cron, OAuth callbacks e formulários públicos (com rate limit).
-- Módulos não importam serviços uns dos outros livremente. Dependências permitidas: todos → `core`; `agenda` → `academico`/`tarefas` (para criar eventos); `academico` → `comercial` (produtos).
+- Módulos não importam serviços uns dos outros livremente. Dependências permitidas: todos → `core`; `agenda` → `academico`/`tarefas` (para criar eventos); `academico` → `comercial` (produtos); `nexu` → `tarefas`, `agenda`, `academico`, `conteudo`, `comercial` (ferramentas de consulta).
 
 ## Integrações
 | Integração | Uso | Autenticação | Fase |
