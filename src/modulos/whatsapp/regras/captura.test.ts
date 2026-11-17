@@ -4,8 +4,16 @@ import { categoriaInicial, chaveTelefone, decidirGuardar, dentroDoHistorico } fr
 describe("chaveTelefone", () => {
   it("casa telefones brasileiros com ou sem 55 e com ou sem o 9", () => {
     for (const t of ["556281707432", "5562981707432", "62981707432", "6281707432", "(62) 98170-7432".replace(/\D/g, "")]) {
-      expect(chaveTelefone(t)).toBe("6281707432");
+      expect(chaveTelefone(t)).toBe("62981707432");
     }
+  });
+  it("não junta pessoas diferentes", () => {
+    expect(chaveTelefone("62881707432")).toBe("62881707432");
+    expect(chaveTelefone("62981707432")).not.toBe(chaveTelefone("62881707432"));
+    expect(chaveTelefone("14155551234")).not.toBe(chaveTelefone("14255551234"));
+    expect(chaveTelefone("6232221234")).toBe("6232221234");
+    expect(chaveTelefone("556232221234")).toBe("6232221234");
+    expect(chaveTelefone("6232221234")).not.toBe(chaveTelefone("62932221234"));
   });
   it("fora do Brasil devolve os dígitos como vieram", () => {
     expect(chaveTelefone("447911123456")).toBe("447911123456");

@@ -6,16 +6,23 @@ export const HORAS_PROVISORIO = 48;
 export const DIAS_RETENCAO = 90;
 
 /**
- * Chave para casar telefones brasileiros com ou sem 55 e com ou sem o 9: DDD + últimos 8 dígitos.
- * Fora do Brasil: os dígitos como vieram. null se tiver menos de 10 dígitos.
+ * Chave para casar telefones brasileiros com ou sem 55 e com ou sem o 9: a forma canônica com o 9
+ * (celular antigo de 10 dígitos ganha o 9 depois do DDD; fixo fica com 10 dígitos). Fora do Brasil
+ * ou fora desses formatos: os dígitos como vieram. null se tiver menos de 10 dígitos.
+ * Os dígitos já devem vir sem pontuação.
  */
 export function chaveTelefone(digitos: string | null | undefined): string | null {
   if (!digitos || digitos.length < 10) return null;
   const n = digitos.length;
-  const brasil = (digitos.startsWith("55") && (n === 12 || n === 13)) || n === 10 || n === 11;
-  if (!brasil) return digitos;
-  const local = n === 12 || n === 13 ? digitos.slice(2) : digitos;
-  return local.slice(0, 2) + local.slice(-8);
+  const local = (n === 12 || n === 13) && digitos.startsWith("55") ? digitos.slice(2) : digitos;
+  const ddd = local.slice(0, 2);
+  const dddValido = /^[1-9][1-9]$/.test(ddd);
+  if (dddValido && local.length === 11 && local[2] === "9") return local;
+  if (dddValido && local.length === 10) {
+    if (/[6-9]/.test(local[2])) return ddd + "9" + local.slice(2);
+    if (/[2-5]/.test(local[2])) return local;
+  }
+  return digitos;
 }
 
 export function categoriaInicial(c: { alunoId: string | null; usuarioId: string | null }): "aluno" | "equipe" | "lead" {

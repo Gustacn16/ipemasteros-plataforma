@@ -4,7 +4,7 @@ import { z } from "zod";
 const jidValido = z
   .string()
   .max(60)
-  .regex(/@(g\.us|s\.whatsapp\.net|lid)$/);
+  .regex(/^[^@\s]+@(g\.us|s\.whatsapp\.net|lid)$/);
 
 /** Mesmos valores do enum TipoMensagemWhatsapp do Prisma. */
 const esquemaTipoMensagem = z.enum(["texto", "imagem", "audio", "video", "documento", "figurinha", "outro"]);

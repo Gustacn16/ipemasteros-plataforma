@@ -84,6 +84,11 @@ describe("eventos conversas e mensagens", () => {
   it("jid status@broadcast falha", () => {
     expect(evMsg([{ ...msg, jid: "status@broadcast" }]).success).toBe(false);
   });
+  it("jid sem parte local ou com espaço falha", () => {
+    expect(evMsg([{ ...msg, jid: "@g.us" }]).success).toBe(false);
+    expect(evMsg([{ ...msg, jid: "a b@lid" }]).success).toBe(false);
+    expect(evMsg([{ ...msg, autorJid: "a b@lid" }]).success).toBe(false);
+  });
   it("enviadaEm não-ISO falha", () => {
     expect(evMsg([{ ...msg, enviadaEm: "ontem" }]).success).toBe(false);
   });
