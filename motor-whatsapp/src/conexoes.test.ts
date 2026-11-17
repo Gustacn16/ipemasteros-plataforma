@@ -240,6 +240,17 @@ describe("Conexoes", () => {
     expect(console.info).toHaveBeenCalledWith("[conexoes] vaga1: 150 mensagens do histórico");
   });
 
+  it("histórico com chats num formato inesperado só registra o nome do erro e ainda envia as mensagens", async () => {
+    await conexoes.conectar("vaga1");
+    expect(() =>
+      baileys.sockets[0].emitir("messaging-history.set", { chats: {}, contacts: [], messages: [mensagemFalsa("H1")] }),
+    ).not.toThrow();
+    expect(console.error).toHaveBeenCalledWith("[conexoes] vaga1: falha ao converter conversas do histórico (TypeError)");
+    expect(eventos).toEqual([
+      { tipo: "mensagens", numeroId: "vaga1", origem: "historico", mensagens: [expect.objectContaining({ idExterno: "H1" })] },
+    ]);
+  });
+
   it("mensagens ao vivo (notify e append) saem como ao_vivo", async () => {
     await conexoes.conectar("vaga1");
     baileys.sockets[0].emitir("messages.upsert", { type: "notify", messages: [mensagemFalsa("A1")] });

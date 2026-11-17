@@ -60,13 +60,28 @@ function telefoneAceito(jid: string | null | undefined): string | null {
   return telefone && TELEFONE_VALIDO.test(telefone) ? telefone : null;
 }
 
-/** Segundos (número ou Long do protobuf) → ISO 8601; null se ausente ou inválido. */
+/** Conversa individual @lid com telefone conhecido usa o jid do telefone: uma conversa só por pessoa. */
+function jidPreferido(jid: string, telefoneAlternativo: string | null | undefined): string {
+  if (!jid.endsWith("@lid")) return jid;
+  const telefone = telefoneAceito(telefoneAlternativo);
+  return telefone ? `${telefone}@s.whatsapp.net` : jid;
+}
+
+/** Antes disso não há mensagem de WhatsApp. */
+const DATA_MINIMA_MS = Date.UTC(2009, 0, 1);
+const UM_DIA_MS = 86_400_000;
+
+/**
+ * Segundos (número ou Long do protobuf) → ISO 8601; null se ausente, inválido ou absurdo
+ * (antes de 2009 ou mais de 1 dia no futuro: escaparia da retenção ou nem passaria no esquema).
+ */
 function dataIso(segundos: WAMessage["messageTimestamp"]): string | null {
   if (segundos === null || segundos === undefined) return null;
   const valor = typeof segundos === "number" ? segundos : Number(segundos.toString());
-  if (!Number.isFinite(valor) || valor <= 0) return null;
-  const data = new Date(valor * 1000);
-  return Number.isNaN(data.getTime()) ? null : data.toISOString();
+  if (!Number.isFinite(valor)) return null;
+  const ms = valor * 1000;
+  if (ms < DATA_MINIMA_MS || ms > Date.now() + UM_DIA_MS) return null;
+  return new Date(ms).toISOString();
 }
 
 /** Corta e descarta texto vazio. */
@@ -89,7 +104,9 @@ function textoEResposta(
 
 /** Converte uma mensagem da Baileys; null para o que é ignorado ou não passaria no esquema. */
 export function converterMensagem(m: WAMessage): MensagemMotor | null {
-  const jid = jidAceito(m.key?.remoteJid);
+  const remoto = jidAceito(m.key?.remoteJid);
+  // senderPn de mensagem minha é o meu próprio número: só vale para mensagem recebida.
+  const jid = remoto && !m.key.fromMe ? jidPreferido(remoto, m.key.senderPn) : remoto;
   const idExterno = m.key?.id;
   const enviadaEm = dataIso(m.messageTimestamp);
   if (!jid || !idExterno || idExterno.length > MAX_ID || !enviadaEm) return null;
@@ -123,8 +140,9 @@ export function converterMensagem(m: WAMessage): MensagemMotor | null {
 /** Conversas a partir dos grupos (nome = assunto) e dos chats do histórico; um item por jid. */
 export function converterConversas(grupos: GroupMetadata[], chats: Chat[]): ConversaMotor[] {
   const porJid = new Map<string, ConversaMotor>();
-  const incluir = (id: string | null | undefined, nome: string | null | undefined) => {
-    const jid = jidAceito(id);
+  const incluir = (id: string | null | undefined, nome: string | null | undefined, pnJid?: string | null) => {
+    const aceito = jidAceito(id);
+    const jid = aceito ? jidPreferido(aceito, pnJid) : null;
     if (!jid || porJid.has(jid)) return;
     const conversa: ConversaMotor = { jid, tipo: jid.endsWith("@g.us") ? "grupo" : "individual" };
     const nomeFinal = cortado(nome?.trim(), MAX_NOME_CONVERSA);
@@ -132,7 +150,7 @@ export function converterConversas(grupos: GroupMetadata[], chats: Chat[]): Conv
     porJid.set(jid, conversa);
   };
   for (const g of grupos) incluir(g.id, g.subject);
-  for (const c of chats) incluir(c.id, c.name);
+  for (const c of chats) incluir(c.id, c.name, c.pnJid);
   return [...porJid.values()];
 }
 

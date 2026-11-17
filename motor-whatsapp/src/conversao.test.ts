@@ -136,6 +136,37 @@ describe("converterMensagem", () => {
     expect(converterMensagem(mensagem({ key: { id: "" }, message: { conversation: "oi" } }))).toBeNull();
     expect(converterMensagem(mensagem({ messageTimestamp: null, message: { conversation: "oi" } }))).toBeNull();
   });
+
+  it("data absurda é ignorada: antes de 2009 ou mais de 1 dia no futuro", () => {
+    const agora = Math.floor(Date.now() / 1000);
+    const com = (segundos: number) => converterMensagem(mensagem({ messageTimestamp: segundos, message: { conversation: "oi" } }));
+    expect(com(1_230_767_999)).toBeNull(); // 2008-12-31T23:59:59Z
+    expect(com(1_230_768_000)).not.toBeNull(); // 2009-01-01
+    expect(com(agora + 2 * 86_400)).toBeNull();
+    expect(com(agora + 3600)).not.toBeNull();
+    expect(com(300_000_000_000)).toBeNull(); // ano > 9999
+  });
+
+  it("conversa individual @lid com telefone do remetente vira a conversa do telefone", () => {
+    const m = converterMensagem(
+      mensagem({ key: { remoteJid: "123456789012345@lid", senderPn: CONTATO }, message: { conversation: "oi" } }),
+    );
+    expect(m).toMatchObject({ jid: CONTATO, autorJid: CONTATO, autorTelefone: "5562981707432" });
+  });
+
+  it("conversa @lid sem telefone válido continua @lid; mensagem minha não usa senderPn (é o meu número)", () => {
+    const semTelefone = converterMensagem(
+      mensagem({ key: { remoteJid: "123456789012345@lid", senderPn: "abc@s.whatsapp.net" }, message: { conversation: "oi" } }),
+    );
+    expect(semTelefone?.jid).toBe("123456789012345@lid");
+    const minha = converterMensagem(
+      mensagem({
+        key: { remoteJid: "123456789012345@lid", fromMe: true, senderPn: "5511999999999@s.whatsapp.net" },
+        message: { conversation: "oi" },
+      }),
+    );
+    expect(minha?.jid).toBe("123456789012345@lid");
+  });
 });
 
 describe("converterConversas", () => {
@@ -152,6 +183,17 @@ describe("converterConversas", () => {
       { jid: GRUPO, tipo: "grupo", nome: "Turma A" },
       { jid: CONTATO, tipo: "individual", nome: "Fulano" },
       { jid: "999@lid", tipo: "individual" },
+    ]);
+  });
+
+  it("chat @lid com pnJid válido usa o jid do telefone", () => {
+    const chats = [
+      { id: "123456789012345@lid", pnJid: CONTATO, name: "Fulano" },
+      { id: "999999999999999@lid", pnJid: "x@s.whatsapp.net" },
+    ] as Chat[];
+    expect(converterConversas([], chats)).toEqual([
+      { jid: CONTATO, tipo: "individual", nome: "Fulano" },
+      { jid: "999999999999999@lid", tipo: "individual" },
     ]);
   });
 

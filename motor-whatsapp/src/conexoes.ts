@@ -192,9 +192,18 @@ export class Conexoes {
       // Histórico pode chegar em várias partes: cada uma sai como vem.
       sock.ev.on("messaging-history.set", ({ chats, messages }) => {
         if (!atual()) return;
-        this.enviarConversas(numeroId, converterConversas([], chats ?? []));
-        const enviadas = this.enviarMensagens(numeroId, "historico", messages ?? []);
-        console.info(`[conexoes] ${numeroId}: ${enviadas} mensagens do histórico`);
+        // Formato inesperado não derruba o ouvinte: registra só o nome do erro e segue com o resto.
+        try {
+          this.enviarConversas(numeroId, converterConversas([], chats ?? []));
+        } catch (erro) {
+          console.error(`[conexoes] ${numeroId}: falha ao converter conversas do histórico (${nomeDoErro(erro)})`);
+        }
+        try {
+          const enviadas = this.enviarMensagens(numeroId, "historico", messages ?? []);
+          console.info(`[conexoes] ${numeroId}: ${enviadas} mensagens do histórico`);
+        } catch (erro) {
+          console.error(`[conexoes] ${numeroId}: falha ao converter mensagens do histórico (${nomeDoErro(erro)})`);
+        }
       });
       // "append" pode trazer mensagens antigas: vão como ao vivo (o sistema não duplica pelo idExterno).
       sock.ev.on("messages.upsert", ({ messages }) => {
