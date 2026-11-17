@@ -167,5 +167,19 @@
   }
   html {
     @apply font-sans;
+    /* Sem o flash cinza ao tocar em botões e links no celular. */
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Aberto como aplicativo (ícone da tela de início): sem o "elástico" que mostra o
+   fundo ao puxar a página além do fim, e sem segurar o dedo para abrir a prévia de links. */
+@media (display-mode: standalone) {
+  html,
+  body {
+    overscroll-behavior-y: none;
+  }
+  a {
+    -webkit-touch-callout: none;
   }
 }

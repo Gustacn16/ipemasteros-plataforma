@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ArrowLeftIcon,
   BriefcaseBusinessIcon,
   CalendarIcon,
   ClapperboardIcon,
@@ -13,8 +14,11 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
+import { AjudaInstalacao, AtalhoInstalar } from "@/componentes/atalho-instalar";
 import { SeletorTema } from "@/componentes/seletor-tema";
+import { useModoApp } from "@/componentes/use-instalacao";
 import { BarraLateral, ItemBarraLateral, TextoBarra, useBarraLateral } from "@/componentes/ui/barra-lateral";
 import { sairAcao } from "@/modulos/core/acoes/autenticacao";
 
@@ -43,7 +47,7 @@ function Logo(aberta: boolean) {
   );
 }
 
-function Rodape({ nome, papel }: { nome: string; papel: string }) {
+function Rodape({ nome, papel, aoPedirAjuda }: { nome: string; papel: string; aoPedirAjuda: () => void }) {
   const { aberta } = useBarraLateral();
   const iniciais = nome
     .split(" ")
@@ -63,6 +67,7 @@ function Rodape({ nome, papel }: { nome: string; papel: string }) {
           <span className="text-sidebar-foreground/60 truncate text-xs">{papel}</span>
         </TextoBarra>
       </div>
+      <AtalhoInstalar aoPedirAjuda={aoPedirAjuda} />
       <SeletorTema compacto={!aberta} />
       <form action={sairAcao}>
         <button
@@ -105,16 +110,40 @@ function SecaoAdmin({ admin }: { admin: ItemMenu[] }) {
   );
 }
 
+/**
+ * Aberto como aplicativo (ícone da tela de início) não existe o Voltar do
+ * navegador: dentro de uma página interna (ex.: /tarefas/listas/x), mostra uma seta.
+ */
+function BotaoVoltar() {
+  const modoApp = useModoApp();
+  const caminho = usePathname();
+  const router = useRouter();
+  if (!modoApp || caminho.split("/").filter(Boolean).length < 2) return null;
+  return (
+    <button type="button" aria-label="Voltar" onClick={() => router.back()} className="hover:bg-sidebar-accent -ml-2 rounded-md p-2">
+      <ArrowLeftIcon className="size-5" />
+    </button>
+  );
+}
+
 type Props = { modulos: ItemMenu[]; admin: ItemMenu[]; usuario: { nome: string; papel: string } };
 
 /** Menu principal da plataforma (barra lateral recolhível; no celular, menu em tela cheia). */
 export function MenuNavegacao({ modulos, admin, usuario }: Props) {
+  const [ajudaInstalar, setAjudaInstalar] = useState(false);
   return (
-    <BarraLateral logo={Logo} rodape={<Rodape {...usuario} />}>
-      <nav aria-label="Módulos">
-        <Itens itens={modulos} />
-        {admin.length > 0 && <SecaoAdmin admin={admin} />}
-      </nav>
-    </BarraLateral>
+    <>
+      <BarraLateral
+        logo={Logo}
+        voltar={<BotaoVoltar />}
+        rodape={<Rodape {...usuario} aoPedirAjuda={() => setAjudaInstalar(true)} />}
+      >
+        <nav aria-label="Módulos">
+          <Itens itens={modulos} />
+          {admin.length > 0 && <SecaoAdmin admin={admin} />}
+        </nav>
+      </BarraLateral>
+      <AjudaInstalacao aberta={ajudaInstalar} aoMudar={setAjudaInstalar} />
+    </>
   );
 }

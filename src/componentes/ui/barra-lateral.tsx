@@ -34,6 +34,8 @@ type Props = {
   children: React.ReactNode;
   rodape?: React.ReactNode;
   rotulo?: string;
+  /** Celular: botão antes do logo na barra superior (ex.: Voltar no modo aplicativo). */
+  voltar?: React.ReactNode;
 };
 
 export function BarraLateral(props: Props) {
@@ -75,7 +77,7 @@ function BarraDesktop({ logo, children, rodape, rotulo = "Principal" }: Props) {
   );
 }
 
-function BarraMovel({ logo, children, rodape, rotulo = "Principal" }: Props) {
+function BarraMovel({ logo, children, rodape, voltar, rotulo = "Principal" }: Props) {
   const [aberta, setAberta] = useState(false);
   const semAnimacao = useReducedMotion();
   const fechar = () => setAberta(false);
@@ -94,8 +96,11 @@ function BarraMovel({ logo, children, rodape, rotulo = "Principal" }: Props) {
 
   return (
     <ContextoBarra.Provider value={{ aberta: true, fecharMovel: fechar }}>
-      <div className="bg-sidebar text-sidebar-foreground sticky top-0 z-30 flex h-14 items-center justify-between px-4 md:hidden">
-        {logo(false)}
+      <div className="bg-sidebar text-sidebar-foreground sticky top-0 z-30 flex h-14 items-center justify-between pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] md:hidden">
+        <div className="flex items-center gap-1">
+          {voltar}
+          {logo(false)}
+        </div>
         <button
           type="button"
           aria-label="Abrir menu"
@@ -118,7 +123,7 @@ function BarraMovel({ logo, children, rodape, rotulo = "Principal" }: Props) {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: "-100%", opacity: 0 }}
             transition={{ duration: semAnimacao ? 0 : 0.25, ease: "easeInOut" }}
-            className="bg-sidebar text-sidebar-foreground fixed inset-0 z-[100] flex flex-col gap-6 overflow-y-auto p-6 md:hidden"
+            className="bg-sidebar text-sidebar-foreground fixed inset-0 z-[100] flex flex-col gap-6 overflow-y-auto overscroll-contain p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:hidden"
           >
             <div className="flex items-center justify-between">
               {logo(true)}

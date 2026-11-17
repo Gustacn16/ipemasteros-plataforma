@@ -21,7 +21,7 @@ export default async function LayoutApp({ children }: { children: React.ReactNod
   return (
     <div className="flex min-h-full flex-1 flex-col md:flex-row">
       <MenuNavegacao modulos={modulos} admin={admin} usuario={{ nome: usuario.nome, papel: ROTULO_PAPEL[usuario.papel] }} />
-      <main className="flex min-w-0 flex-1 flex-col p-4 md:p-8">{children}</main>
+      <main className="flex min-w-0 flex-1 flex-col p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:p-8 md:pb-8">{children}</main>
     </div>
   );
 }
