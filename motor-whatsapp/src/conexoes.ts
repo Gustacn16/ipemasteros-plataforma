@@ -156,6 +156,8 @@ export class Conexoes {
 
       // Eventos de um socket que já foi substituído ou encerrado não contam.
       const atual = () => this.vigente(numeroId, vaga) && vaga.sock === sock;
+      // Se esta tentativa chegou a mostrar QR: sem QR, a queda é falha ao abrir, não QR não lido.
+      let qrEmitido = false;
 
       sock.ev.on("creds.update", () => {
         if (!atual()) return;
@@ -166,6 +168,7 @@ export class Conexoes {
       sock.ev.on("connection.update", (u) => {
         if (!atual()) return;
         if (u.qr) {
+          qrEmitido = true;
           this.opcoes.aoEvento({ tipo: "qr", numeroId, qr: u.qr });
           console.info(`[conexoes] ${numeroId}: QR novo`);
         }
@@ -176,7 +179,7 @@ export class Conexoes {
         }
         if (u.connection === "close") {
           const status = statusDoErro(u.lastDisconnect?.error);
-          this.aoFechar(numeroId, vaga, status, Boolean(state.creds.me)).catch((erro: unknown) =>
+          this.aoFechar(numeroId, vaga, status, Boolean(state.creds.me), qrEmitido).catch((erro: unknown) =>
             console.error(`[conexoes] ${numeroId}: falha ao tratar queda (${nomeDoErro(erro)})`),
           );
         }
@@ -191,6 +194,7 @@ export class Conexoes {
     vaga: Vaga,
     status: number | undefined,
     pareada: boolean,
+    qrEmitido: boolean,
   ): Promise<void> {
     vaga.sock = null;
     vaga.aberta = false;
@@ -223,12 +227,26 @@ export class Conexoes {
       return;
     }
 
-    // QR nunca lido e as tentativas de QR acabaram: não fica gerando QR sem fim.
-    // A tela mostra "O QR expirou" e o usuário clica em Conectar de novo.
+    // Vaga sem pareamento não reconecta sozinha: não fica gerando QR sem fim.
     if (!pareada) {
       this.vagas.delete(numeroId);
+      if (!qrEmitido) {
+        // Caiu antes de qualquer QR (405, rede, tempo esgotado): sem aviso a tela ficaria
+        // esperando um QR que não vem.
+        this.opcoes.aoEvento({
+          tipo: "desconectado",
+          numeroId,
+          motivo: "erro",
+          detalhe: `Não foi possível abrir a conexão (status ${status ?? "?"}).`,
+        });
+      }
       await this.apagarSessao(numeroId);
-      console.info(`[conexoes] ${numeroId}: QR não lido; aguardando novo pedido de conexão`);
+      // QR mostrado e não lido: a tela mostra "O QR expirou" e o usuário clica em Conectar de novo.
+      console.info(
+        qrEmitido
+          ? `[conexoes] ${numeroId}: QR não lido (status ${status ?? "?"}); aguardando novo pedido de conexão`
+          : `[conexoes] ${numeroId}: conexão não abriu (status ${status ?? "?"}); aguardando novo pedido de conexão`,
+      );
       return;
     }
 

@@ -175,6 +175,34 @@ describe("Conexoes", () => {
     ]);
   });
 
+  it("vaga sem pareamento que fecha antes de qualquer QR avisa erro com o status", async () => {
+    vi.useFakeTimers();
+    baileys.creds.me = undefined;
+    await conexoes.conectar("vaga1");
+    fechar(baileys.sockets[0], 405);
+    await vi.advanceTimersByTimeAsync(300_000);
+    expect(baileys.makeWASocket).toHaveBeenCalledTimes(1);
+    expect(eventos).toEqual([
+      { tipo: "desconectado", numeroId: "vaga1", motivo: "erro", detalhe: "Não foi possível abrir a conexão (status 405)." },
+    ]);
+    expect(conexoes.conectados()).toEqual([]);
+  });
+
+  it("vaga sem pareamento que fecha depois do QR não lido só para, sem evento de erro", async () => {
+    vi.useFakeTimers();
+    baileys.creds.me = undefined;
+    await conexoes.conectar("vaga1");
+    baileys.sockets[0].emitir("connection.update", { qr: "QR1" });
+    fechar(baileys.sockets[0], DisconnectReason.timedOut);
+    // O aviso sai depois de apagar a pasta (disco de verdade), então espera por ele.
+    await vi.waitFor(() =>
+      expect(console.info).toHaveBeenCalledWith(expect.stringContaining(`status ${DisconnectReason.timedOut}`)),
+    );
+    await vi.advanceTimersByTimeAsync(300_000);
+    expect(baileys.makeWASocket).toHaveBeenCalledTimes(1);
+    expect(eventos).toEqual([{ tipo: "qr", numeroId: "vaga1", qr: "QR1" }]);
+  });
+
   it("se reabrir falha, agenda nova tentativa com espera maior", async () => {
     vi.useFakeTimers();
     await conexoes.conectar("vaga1");
