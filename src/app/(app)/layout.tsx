@@ -16,6 +16,7 @@ export default async function LayoutApp({ children }: { children: React.ReactNod
   const admin: ItemMenu[] = [
     ...(temPermissao(usuario.papel, "core:ver_usuarios") ? [{ href: "/admin/usuarios", rotulo: "Usuários", icone: "usuarios" } as const] : []),
     ...(temPermissao(usuario.papel, "core:ver_auditoria") ? [{ href: "/admin/auditoria", rotulo: "Auditoria", icone: "auditoria" } as const] : []),
+    ...(temPermissao(usuario.papel, "nexu:configurar") ? [{ href: "/admin/nexu", rotulo: "Nexu", icone: "nexu" } as const] : []),
   ];
 
   return (

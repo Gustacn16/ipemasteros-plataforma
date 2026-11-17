@@ -10,6 +10,7 @@ import {
   ListChecksIcon,
   LogOutIcon,
   ShieldCheckIcon,
+  SparklesIcon,
   UsersIcon,
 } from "lucide-react";
 import Image from "next/image";
@@ -31,6 +32,7 @@ const ICONES = {
   comercial: <BriefcaseBusinessIcon />,
   usuarios: <UsersIcon />,
   auditoria: <ShieldCheckIcon />,
+  nexu: <SparklesIcon />,
 };
 
 export type ItemMenu = { href: string; rotulo: string; icone: keyof typeof ICONES; emBreve?: boolean };
