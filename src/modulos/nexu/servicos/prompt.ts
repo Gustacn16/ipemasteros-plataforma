@@ -86,18 +86,38 @@ function idsDeToolResult(m: Anthropic.MessageParam | undefined): Set<string> {
   return new Set(m.content.flatMap((b) => (b.type === "tool_result" ? [b.tool_use_id] : [])));
 }
 
+function temToolResult(m: Anthropic.MessageParam | undefined): boolean {
+  return idsDeToolResult(m).size > 0;
+}
+
 /**
- * Remove do fim os turnos de assistente com tool_use sem o tool_result correspondente
- * (pergunta interrompida no meio). Sem isso, a API recusaria o próximo pedido.
+ * Remove os turnos de ferramenta incompletos, em qualquer ponto do histórico: o assistente com tool_use sem
+ * todos os tool_result na mensagem seguinte sai, e a mensagem de tool_result parcial dele também. Uma mensagem
+ * de tool_result sem o tool_use correspondente logo antes sai também. Tudo o que vem depois é mantido.
+ * Sem isso, a API recusaria o próximo pedido.
  */
 export function tiraTurnoIncompleto(historico: Anthropic.MessageParam[]): Anthropic.MessageParam[] {
-  const h = [...historico];
-  for (let i = h.length - 1; i >= 0; i--) {
-    const usos = idsDeToolUse(h[i]);
-    if (usos.length === 0) continue;
-    const respostas = idsDeToolResult(h[i + 1]);
-    if (usos.every((id) => respostas.has(id))) break;
-    h.splice(i);
+  const saida: Anthropic.MessageParam[] = [];
+  for (let i = 0; i < historico.length; i++) {
+    const m = historico[i];
+    const usos = idsDeToolUse(m);
+    if (usos.length > 0) {
+      const respostas = idsDeToolResult(historico[i + 1]);
+      if (!usos.every((id) => respostas.has(id))) {
+        if (temToolResult(historico[i + 1])) i++; // pula também o tool_result parcial
+        continue;
+      }
+    } else if (temToolResult(m)) {
+      const anterior = saida.at(-1);
+      const esperados = new Set(anterior ? idsDeToolUse(anterior) : []);
+      if (![...idsDeToolResult(m)].every((id) => esperados.has(id))) continue;
+    }
+    saida.push(m);
   }
-  return h;
+  return saida;
+}
+
+/** Tira mensagens sem conteúdo: a API recusa um assistente vazio no meio do histórico. */
+export function semMensagensVazias(historico: Anthropic.MessageParam[]): Anthropic.MessageParam[] {
+  return historico.filter((m) => (typeof m.content === "string" ? m.content.trim() !== "" : m.content.length > 0));
 }

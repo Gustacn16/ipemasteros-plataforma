@@ -1,6 +1,6 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { describe, expect, it } from "vitest";
-import { ehPerguntaDoUsuario, montarPedido, PROMPT_SISTEMA, tiraTurnoIncompleto } from "./prompt";
+import { ehPerguntaDoUsuario, montarPedido, PROMPT_SISTEMA, semMensagensVazias, tiraTurnoIncompleto } from "./prompt";
 
 const ferramentas: Anthropic.Tool[] = [
   { name: "a", description: "A", input_schema: { type: "object" } },
@@ -94,5 +94,34 @@ describe("tiraTurnoIncompleto", () => {
   it("mantém um histórico que termina no tool_result", () => {
     const h = [pergunta, usoFerramenta, resultado];
     expect(tiraTurnoIncompleto(h)).toEqual(h);
+  });
+
+  it("turno pendente no meio: remove só ele e mantém o que vem depois", () => {
+    const outra: Anthropic.MessageParam = { role: "user", content: [{ type: "text", text: "outra" }] };
+    expect(tiraTurnoIncompleto([pergunta, usoFerramenta, outra, resposta])).toEqual([pergunta, outra, resposta]);
+  });
+
+  it("tool_result parcial: remove o assistente e o resultado parcial, mantém o resto", () => {
+    const dois: Anthropic.MessageParam = {
+      role: "assistant",
+      content: [
+        { type: "tool_use", id: "t1", name: "a", input: {} },
+        { type: "tool_use", id: "t2", name: "a", input: {} },
+      ],
+    };
+    const outra: Anthropic.MessageParam = { role: "user", content: [{ type: "text", text: "outra" }] };
+    expect(tiraTurnoIncompleto([pergunta, dois, resultado, outra, resposta])).toEqual([pergunta, outra, resposta]);
+  });
+
+  it("tool_result sem o tool_use antes é removido", () => {
+    expect(tiraTurnoIncompleto([pergunta, resultado, resposta])).toEqual([pergunta, resposta]);
+  });
+});
+
+describe("semMensagensVazias", () => {
+  it("tira mensagens com conteúdo vazio", () => {
+    const vazio: Anthropic.MessageParam = { role: "assistant", content: [] };
+    const ok: Anthropic.MessageParam = { role: "user", content: [{ type: "text", text: "oi" }] };
+    expect(semMensagensVazias([ok, vazio, ok])).toEqual([ok, ok]);
   });
 });

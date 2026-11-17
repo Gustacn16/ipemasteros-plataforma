@@ -212,7 +212,14 @@ describe("executarPergunta", () => {
     const { cliente, pedidos } = clienteFalso(roteiro);
     const eventos = await rodar(cliente);
     expect(pedidos).toHaveLength(10);
-    expect(eventos.at(-1)?.tipo).toBe("fim");
+    expect(eventos.slice(-2)).toEqual([
+      { tipo: "texto", texto: "Não consegui terminar a consulta. Tente uma pergunta mais específica." },
+      { tipo: "fim", restantesHoje: 49 },
+    ]);
+    // O último tool_use foi gravado junto com o tool_result de erro: nada pendente no banco.
+    const { tiraTurnoIncompleto } = await import("./prompt");
+    const gravadas = banco.estado.mensagens.map((m) => ({ role: m.papel === "usuario" ? "user" : "assistant", content: m.conteudo }));
+    expect(tiraTurnoIncompleto(gravadas as Anthropic.MessageParam[])).toHaveLength(gravadas.length);
   });
 
   it("(d) APIError 529 na 1ª chamada: erro, nenhum UsoIa, nada gravado", async () => {
@@ -326,5 +333,59 @@ describe("executarPergunta", () => {
     const eventos = await rodar(cliente, { conversaId: "cy" });
     expect(eventos).toEqual([{ tipo: "erro", mensagem: "Não encontrado." }]);
     expect(pedidos).toHaveLength(0);
+  });
+
+  it("timeout (APIUserAbortError) na 1ª chamada: erro indisponível e nada gravado", async () => {
+    const { cliente } = clienteFalso([new Anthropic.APIUserAbortError()]);
+    const eventos = await rodar(cliente);
+    expect(eventos).toEqual([{ tipo: "erro", mensagem: "O Nexu está indisponível agora, tente de novo em instantes." }]);
+    expect(banco.estado.mensagens).toEqual([]);
+  });
+
+  it("timeout depois de uma ferramenta: o que ficou gravado está completo (sem tool_use pendente)", async () => {
+    const { cliente } = clienteFalso([resposta([usoDe("t1")], "tool_use"), new Anthropic.APIUserAbortError()]);
+    const eventos = await rodar(cliente);
+    expect(eventos.at(-1)).toEqual({ tipo: "erro", mensagem: "O Nexu está indisponível agora, tente de novo em instantes." });
+    expect(banco.estado.mensagens.map((m) => m.papel)).toEqual(["usuario", "assistente", "usuario"]);
+    expect((banco.estado.mensagens[2].conteudo as { tool_use_id: string }[])[0].tool_use_id).toBe("t1");
+  });
+
+  it("tela fecha durante 'consultando': nenhum tool_use fica gravado sem resposta", async () => {
+    const { cliente } = clienteFalso([resposta([usoDe("t1")], "tool_use"), resposta([texto("ok")])]);
+    const gerador = executarPergunta({ ator, conversaId: null, pergunta: "Quais tarefas?", tela: null, cliente });
+    for (;;) {
+      const { value, done } = await gerador.next();
+      if (done || value.tipo === "consultando") break;
+    }
+    await gerador.return(undefined);
+    expect(banco.estado.mensagens).toEqual([]);
+  });
+
+  it("2ª pergunta depois de uma recusa vazia: nenhum assistente vazio é reenviado", async () => {
+    const primeiro = clienteFalso([resposta([], "refusal")]);
+    await rodar(primeiro.cliente);
+    expect(banco.estado.mensagens.map((m) => m.papel)).toEqual(["usuario"]);
+    const conversaId = banco.estado.conversas[0].id;
+    const segundo = clienteFalso([resposta([texto("ok")])]);
+    await rodar(segundo.cliente, { conversaId, pergunta: "Outra coisa" });
+    const enviadas = segundo.pedidos[0].messages;
+    expect(enviadas.every((m) => Array.isArray(m.content) && m.content.length > 0)).toBe(true);
+    expect(enviadas.map((m) => m.role)).toEqual(["user", "user"]);
+  });
+
+  it("histórico com turno pendente no meio: só ele sai, o resto é reenviado", async () => {
+    banco.estado.conversas.push({ id: "cz", usuarioId: "u1", titulo: "t", atualizadoEm: new Date() });
+    const q1 = [{ type: "text", text: "q1" }];
+    const q2 = [{ type: "text", text: "q2" }];
+    banco.estado.mensagens.push(
+      { id: "1", conversaId: "cz", papel: "usuario", conteudo: q1, ordem: 1 },
+      { id: "2", conversaId: "cz", papel: "assistente", conteudo: [usoDe("tp")], ordem: 2 },
+      { id: "3", conversaId: "cz", papel: "usuario", conteudo: q2, ordem: 3 },
+      { id: "4", conversaId: "cz", papel: "assistente", conteudo: [texto("r2")], ordem: 4 },
+    );
+    const { cliente, pedidos } = clienteFalso([resposta([texto("ok")])]);
+    await rodar(cliente, { conversaId: "cz" });
+    expect(pedidos[0].messages.slice(0, 3).map((m) => m.content)).toEqual([q1, q2, [texto("r2")]]);
+    expect(pedidos[0].messages).toHaveLength(4);
   });
 });

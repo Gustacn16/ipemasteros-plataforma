@@ -9,8 +9,8 @@ import type { UsuarioAtual } from "@/lib/sessao";
 import { ferramentasDoPapel, paraFerramentaApi } from "../ferramentas/registro";
 import type { FerramentaNexu } from "../ferramentas/tipos";
 import type { EventoNexu } from "../tipos";
-import { anexarMensagens, contarPerguntasNasMensagens, criarConversa, obterConversa } from "./conversas";
-import { montarPedido, tiraTurnoIncompleto } from "./prompt";
+import { anexarMensagens, contarPerguntasNasMensagens, criarConversa, obterConversa, type MensagemParaGravar } from "./conversas";
+import { montarPedido, semMensagensVazias, tiraTurnoIncompleto } from "./prompt";
 
 export type { EventoNexu } from "../tipos";
 
@@ -26,6 +26,7 @@ export const TEXTOS = {
   recusa: "Não consegui responder a isso. Tente reformular.",
   conversaLonga: "Esta conversa ficou longa. Comece uma nova conversa para continuar.",
   respostaCortada: "\n\n_(resposta cortada)_",
+  consultaInacabada: "Não consegui terminar a consulta. Tente uma pergunta mais específica.",
 } as const;
 
 const ERRO_LIMITE_FERRAMENTAS = "limite de consultas desta pergunta atingido; responda com o que já tem";
@@ -121,10 +122,12 @@ export async function* executarPergunta(e: {
       return;
     }
     historico = tiraTurnoIncompleto(
-      conversa.mensagens.map((m) => ({
-        role: m.papel === "usuario" ? "user" : "assistant",
-        content: m.conteudo as unknown as Anthropic.ContentBlockParam[],
-      })),
+      semMensagensVazias(
+        conversa.mensagens.map((m) => ({
+          role: m.papel === "usuario" ? "user" : "assistant",
+          content: m.conteudo as unknown as Anthropic.ContentBlockParam[],
+        })),
+      ),
     );
   }
 
@@ -162,15 +165,18 @@ export async function* executarPergunta(e: {
         conversaId = (await criarConversa(ator, pergunta)).id;
         yield { tipo: "conversa", conversaId };
       }
-      // A pergunta só é gravada depois que a 1ª resposta chega; o conteúdo do assistente vai sem alterações.
-      await anexarMensagens(conversaId, [
-        ...(primeira ? [{ papel: "usuario" as const, conteudo: mensagemPergunta.content }] : []),
-        { papel: "assistente", conteudo: resposta.content },
-      ]);
+      // A pergunta só é gravada depois que a 1ª resposta chega, junto com ela. O assistente vai sem alterações;
+      // um assistente com tool_use só é gravado junto com os seus tool_result (nunca fica turno pendente no banco).
+      const lote: MensagemParaGravar[] = primeira ? [{ papel: "usuario", conteudo: mensagemPergunta.content }] : [];
       primeira = false;
-      mensagens.push({ role: "assistant", content: resposta.content as unknown as Anthropic.ContentBlockParam[] });
+      // Conteúdo vazio (ex.: refusal sem texto) não é gravado nem reenviado: a API recusa assistente vazio no meio do histórico.
+      if (resposta.content.length > 0) {
+        lote.push({ papel: "assistente", conteudo: resposta.content });
+        mensagens.push({ role: "assistant", content: resposta.content as unknown as Anthropic.ContentBlockParam[] });
+      }
 
       if (resposta.stop_reason !== "tool_use") {
+        await anexarMensagens(conversaId, lote);
         if (resposta.stop_reason === "refusal") yield { tipo: "texto", texto: TEXTOS.recusa };
         if (resposta.stop_reason === "max_tokens") yield { tipo: "texto", texto: TEXTOS.respostaCortada };
         break;
@@ -188,14 +194,18 @@ export async function* executarPergunta(e: {
       }
       const idConversa = conversaId;
       const executados = await Promise.all(aExecutar.map((uso) => rodarFerramenta(porNome.get(uso.name), uso, ator, idConversa)));
-      for (const r of executados) for (const ev of r.eventos) yield ev;
 
       const blocos = [...executados.map((r) => r.bloco), ...excedentes.map((u) => blocoDeErro(u.id, ERRO_LIMITE_FERRAMENTAS))];
+      lote.push({ papel: "usuario", conteudo: blocos });
       mensagens.push({ role: "user", content: blocos });
-      await anexarMensagens(conversaId, [{ papel: "usuario", conteudo: blocos }]);
+      await anexarMensagens(conversaId, lote);
+      for (const r of executados) for (const ev of r.eventos) yield ev;
 
-      // Passou do limite: uma última chamada para a resposta final. Se ela ainda pedir ferramenta, para aqui.
-      if (encerrando) break;
+      // Passou do limite: uma última chamada para a resposta final. Se ela ainda pedir ferramenta, para aqui com um aviso.
+      if (encerrando) {
+        yield { tipo: "texto", texto: TEXTOS.consultaInacabada };
+        break;
+      }
       if (excedentes.length > 0) encerrando = true;
     }
   } catch (erro) {
