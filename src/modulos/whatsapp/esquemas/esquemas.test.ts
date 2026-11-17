@@ -57,3 +57,40 @@ describe("esquemaLoteEventos", () => {
     expect(esquemaLoteEventos.safeParse({ eventos: Array(501).fill(ev) }).success).toBe(false);
   });
 });
+
+describe("eventos conversas e mensagens", () => {
+  const msg = { idExterno: "m1", jid: "120363@g.us", deMim: false, tipo: "texto", enviadaEm: "2026-11-17T12:00:00.000Z" };
+  const evMsg = (mensagens: unknown[], extra: object = {}) =>
+    esquemaEventoMotor.safeParse({ tipo: "mensagens", numeroId: "n1", origem: "ao_vivo", mensagens, ...extra });
+  it("conversas válido passa", () => {
+    const r = esquemaEventoMotor.safeParse({
+      tipo: "conversas",
+      numeroId: "n1",
+      conversas: [{ jid: "120363@g.us", tipo: "grupo", nome: "Turma" }, { jid: "5562981707432@s.whatsapp.net", tipo: "individual" }, { jid: "123@lid", tipo: "individual" }],
+    });
+    expect(r.success).toBe(true);
+  });
+  it("mensagens válido passa", () => {
+    expect(evMsg([{ ...msg, texto: "oi", autorTelefone: "5562981707432", autorNome: "Ana" }]).success).toBe(true);
+  });
+  it("101 mensagens falha", () => {
+    expect(evMsg(Array(101).fill(msg)).success).toBe(false);
+    expect(evMsg(Array(100).fill(msg)).success).toBe(true);
+  });
+  it("texto com 4001 caracteres falha", () => {
+    expect(evMsg([{ ...msg, texto: "a".repeat(4001) }]).success).toBe(false);
+    expect(evMsg([{ ...msg, texto: "a".repeat(4000) }]).success).toBe(true);
+  });
+  it("jid status@broadcast falha", () => {
+    expect(evMsg([{ ...msg, jid: "status@broadcast" }]).success).toBe(false);
+  });
+  it("enviadaEm não-ISO falha", () => {
+    expect(evMsg([{ ...msg, enviadaEm: "ontem" }]).success).toBe(false);
+  });
+  it("autorTelefone com espaço falha", () => {
+    expect(evMsg([{ ...msg, autorTelefone: "62 9999" }]).success).toBe(false);
+  });
+  it("tipo de mensagem desconhecido falha", () => {
+    expect(evMsg([{ ...msg, tipo: "reacao" }]).success).toBe(false);
+  });
+});

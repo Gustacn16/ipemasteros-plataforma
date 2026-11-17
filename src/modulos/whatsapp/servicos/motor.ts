@@ -34,6 +34,11 @@ export async function aplicarEventos(
       aplicados++;
       continue;
     }
+    if (ev.tipo === "conversas" || ev.tipo === "mensagens") {
+      // Captura de conversas e mensagens entra em tarefa própria; até lá o evento é aceito e ignorado.
+      ignorados++;
+      continue;
+    }
     const numero = await prisma.numeroWhatsapp.findUnique({ where: { id: ev.numeroId }, select: { id: true, excluidoEm: true } });
     if (!numero || numero.excluidoEm) {
       ignorados++;
