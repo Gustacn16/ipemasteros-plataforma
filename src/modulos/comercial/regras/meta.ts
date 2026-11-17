@@ -55,6 +55,17 @@ export function metasParaCopiar(
 
 const centavos = (v: string) => Math.round(Number(v) * 100);
 
+/** Valor da meta: quantidade × preço do produto, em centavos. Produto sem preço vale zero. */
+export function valorDaMeta(preco: string | null, quantidade: number): string {
+  return ((centavos(preco ?? "0") * quantidade) / 100).toFixed(2);
+}
+
+/** Preço de um produto para as metas: o preço cheio da oferta padrão (sem padrão, a primeira oferta). */
+export function precoDoProduto(ofertas: { padrao: boolean; ordem: number; precoCheio: string }[]): string | null {
+  const oferta = ofertas.find((o) => o.padrao) ?? [...ofertas].sort((a, b) => a.ordem - b.ordem)[0];
+  return oferta?.precoCheio ?? null;
+}
+
 /** Totais das metas por produto, por vendedor e no geral, somados em centavos. */
 export function totaisMetas(metas: MetaChave[]): { porProduto: Record<string, Total>; porVendedor: Record<string, Total>; geral: Total } {
   const somar = (grupos: Map<string, { c: number; q: number }>, id: string, m: MetaChave) => {

@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { lerReais } from "@/lib/dinheiro";
 import { mesAtual } from "../regras/meta";
 
 /** "AAAA-MM" com mês 01–12. */
@@ -8,19 +7,9 @@ const FORMATO_MES = /^(20[2-9]\d|2100)-(0[1-9]|1[0-2])$/;
 /** Mês vindo da URL; inválido ou ausente vira o mês atual em São Paulo. */
 export const esquemaMes = (agora: Date) => z.string().regex(FORMATO_MES).catch(mesAtual(agora));
 
+/** Uma linha por vendedor: só a quantidade. O valor é calculado no servidor (quantidade × preço do produto). */
 const linhaMeta = z.object({
   vendedorId: z.string().min(1),
-  valorAlvo: z
-    .string()
-    .optional()
-    .transform((v, ctx) => {
-      const valor = lerReais(v?.trim() ? v : "0");
-      if (valor === null) {
-        ctx.addIssue({ code: "custom", message: "Valor inválido" });
-        return z.NEVER;
-      }
-      return valor;
-    }),
   quantidadeAlvo: z
     .string()
     .trim()

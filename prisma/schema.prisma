@@ -792,6 +792,7 @@ model Venda {
   /// Sempre recalculado no servidor: entrada + parcelas × valor da parcela.
   valorTotal         Decimal         @map("valor_total") @db.Decimal(12, 2)
   observacoes        String?         @db.Text
+  proximosPassos     String?         @map("proximos_passos") @db.Text
   criadoPorId        String          @map("criado_por_id")
   excluidoEm         DateTime?       @map("excluido_em")
   criadoEm           DateTime        @default(now()) @map("criado_em")

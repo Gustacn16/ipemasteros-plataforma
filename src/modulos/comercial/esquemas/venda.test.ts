@@ -19,7 +19,7 @@ const erroEm = (dados: Record<string, unknown>, campo: string) => {
 
 describe("esquemaVenda", () => {
   it("lê valores, parcelas e campos vazios", () => {
-    const v = esquemaVenda.parse({ ...base, ofertaId: "", canalId: "", whatsappCliente: "", observacoes: "" });
+    const v = esquemaVenda.parse({ ...base, ofertaId: "", canalId: "", whatsappCliente: "", observacoes: "", proximosPassos: " " });
     expect(v).toMatchObject({
       entrada: "2000.00",
       numeroParcelas: 12,
@@ -28,8 +28,16 @@ describe("esquemaVenda", () => {
       canalId: null,
       whatsappCliente: null,
       observacoes: null,
+      proximosPassos: null,
       dataEntradaLead: null,
     });
+  });
+
+  it("guarda os próximos passos sem espaços nas pontas, até 2000 caracteres", () => {
+    expect(esquemaVenda.parse({ ...base, proximosPassos: "  Enviar contrato até sexta " }).proximosPassos).toBe(
+      "Enviar contrato até sexta",
+    );
+    expect(erroEm({ ...base, proximosPassos: "x".repeat(2001) }, "proximosPassos")).toBe("Use até 2000 caracteres");
   });
 
   it("guarda o WhatsApp só com dígitos, sem o 55", () => {

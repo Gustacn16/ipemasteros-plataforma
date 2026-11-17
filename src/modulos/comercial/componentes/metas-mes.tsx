@@ -6,32 +6,29 @@ import { useActionState, useState, useTransition } from "react";
 import { Button } from "@/componentes/ui/button";
 import { Input } from "@/componentes/ui/input";
 import type { EstadoAcao } from "@/lib/acoes";
-import { formatarReais, lerReais } from "@/lib/dinheiro";
+import { formatarReais } from "@/lib/dinheiro";
 import { cn } from "@/lib/utils";
 import { avisar } from "@/modulos/tarefas/componentes/avisar";
 import { copiarMetasAcao, salvarMetasProdutoAcao } from "../acoes/metas";
 import { ROTULO_TIPO_PRODUTO, type TipoProduto } from "../esquemas/produto";
-import { totaisMetas } from "../regras/meta";
+import { totaisMetas, valorDaMeta } from "../regras/meta";
 import type { MetasDoMes } from "../servicos/metas";
 import { SeloInativo } from "./exibicao";
 
 const PRATELEIRAS: readonly TipoProduto[] = ["pos_graduacao", "curso_livre", "paciente_modelo"];
 
-/** "360000.00" → "360.000,00" para o campo; zero vira vazio. */
-const paraCampo = (v: string) => (Number(v) === 0 ? "" : formatarReais(v).replace("R$ ", ""));
-
 type Produto = MetasDoMes["produtos"][number];
-type Linha = { valor: string; quantidade: string };
 
 function CartaoMetas({ dados, produto }: { dados: MetasDoMes; produto: Produto }) {
   const router = useRouter();
   const doProduto = dados.metas.filter((m) => m.produtoId === produto.id);
+  // Só a quantidade é digitada; o valor é quantidade × preço do produto.
   const inicial = Object.fromEntries(
     dados.vendedores.map((v) => {
       const meta = doProduto.find((m) => m.vendedorId === v.id);
-      return [v.id, { valor: meta ? paraCampo(meta.valorAlvo) : "", quantidade: meta?.quantidadeAlvo ? String(meta.quantidadeAlvo) : "" }];
+      return [v.id, meta?.quantidadeAlvo ? String(meta.quantidadeAlvo) : ""];
     }),
-  ) as Record<string, Linha>;
+  ) as Record<string, string>;
   const [linhas, setLinhas] = useState(inicial);
   const [estado, executar, salvando] = useActionState(
     async (anterior: EstadoAcao, formData: FormData) => {
@@ -42,25 +39,33 @@ function CartaoMetas({ dados, produto }: { dados: MetasDoMes; produto: Produto }
     { ok: false },
   );
 
-  // Total ao vivo do cartão; valor inválido conta zero até ser corrigido.
+  const quantidade = (id: string) => Math.max(0, Math.trunc(Number(linhas[id]) || 0));
+  const valor = (id: string) => valorDaMeta(produto.preco, quantidade(id));
+  // Total ao vivo do cartão; quantidade inválida conta zero até ser corrigida.
   const total = totaisMetas(
-    Object.entries(linhas).map(([vendedorId, l]) => ({
+    Object.keys(linhas).map((vendedorId) => ({
       produtoId: produto.id,
       vendedorId,
-      valorAlvo: lerReais(l.valor || "0") ?? "0",
-      quantidadeAlvo: Math.max(0, Math.trunc(Number(l.quantidade) || 0)),
+      valorAlvo: valor(vendedorId),
+      quantidadeAlvo: quantidade(vendedorId),
     })),
   ).geral;
   const vendedores = dados.podeEditar ? dados.vendedores : dados.vendedores.filter((v) => doProduto.some((m) => m.vendedorId === v.id));
-  const mudar = (id: string, campo: keyof Linha, valor: string) =>
-    setLinhas((atual) => ({ ...atual, [id]: { ...atual[id]!, [campo]: valor } }));
+  const mudar = (id: string, qtd: string) => setLinhas((atual) => ({ ...atual, [id]: qtd }));
 
   return (
     <form action={executar} className={cn("bg-card grid gap-3 rounded-xl border p-4", !produto.ativo && "border-dashed")}>
       <input type="hidden" name="mes" value={dados.mes} />
       <input type="hidden" name="produtoId" value={produto.id} />
       <div className="flex items-start justify-between gap-2">
-        <p className="leading-snug font-medium">{produto.nome}</p>
+        <div className="grid gap-0.5">
+          <p className="leading-snug font-medium">{produto.nome}</p>
+          <p className={cn("text-xs", produto.preco ? "text-muted-foreground" : "text-destructive")}>
+            {produto.preco
+              ? `${formatarReais(produto.preco)} por venda`
+              : "Sem preço: cadastre uma oferta no produto para calcular o valor"}
+          </p>
+        </div>
         {!produto.ativo && <SeloInativo />}
       </div>
       {vendedores.length === 0 ? (
@@ -70,8 +75,8 @@ function CartaoMetas({ dados, produto }: { dados: MetasDoMes; produto: Produto }
           <thead>
             <tr className="text-muted-foreground text-left text-xs">
               <th className="pb-1 font-normal">Vendedor</th>
-              <th className="pb-1 font-normal">Valor (R$)</th>
-              <th className="w-20 pb-1 font-normal">Qtd.</th>
+              <th className="w-24 pb-1 font-normal">Qtd.</th>
+              <th className="pb-1 text-right font-normal">Valor</th>
             </tr>
           </thead>
           <tbody>
@@ -79,38 +84,23 @@ function CartaoMetas({ dados, produto }: { dados: MetasDoMes; produto: Produto }
               <tr key={v.id}>
                 <td className="py-1 pr-2">{v.nome}</td>
                 {dados.podeEditar ? (
-                  <>
-                    <td className="py-1 pr-2">
-                      <input type="hidden" name="vendedorId" value={v.id} />
-                      <Input
-                        name="valorAlvo"
-                        inputMode="decimal"
-                        placeholder="0,00"
-                        aria-label={`Valor da meta de ${v.nome}`}
-                        value={linhas[v.id]?.valor ?? ""}
-                        onChange={(e) => mudar(v.id, "valor", e.target.value)}
-                        className="h-8"
-                      />
-                    </td>
-                    <td className="py-1">
-                      <Input
-                        name="quantidadeAlvo"
-                        type="number"
-                        min={0}
-                        placeholder="0"
-                        aria-label={`Quantidade da meta de ${v.nome}`}
-                        value={linhas[v.id]?.quantidade ?? ""}
-                        onChange={(e) => mudar(v.id, "quantidade", e.target.value)}
-                        className="h-8"
-                      />
-                    </td>
-                  </>
+                  <td className="py-1 pr-2">
+                    <input type="hidden" name="vendedorId" value={v.id} />
+                    <Input
+                      name="quantidadeAlvo"
+                      type="number"
+                      min={0}
+                      placeholder="0"
+                      aria-label={`Quantidade de vendas da meta de ${v.nome}`}
+                      value={linhas[v.id] ?? ""}
+                      onChange={(e) => mudar(v.id, e.target.value)}
+                      className="h-8"
+                    />
+                  </td>
                 ) : (
-                  <>
-                    <td className="py-1 pr-2">{formatarReais(lerReais(linhas[v.id]?.valor || "0") ?? "0")}</td>
-                    <td className="py-1">{linhas[v.id]?.quantidade || "0"}</td>
-                  </>
+                  <td className="py-1 pr-2">{quantidade(v.id)}</td>
                 )}
+                <td className="py-1 text-right tabular-nums">{formatarReais(valor(v.id))}</td>
               </tr>
             ))}
           </tbody>
@@ -118,15 +108,15 @@ function CartaoMetas({ dados, produto }: { dados: MetasDoMes; produto: Produto }
             <tfoot>
               <tr className="border-t font-medium">
                 <td className="pt-2">Total do produto</td>
-                <td className="pt-2">{formatarReais(total.valor)}</td>
                 <td className="pt-2">{total.quantidade}</td>
+                <td className="pt-2 text-right tabular-nums">{formatarReais(total.valor)}</td>
               </tr>
             </tfoot>
           )}
         </table>
       )}
       {!estado.ok && estado.erros && (
-        <p className="text-destructive text-sm">Confira os valores: use números como 360.000,00 e quantidades inteiras.</p>
+        <p className="text-destructive text-sm">Confira as quantidades: use números inteiros, de 0 a 10000.</p>
       )}
       {dados.podeEditar && vendedores.length > 0 && (
         <div className="flex justify-end">

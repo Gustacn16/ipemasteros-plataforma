@@ -305,6 +305,20 @@ export function FormularioVenda({
           />
           {e?.observacoes?.length ? <p className="text-destructive text-sm">{e.observacoes.join(" ")}</p> : null}
         </div>
+
+        <div className="grid gap-1.5">
+          <Label htmlFor="v-proximos">Próximos passos</Label>
+          <textarea
+            id="v-proximos"
+            name="proximosPassos"
+            rows={3}
+            placeholder="O que falta fazer com este cliente (ex.: enviar contrato, agendar a matrícula)…"
+            defaultValue={venda?.proximosPassos ?? ""}
+            maxLength={2000}
+            className={estiloCampo}
+          />
+          {e?.proximosPassos?.length ? <p className="text-destructive text-sm">{e.proximosPassos.join(" ")}</p> : null}
+        </div>
       </fieldset>
 
       {!somenteLeitura && (

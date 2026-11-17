@@ -47,6 +47,7 @@ const selecaoVenda = {
   primeiroVencimento: true,
   valorTotal: true,
   observacoes: true,
+  proximosPassos: true,
   criadoEm: true,
   produto: { select: { nome: true } },
   oferta: { select: { nome: true } },
@@ -139,6 +140,7 @@ function camposDaVenda(dados: DadosVenda) {
     // Regra 1: o total é sempre calculado aqui, nunca o enviado pela tela.
     valorTotal: valorTotal(dados.entrada, dados.numeroParcelas, dados.valorParcela),
     observacoes: dados.observacoes,
+    proximosPassos: dados.proximosPassos,
   };
 }
 

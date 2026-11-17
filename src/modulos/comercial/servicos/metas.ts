@@ -10,12 +10,19 @@ import {
   mesSeguinte,
   metaVazia,
   metasParaCopiar,
+  precoDoProduto,
   primeiroDiaDoMes,
   progressoDasMetas,
+  valorDaMeta,
   vendedoresParaValidar,
 } from "../regras/meta";
 import { MENSAGEM_NAO_ENCONTRADO, exigirPermissaoComercial } from "./acesso";
 import { listarVendedores } from "./vendas";
+
+/** Ofertas para achar o preço do produto (regra: preço cheio da oferta padrão). */
+const selecaoPreco = { ofertas: { select: { padrao: true, ordem: true, precoCheio: true } } } as const;
+const precoDe = (p: { ofertas: { padrao: boolean; ordem: number; precoCheio: { toFixed(n: number): string } }[] }) =>
+  precoDoProduto(p.ofertas.map((o) => ({ ...o, precoCheio: o.precoCheio.toFixed(2) })));
 
 // Coluna @db.Date do dia 1 do mês.
 const dataDoMes = (mes: string) => new Date(`${primeiroDiaDoMes(mes)}T00:00:00Z`);
@@ -55,7 +62,7 @@ export async function obterMetasDoMes(ator: UsuarioAtual, mes: string) {
     prisma.produto.findMany({
       where: { excluidoEm: null, OR: [{ ativo: true }, { id: { in: comMeta } }] },
       orderBy: { nome: "asc" },
-      select: { id: true, nome: true, tipo: true, ativo: true },
+      select: { id: true, nome: true, tipo: true, ativo: true, ...selecaoPreco },
     }),
     equipe ? listarVendedores() : Promise.resolve([{ id: ator.id, nome: ator.nome }]),
   ]);
@@ -66,7 +73,8 @@ export async function obterMetasDoMes(ator: UsuarioAtual, mes: string) {
   return {
     mes,
     podeEditar: temPermissao(ator.papel, "comercial:gerenciar_metas"),
-    produtos,
+    // O valor da meta é a quantidade × este preço.
+    produtos: produtos.map(({ ofertas, ...p }) => ({ ...p, preco: precoDe({ ofertas }) })),
     vendedores,
     metas: metas.map(comoChave),
   };
@@ -78,11 +86,14 @@ export async function salvarMetasProduto(ator: UsuarioAtual, dados: DadosMetasPr
   exigirPermissaoComercial(ator, "comercial:gerenciar_metas");
   const mes = dataDoMes(dados.mes);
   await prisma.$transaction(async (tx) => {
-    const produto = await tx.produto.findFirst({ where: { id: dados.produtoId, excluidoEm: null }, select: { id: true } });
+    const produto = await tx.produto.findFirst({ where: { id: dados.produtoId, excluidoEm: null }, select: { id: true, ...selecaoPreco } });
     if (!produto) throw new ErroNegocio(MENSAGEM_NAO_ENCONTRADO);
+    // A tela só manda a quantidade; o valor é quantidade × preço do produto.
+    const preco = precoDe(produto);
+    const linhas = dados.linhas.map((l) => ({ ...l, valorAlvo: valorDaMeta(preco, l.quantidadeAlvo) }));
 
     // Vendedor precisa ser válido (regra 5) ou já ter meta neste produto e mês.
-    const ids = vendedoresParaValidar(dados.linhas);
+    const ids = vendedoresParaValidar(linhas);
     const [validos, comMeta] = await Promise.all([
       tx.usuario.findMany({
         where: { id: { in: ids }, ativo: true, papel: { in: ["comercial", "gestor", "admin"] } },
@@ -93,7 +104,7 @@ export async function salvarMetasProduto(ator: UsuarioAtual, dados: DadosMetasPr
     const aceitos = new Set([...validos.map((v) => v.id), ...comMeta.map((m) => m.vendedorId)]);
     if (ids.some((id) => !aceitos.has(id))) throw new ErroNegocio("Vendedor inválido.");
 
-    for (const linha of dados.linhas) {
+    for (const linha of linhas) {
       const chave = { mes_produtoId_vendedorId: { mes, produtoId: dados.produtoId, vendedorId: linha.vendedorId } };
       if (metaVazia(linha)) {
         await tx.metaVenda.deleteMany({ where: { mes, produtoId: dados.produtoId, vendedorId: linha.vendedorId } });
@@ -120,13 +131,16 @@ export async function copiarMetasMesAnterior(ator: UsuarioAtual, mes: string): P
   const [anteriores, existentes, produtos, vendedores] = await Promise.all([
     prisma.metaVenda.findMany({ where: { mes: dataDoMes(mesAnterior(mes)) } }),
     prisma.metaVenda.findMany({ where: { mes: dataDoMes(mes) }, select: { produtoId: true, vendedorId: true } }),
-    prisma.produto.findMany({ where: { excluidoEm: null, ativo: true }, select: { id: true } }),
+    prisma.produto.findMany({ where: { excluidoEm: null, ativo: true }, select: { id: true, ...selecaoPreco } }),
     listarVendedores(),
   ]);
-  const novas = metasParaCopiar(anteriores.map(comoChave), existentes, {
+  const precos = new Map(produtos.map((p) => [p.id, precoDe(p)]));
+  const copiadas = metasParaCopiar(anteriores.map(comoChave), existentes, {
     produtos: produtos.map((p) => p.id),
     vendedores: vendedores.map((v) => v.id),
   });
+  // A quantidade é copiada; o valor segue o preço atual do produto.
+  const novas = copiadas.map((m) => ({ ...m, valorAlvo: valorDaMeta(precos.get(m.produtoId) ?? null, m.quantidadeAlvo) }));
   if (novas.length === 0) return 0;
   // skipDuplicates: se alguém salvou uma meta ao mesmo tempo, ela não é sobrescrita.
   const { count } = await prisma.metaVenda.createMany({ data: novas.map((m) => ({ ...m, mes: dataDoMes(mes) })), skipDuplicates: true });

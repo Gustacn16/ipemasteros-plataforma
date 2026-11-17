@@ -14,12 +14,11 @@ export async function salvarMetasProdutoAcao(_: EstadoAcao, formData: FormData):
   try {
     const ator = await exigirPermissao("comercial:gerenciar_metas");
     const vendedores = formData.getAll("vendedorId").map(texto);
-    const valores = formData.getAll("valorAlvo").map(texto);
     const quantidades = formData.getAll("quantidadeAlvo").map(texto);
     const dados = esquemaMetasProduto.parse({
       mes: texto(formData.get("mes")),
       produtoId: texto(formData.get("produtoId")),
-      linhas: vendedores.map((vendedorId, i) => ({ vendedorId, valorAlvo: valores[i], quantidadeAlvo: quantidades[i] })),
+      linhas: vendedores.map((vendedorId, i) => ({ vendedorId, quantidadeAlvo: quantidades[i] })),
     });
     await salvarMetasProduto(ator, dados);
     revalidatePath("/comercial", "layout");

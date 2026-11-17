@@ -36,6 +36,14 @@ const reaisOpcional = z
     return valor;
   });
 
+/** Texto livre opcional (observações, próximos passos): vazio vira null. */
+const textoLivre = z
+  .string()
+  .trim()
+  .max(2000, "Use até 2000 caracteres")
+  .optional()
+  .transform((v) => v || null);
+
 export const esquemaVenda = z
   .object({
     produtoId: z.string("Escolha o produto").min(1, "Escolha o produto"),
@@ -61,12 +69,8 @@ export const esquemaVenda = z
       .pipe(z.number("Número inválido").int("Use um número inteiro").min(0, "Não pode ser negativo").max(60, "Use até 60 parcelas")),
     valorParcela: reaisOpcional,
     primeiroVencimento: diaOpcional,
-    observacoes: z
-      .string()
-      .trim()
-      .max(2000, "Use até 2000 caracteres")
-      .optional()
-      .transform((v) => v || null),
+    observacoes: textoLivre,
+    proximosPassos: textoLivre,
   })
   .superRefine((v, ctx) => {
     if (Number(valorTotal(v.entrada, v.numeroParcelas, v.valorParcela)) <= 0) {

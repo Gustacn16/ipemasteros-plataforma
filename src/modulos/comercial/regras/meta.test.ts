@@ -4,6 +4,8 @@ import {
   mesAtual,
   mesSeguinte,
   metaVazia,
+  precoDoProduto,
+  valorDaMeta,
   metasParaCopiar,
   primeiroDiaDoMes,
   progressoDasMetas,
@@ -142,5 +144,29 @@ describe("progressoDasMetas", () => {
       vendas: [{ vendedorId: "ana", vendido: "99600.00", quantidade: 1 }],
     });
     expect(quase.total).toMatchObject({ percentual: 99, falta: "400.00" });
+  });
+});
+
+describe("meta pela quantidade", () => {
+  it("valor da meta = quantidade × preço do produto, em centavos", () => {
+    expect(valorDaMeta("2376.00", 5)).toBe("11880.00");
+    expect(valorDaMeta("0.10", 3)).toBe("0.30");
+    expect(valorDaMeta("9500.00", 0)).toBe("0.00");
+    expect(valorDaMeta(null, 4)).toBe("0.00");
+  });
+  it("o preço é o preço cheio da oferta padrão; sem padrão, a primeira oferta; sem oferta, null", () => {
+    expect(
+      precoDoProduto([
+        { padrao: false, ordem: 1, precoCheio: "3000.00" },
+        { padrao: true, ordem: 2, precoCheio: "3300.00" },
+      ]),
+    ).toBe("3300.00");
+    expect(
+      precoDoProduto([
+        { padrao: false, ordem: 2, precoCheio: "5000.00" },
+        { padrao: false, ordem: 1, precoCheio: "4000.00" },
+      ]),
+    ).toBe("4000.00");
+    expect(precoDoProduto([])).toBeNull();
   });
 });

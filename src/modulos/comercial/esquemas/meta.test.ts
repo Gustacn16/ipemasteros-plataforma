@@ -18,22 +18,20 @@ describe("esquemaMes", () => {
 describe("esquemaMetasProduto", () => {
   const base = { mes: "2026-11", produtoId: "p1" };
 
-  it("lê valor em reais e quantidade vazia como zero", () => {
-    const d = esquemaMetasProduto.parse({ ...base, linhas: [{ vendedorId: "ana", valorAlvo: "R$ 360.000,00", quantidadeAlvo: "" }] });
-    expect(d.linhas[0]).toEqual({ vendedorId: "ana", valorAlvo: "360000.00", quantidadeAlvo: 0 });
+  it("só a quantidade vem da tela; vazia vale zero", () => {
+    const d = esquemaMetasProduto.parse({ ...base, linhas: [{ vendedorId: "ana", quantidadeAlvo: "" }] });
+    expect(d.linhas[0]).toEqual({ vendedorId: "ana", quantidadeAlvo: 0 });
   });
 
-  it("valor vazio vira zero", () => {
-    expect(
-      esquemaMetasProduto.parse({ ...base, linhas: [{ vendedorId: "ana", valorAlvo: "", quantidadeAlvo: "3" }] }).linhas[0]?.valorAlvo,
-    ).toBe("0.00");
+  it("valor mandado pela tela é ignorado (o servidor calcula pelo preço do produto)", () => {
+    const d = esquemaMetasProduto.parse({ ...base, linhas: [{ vendedorId: "ana", valorAlvo: "999", quantidadeAlvo: "3" }] });
+    expect(d.linhas[0]).toEqual({ vendedorId: "ana", quantidadeAlvo: 3 });
   });
 
-  it("recusa quantidade negativa ou quebrada e valor inválido", () => {
+  it("recusa quantidade negativa ou quebrada", () => {
     for (const linha of [
-      { vendedorId: "ana", valorAlvo: "100", quantidadeAlvo: "-1" },
-      { vendedorId: "ana", valorAlvo: "100", quantidadeAlvo: "1,5" },
-      { vendedorId: "ana", valorAlvo: "abc", quantidadeAlvo: "1" },
+      { vendedorId: "ana", quantidadeAlvo: "-1" },
+      { vendedorId: "ana", quantidadeAlvo: "1,5" },
     ]) {
       expect(esquemaMetasProduto.safeParse({ ...base, linhas: [linha] }).success).toBe(false);
     }
