@@ -214,7 +214,11 @@ export async function definirCategoria(
 }
 
 /** Últimas mensagens, da mais antiga para a mais nova. Abrir conversa de número de outro dono fica na auditoria (só ids). */
-export async function mensagensDaConversa(ator: UsuarioAtual, conversaId: string, limite = 200): Promise<MensagemNaTela[]> {
+export async function mensagensDaConversa(
+  ator: UsuarioAtual,
+  conversaId: string,
+  limite = 200,
+): Promise<{ tipo: "grupo" | "individual"; mensagens: MensagemNaTela[] }> {
   const base = await prisma.conversaWhatsapp.findUnique({ where: { id: conversaId }, select: { tipo: true } });
   if (!base) throw new ErroNegocio("Conversa não encontrada.");
   let auditar = false;
@@ -237,7 +241,7 @@ export async function mensagensDaConversa(ator: UsuarioAtual, conversaId: string
       orderBy: { enviadaEm: "desc" },
       take: limite,
     });
-    return mensagens.reverse().map((m) => ({
+    const naTela = mensagens.reverse().map((m) => ({
       id: m.id,
       autor: m.deMim ? "Você" : nomeDoAutor(m.contato),
       deMim: m.deMim,
@@ -245,5 +249,6 @@ export async function mensagensDaConversa(ator: UsuarioAtual, conversaId: string
       texto: [ROTULO_TIPO[m.tipo], m.texto].filter(Boolean).join(" "),
       enviadaEm: m.enviadaEm,
     }));
+    return { tipo: base.tipo, mensagens: naTela };
   });
 }

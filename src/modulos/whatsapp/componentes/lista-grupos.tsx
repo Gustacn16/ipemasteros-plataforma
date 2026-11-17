@@ -1,6 +1,7 @@
 "use client";
 
 import { UsersIcon } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { EstadoVazio } from "@/componentes/estado-vazio";
@@ -52,7 +53,9 @@ export function ListaGrupos({ grupos, turmas }: { grupos: LinhaGrupo[]; turmas: 
           {grupos.map((g) => (
             <TableRow key={g.id}>
               <TableCell className="font-medium">
-                {g.nome}
+                <Link href={`/whatsapp/conversas/${g.id}`} className="underline-offset-4 hover:underline">
+                  {g.nome}
+                </Link>
                 {!g.monitorada && g.provisoriaAte && (
                   <span className="text-muted-foreground block text-xs font-normal">
                     Histórico guardado até {formatarDataHora(new Date(g.provisoriaAte))}

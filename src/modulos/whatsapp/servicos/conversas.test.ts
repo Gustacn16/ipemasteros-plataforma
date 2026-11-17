@@ -207,7 +207,7 @@ describe("conversas", () => {
 
 describe("mensagens da conversa", () => {
   it("gestor abrindo conversa de número de outro dono grava auditoria sem texto", async () => {
-    const msgs = await mensagensDaConversa(gestor, "i1");
+    const { mensagens: msgs } = await mensagensDaConversa(gestor, "i1");
     expect(msgs).toHaveLength(1);
     expect(banco.estado.auditorias).toHaveLength(1);
     expect(banco.estado.auditorias[0]).toMatchObject({ acao: "whatsapp.conversa_aberta", entidadeId: "i1" });
@@ -231,11 +231,16 @@ describe("mensagens da conversa", () => {
   });
 
   it("mostra [áudio], Você nas minhas e o autor pelo nome, em ordem cronológica", async () => {
-    const msgs = await mensagensDaConversa(gestor, "i2");
+    const { mensagens: msgs } = await mensagensDaConversa(gestor, "i2");
     expect(msgs[0]).toMatchObject({ autor: "Você", deMim: true, tipo: "audio", texto: "[áudio]" });
-    expect((await mensagensDaConversa(gestor, "i1"))[0].autor).toBe("Maria Souza");
+    expect((await mensagensDaConversa(gestor, "i1")).mensagens[0].autor).toBe("Maria Souza");
     const grupo = await mensagensDaConversa(gestor, "g1");
-    expect(grupo.map((m) => m.texto)).toEqual(["velha", "oi"]);
+    expect(grupo.mensagens.map((m) => m.texto)).toEqual(["velha", "oi"]);
+  });
+
+  it("devolve o tipo da conversa (a tela volta para grupos ou conversas)", async () => {
+    expect((await mensagensDaConversa(gestor, "g1")).tipo).toBe("grupo");
+    expect((await mensagensDaConversa(gestor, "i1")).tipo).toBe("individual");
   });
 });
 
@@ -248,9 +253,9 @@ describe("nome do autor", () => {
   });
 
   it("nunca devolve o telefone completo", async () => {
-    const msgs = await mensagensDaConversa(gestor, "i1");
+    const { mensagens: msgs } = await mensagensDaConversa(gestor, "i1");
     banco.estado.contatos[0].nomeExibido = null;
-    const semNome = await mensagensDaConversa(gestor, "i1");
+    const { mensagens: semNome } = await mensagensDaConversa(gestor, "i1");
     expect(msgs.length).toBe(1);
     expect(semNome[0].autor).toBe("…7432");
     expect(JSON.stringify(semNome)).not.toContain("5562981707432");
