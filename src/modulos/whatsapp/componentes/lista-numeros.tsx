@@ -78,7 +78,7 @@ export function ListaNumeros({ numeros, podeExcluir }: { numeros: Linha[]; podeE
                       Desconectar
                     </Button>
                   )}
-                  {podeExcluir && n.estado === "desconectado" && (
+                  {podeExcluir && (n.estado === "desconectado" || n.estado === "removido_no_celular") && (
                     <Button
                       size="sm"
                       variant="destructive"

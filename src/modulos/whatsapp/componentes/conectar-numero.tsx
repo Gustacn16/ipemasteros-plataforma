@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/componentes/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/componentes/ui/dialog";
 import { avisar } from "@/modulos/tarefas/componentes/avisar";
@@ -20,52 +20,61 @@ export function ConectarNumero({ numeroId, nome }: { numeroId: string; nome: str
   const [aberto, setAberto] = useState(false);
   const [situacao, setSituacao] = useState<Situacao | null>(null);
   const [tentativa, setTentativa] = useState(0);
-  const ativo = useRef(false);
+  const [falhou, setFalhou] = useState(false);
 
   const fechar = useCallback(() => {
     setAberto(false);
     setSituacao(null);
+    setFalhou(false);
     router.refresh();
   }, [router]);
 
   useEffect(() => {
     if (!aberto) return;
-    ativo.current = true;
+    // Flag por execução: um pedido em voo de uma execução antiga nunca reinicia a consulta.
+    let cancelado = false;
     let temporizador: ReturnType<typeof setTimeout> | undefined;
 
+    function falha(r?: { mensagem?: string }) {
+      avisar({ ok: false, mensagem: r?.mensagem ?? "Não foi possível consultar a conexão." });
+      setFalhou(true);
+    }
+
     async function consultar() {
-      const r = await situacaoNumeroAcao(numeroId);
-      if (!ativo.current) return;
-      if (!r.ok || !r.dados) {
-        avisar(r);
-        return;
+      try {
+        const r = await situacaoNumeroAcao(numeroId);
+        if (cancelado) return;
+        if (!r.ok || !r.dados) return falha(r);
+        setSituacao(r.dados);
+        if (r.dados.estado === "conectado") {
+          temporizador = setTimeout(fechar, FECHAR_APOS_CONECTAR_MS);
+          return;
+        }
+        if (ESTADOS_DE_PARADA.includes(r.dados.estado)) return;
+        temporizador = setTimeout(consultar, INTERVALO_MS);
+      } catch {
+        if (!cancelado) falha();
       }
-      setSituacao(r.dados);
-      if (r.dados.estado === "conectado") {
-        temporizador = setTimeout(fechar, FECHAR_APOS_CONECTAR_MS);
-        return;
-      }
-      if (ESTADOS_DE_PARADA.includes(r.dados.estado)) return;
-      temporizador = setTimeout(consultar, INTERVALO_MS);
     }
 
     (async () => {
-      const pedido = await conectarNumeroAcao(numeroId);
-      if (!ativo.current) return;
-      if (!pedido.ok) {
-        avisar(pedido);
-        return;
+      try {
+        const pedido = await conectarNumeroAcao(numeroId);
+        if (cancelado) return;
+        if (!pedido.ok) return falha(pedido);
+        await consultar();
+      } catch {
+        if (!cancelado) falha();
       }
-      await consultar();
     })();
 
     return () => {
-      ativo.current = false;
+      cancelado = true;
       if (temporizador) clearTimeout(temporizador);
     };
   }, [aberto, numeroId, tentativa, fechar]);
 
-  const parou = situacao !== null && ESTADOS_DE_PARADA.includes(situacao.estado);
+  const parou = falhou || (situacao !== null && ESTADOS_DE_PARADA.includes(situacao.estado));
 
   return (
     <>
@@ -85,10 +94,14 @@ export function ConectarNumero({ numeroId, nome }: { numeroId: string; nome: str
               // SVG gerado no servidor pela biblioteca qrcode a partir do QR do motor: não é texto digitado por ninguém.
               <div className="size-64 rounded-lg bg-white p-2 [&>svg]:size-full" dangerouslySetInnerHTML={{ __html: situacao.qrSvg }} />
             ) : (
-              <p className="text-muted-foreground text-sm">{parou ? situacao.rotulo : "Preparando o QR…"}</p>
+              <p className="text-muted-foreground text-sm">{situacao ? situacao.rotulo : falhou ? "Não foi possível conectar." : "Preparando o QR…"}</p>
             )}
             {situacao?.qrSvg && <p className="text-muted-foreground text-sm">{situacao.rotulo}</p>}
-            {parou && <Button onClick={() => setTentativa((t) => t + 1)}>Tentar de novo</Button>}
+            {parou && <Button onClick={() => {
+                  setSituacao(null);
+                  setFalhou(false);
+                  setTentativa((t) => t + 1);
+                }}>Tentar de novo</Button>}
           </div>
         </DialogContent>
       </Dialog>
