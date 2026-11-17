@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Cliente gerado pelo Prisma.
     "src/generated/**",
+    // Motor do WhatsApp: projeto à parte, com package.json próprio.
+    "motor-whatsapp/**",
   ]),
 ]);
 
