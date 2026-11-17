@@ -1,7 +1,11 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { temPermissao, type Papel } from "@/lib/permissoes";
+import { ferramentaBuscarAluno, ferramentaTurmasEFormaturas } from "./academico";
 import { ferramentaVerAgenda } from "./agenda";
+import { ferramentaProdutos, ferramentaVendasEMetas } from "./comercial";
+import { ferramentaCalendarioConteudo, ferramentaMetricasInstagram } from "./conteudo";
+import { ferramentaBuscarPessoas } from "./pessoas";
 import { ferramentaBuscarTarefas, ferramentaRelatorioTarefasEquipe } from "./tarefas";
 import { limitarLista } from "./lista";
 import type { FerramentaNexu } from "./tipos";
@@ -12,6 +16,13 @@ export const TODAS_FERRAMENTAS: FerramentaNexu[] = [
   ferramentaBuscarTarefas,
   ferramentaRelatorioTarefasEquipe,
   ferramentaVerAgenda,
+  ferramentaTurmasEFormaturas,
+  ferramentaBuscarAluno,
+  ferramentaCalendarioConteudo,
+  ferramentaMetricasInstagram,
+  ferramentaVendasEMetas,
+  ferramentaProdutos,
+  ferramentaBuscarPessoas,
 ] as unknown as FerramentaNexu[];
 
 /** Ferramentas que o papel pode usar: precisa de `nexu:usar` e da permissão da própria ferramenta. */
