@@ -80,6 +80,7 @@ A Hostinger Cloud oferece cron no hPanel. Cada job é um `GET /api/cron/<tarefa>
 - `importar-meta-ads` (diário, 4h): refaz os últimos 7 dias do Meta Ads; implementado em `src/app/api/cron/[tarefa]/route.ts`. A mesma tarefa também apaga as conversas do Nexu com mais de 90 dias, isolada em `try/catch` para não derrubar a importação.
 - `importar-instagram` (diário, 4h): posts novos, números dos posts dos últimos 30 dias e da conta (últimos 7 dias e mês) e seguidores do dia.
 - `importar-stories-instagram` (de hora em hora): números dos stories enquanto estão no ar.
+- `limpar-whatsapp` (diário, 3h): apaga as mensagens provisórias vencidas de grupos não monitorados (48 h) e as mensagens do WhatsApp com mais de 90 dias, em lotes de 5000; responde só as contagens.
 - `importar-kommo` (de hora em hora, complementando os webhooks): futuro.
 - `publicar-agendados` (a cada 5 min): publica conteúdos agendados.
 - `limpeza-lgpd` (semanal): anonimiza dados que passaram do prazo de retenção.

@@ -37,6 +37,7 @@ A tela nunca fala com o motor: grava comandos no banco e o motor os busca. O mot
 8. **Categoria "pessoal":** apaga as mensagens da conversa na mesma transação da mudança, e a captura passa a descartar as próximas.
 9. **Autor das mensagens:** nome do perfil; sem nome, "…" e os 4 últimos dígitos do telefone; sem telefone, "Contato sem nome". A tela nunca mostra o telefone completo nem o JID. Mensagens enviadas pelo próprio número aparecem como "Você".
 10. **Auditoria (só ids e nomes de campos, nunca texto):** `whatsapp.grupo_monitorado`, `whatsapp.categoria_alterada` e `whatsapp.conversa_aberta`. Esta última só quando a conversa é de número cujo dono não é quem abre (inclui números da escola, sem dono); abrir a própria conversa ou um grupo não audita.
+11. **Limpeza diária (`limpar-whatsapp`, 3h):** apaga as mensagens provisórias vencidas (`provisoriaAte` passou) de grupos que continuam não monitorados e zera `provisoriaAte`; grupo que virou monitorado não perde nada. Também apaga mensagens com mais de 90 dias (`DIAS_RETENCAO`). Em lotes de 5000; a resposta traz só as contagens.
 
 ## Situação da implementação
 **Entrega 1:** motor, comandos, tela de números e conexão por QR. Verificação na tela com o motor ligado é feita no site `teste`.
