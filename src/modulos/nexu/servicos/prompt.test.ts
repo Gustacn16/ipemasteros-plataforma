@@ -125,3 +125,11 @@ describe("semMensagensVazias", () => {
     expect(semMensagensVazias([ok, vazio, ok])).toEqual([ok, ok]);
   });
 });
+
+describe("ehPerguntaDoUsuario", () => {
+  it("a mensagem de decisão de proposta (texto simples) não conta como pergunta", () => {
+    expect(ehPerguntaDoUsuario("[Confirmei a proposta: Criar tarefa: X]")).toBe(false);
+    expect(ehPerguntaDoUsuario("[Recusei a proposta: Criar tarefa: X]")).toBe(false);
+    expect(ehPerguntaDoUsuario([{ type: "text", text: "[A proposta falhou: erro]" }])).toBe(false);
+  });
+});

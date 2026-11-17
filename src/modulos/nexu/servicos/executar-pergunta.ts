@@ -8,7 +8,7 @@ import { ErroPermissao } from "@/lib/permissoes";
 import type { UsuarioAtual } from "@/lib/sessao";
 import { ferramentasDoPapel, paraFerramentaApi } from "../ferramentas/registro";
 import type { FerramentaNexu } from "../ferramentas/tipos";
-import type { EventoNexu } from "../tipos";
+import type { EventoNexu, PropostaVisivel } from "../tipos";
 import { anexarMensagens, contarPerguntasNasMensagens, criarConversa, obterConversa, type MensagemParaGravar } from "./conversas";
 import { montarPedido, semMensagensVazias, tiraTurnoIncompleto } from "./prompt";
 
@@ -33,7 +33,7 @@ const ERRO_LIMITE_FERRAMENTAS = "limite de consultas desta pergunta atingido; re
 
 /**
  * Resultado de rodar uma ferramenta: o bloco devolvido ao modelo e os eventos extras para a tela
- * (a ferramenta de proposta vai acrescentar aqui o evento `proposta`).
+ * (a ferramenta de proposta acrescenta aqui o evento `proposta`).
  */
 type ResultadoFerramenta = { bloco: Anthropic.ToolResultBlockParam; eventos: EventoNexu[] };
 
@@ -62,6 +62,15 @@ async function rodarFerramenta(
   }
   try {
     const resultado = await ferramenta.executar(ator, entrada.data, { conversaId, toolUseId: uso.id });
+    if (ferramenta.tipo === "proposta") {
+      // O modelo recebe só o id e a situação; a tela recebe o cartão da proposta.
+      const { proposta } = resultado as { proposta: PropostaVisivel };
+      const conteudo = { proposta: proposta.id, situacao: "aguardando confirmação da pessoa" };
+      return {
+        bloco: { type: "tool_result", tool_use_id: uso.id, content: JSON.stringify(conteudo) },
+        eventos: [{ tipo: "proposta", proposta }],
+      };
+    }
     return { bloco: { type: "tool_result", tool_use_id: uso.id, content: JSON.stringify(resultado ?? null) }, eventos: [] };
   } catch (erro) {
     if (!(erro instanceof ErroPermissao) && !(erro instanceof ErroNegocio)) {

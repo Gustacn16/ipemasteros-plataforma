@@ -42,6 +42,7 @@ const ia = vi.hoisted(() => ({
   situacaoLimites: vi.fn(),
   executarA: vi.fn(),
   executarB: vi.fn(),
+  executarP: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -52,16 +53,20 @@ vi.mock("@/lib/ia/configuracao", () => ({
   obterConfiguracaoIa: async () => ({ modelo: "claude-haiku-5-5", limiteMensalMicroUsd: 20_000_000, perguntasPorDia: 50 }),
 }));
 vi.mock("../ferramentas/registro", () => {
-  const ferramenta = (nome: string, executar: unknown) => ({
+  const ferramenta = (nome: string, executar: unknown, tipo = "consulta") => ({
     nome,
     descricao: nome,
     entrada: z.object({ n: z.number() }),
     permissao: "nexu:usar",
     rotulo: `Consultando ${nome}…`,
-    tipo: "consulta",
+    tipo,
     executar,
   });
-  const lista = [ferramenta("ferramenta_a", ia.executarA), ferramenta("ferramenta_b", ia.executarB)];
+  const lista = [
+    ferramenta("ferramenta_a", ia.executarA),
+    ferramenta("ferramenta_b", ia.executarB),
+    ferramenta("ferramenta_p", ia.executarP, "proposta"),
+  ];
   return {
     TODAS_FERRAMENTAS: lista,
     ferramentasDoPapel: () => lista,
@@ -260,6 +265,28 @@ describe("executarPergunta", () => {
     expect(pedidos[1].messages.at(-1)?.content).toEqual([
       { type: "tool_result", tool_use_id: "t1", is_error: true, content: "sem permissão para isso" },
     ]);
+  });
+
+  it("ferramenta de proposta: o modelo recebe só id e situação, e a tela recebe o evento proposta", async () => {
+    const proposta = { id: "p1", tipo: "criar_tarefa", resumo: "Criar tarefa: X", status: "pendente", erro: null, resultadoUrl: null };
+    ia.executarP.mockResolvedValue({ proposta });
+    const { cliente, pedidos } = clienteFalso([resposta([usoDe("t1", "ferramenta_p")], "tool_use"), resposta([texto("Confirme.")])]);
+    const eventos = await rodar(cliente);
+    expect(pedidos[1].messages.at(-1)?.content).toEqual([
+      { type: "tool_result", tool_use_id: "t1", content: JSON.stringify({ proposta: "p1", situacao: "aguardando confirmação da pessoa" }) },
+    ]);
+    expect(eventos.filter((e) => e.tipo === "proposta")).toEqual([{ tipo: "proposta", proposta }]);
+  });
+
+  it("ferramenta de proposta com erro: is_error e nenhum evento proposta", async () => {
+    const { ErroNegocio } = await import("@/lib/erros");
+    ia.executarP.mockRejectedValue(new ErroNegocio("Responsável inválido."));
+    const { cliente, pedidos } = clienteFalso([resposta([usoDe("t1", "ferramenta_p")], "tool_use"), resposta([texto("Ops.")])]);
+    const eventos = await rodar(cliente);
+    expect(pedidos[1].messages.at(-1)?.content).toEqual([
+      { type: "tool_result", tool_use_id: "t1", is_error: true, content: "Responsável inválido." },
+    ]);
+    expect(eventos.some((e) => e.tipo === "proposta")).toBe(false);
   });
 
   it("entrada inválida e ferramenta desconhecida viram is_error sem executar", async () => {
