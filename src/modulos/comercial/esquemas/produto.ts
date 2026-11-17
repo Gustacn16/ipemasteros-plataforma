@@ -63,7 +63,7 @@ const reais = z.string().transform((v, ctx) => {
   return valor;
 });
 
-const reaisOpcional = z
+export const reaisOpcional = z
   .string()
   .optional()
   .transform((v) => (v?.trim() ? v : "0"))
@@ -169,3 +169,25 @@ export const esquemaFiltrosProdutos = z.object({
   situacao: z.enum(["ativos", "inativos", "todos"]).catch("ativos"),
 });
 export type FiltrosProdutos = z.infer<typeof esquemaFiltrosProdutos>;
+
+/** Tabela "Comissão por produto" da aba Comissões: tipo, base e bônus de cada produto. */
+export const esquemaComissoesProdutos = z.object({
+  linhas: z
+    .array(
+      z
+        .object({
+          produtoId: z.string().min(1),
+          comissaoTipo: z.enum(TIPOS_COMISSAO),
+          comissaoBase: reaisOpcional,
+          comissaoBonus: reaisOpcional,
+        })
+        .superRefine((p, ctx) => {
+          if (p.comissaoTipo !== "percentual") return;
+          for (const campo of ["comissaoBase", "comissaoBonus"] as const) {
+            if (Number(p[campo]) > 100) ctx.addIssue({ code: "custom", path: [campo], message: "Percentual deve ser até 100" });
+          }
+        }),
+    )
+    .max(500),
+});
+export type DadosComissoesProdutos = z.infer<typeof esquemaComissoesProdutos>;

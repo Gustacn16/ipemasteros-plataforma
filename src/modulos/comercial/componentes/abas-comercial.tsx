@@ -11,6 +11,7 @@ export function AbasComercial({ podeGerenciar, podeIntegrarMeta }: { podeGerenci
     { href: "/comercial", rotulo: "Dashboard" },
     { href: "/comercial/vendas", rotulo: "Vendas" },
     { href: "/comercial/metas", rotulo: "Metas" },
+    { href: "/comercial/comissoes", rotulo: "Comissões" },
     { href: "/comercial/produtos", rotulo: "Produtos" },
     ...(podeGerenciar ? [{ href: "/comercial/canais", rotulo: "Canais" }] : []),
     ...(podeIntegrarMeta ? [{ href: "/comercial/integracao-meta", rotulo: "Meta Ads" }] : []),
