@@ -6,9 +6,10 @@ import { ErroPermissao, temPermissao } from "@/lib/permissoes";
 import { prisma } from "@/lib/prisma";
 import type { UsuarioAtual } from "@/lib/sessao";
 import { diaEmSaoPaulo, somarDias } from "@/modulos/tarefas/regras/prazo";
-import type { FiltroConteudo, Formato } from "../esquemas/conteudo";
+import type { FiltroConteudo } from "../esquemas/conteudo";
 import { gradeDoMes, proximoMes } from "../regras/calendario";
 import { ETAPAS_DO_QUADRO, etapaAposPublicacoes, validarMudancaEtapa, type Etapa } from "../regras/etapas";
+import { etapaInicialPermitida } from "../regras/formatos";
 import { MENSAGEM_NAO_ENCONTRADO } from "./contas";
 
 function exigirUso(ator: UsuarioAtual) {
@@ -29,7 +30,7 @@ function whereFiltro(f: FiltroConteudo): Prisma.ConteudoWhereInput {
     ...(f.marca ? { marcaId: f.marca } : {}),
     ...(f.canal ? { publicacoes: { some: { canalId: f.canal } } } : {}),
     ...(f.responsavel ? { responsavelId: f.responsavel } : {}),
-    ...(f.formato ? { formato: f.formato } : {}),
+    ...(f.formato ? { formatoId: f.formato } : {}),
     // AND para somar com o recorte de etapa que cada visão já aplica.
     ...(f.etapa ? { AND: [{ etapa: f.etapa }] } : {}),
   };
@@ -47,7 +48,7 @@ export function listarPessoas() {
 const selecaoCartao = {
   id: true,
   titulo: true,
-  formato: true,
+  formatoRef: { select: { nome: true, canal: { select: { plataforma: true } } } },
   etapa: true,
   dataPublicacao: true,
   dataGravacao: true,
@@ -125,7 +126,7 @@ export async function listarPublicados(ator: UsuarioAtual, mes: string, f: Filtr
       comentarios: true,
       compartilhamentos: true,
       salvamentos: true,
-      conteudo: { select: { id: true, titulo: true, formato: true, marca: { select: { nome: true, cor: true } } } },
+      conteudo: { select: { id: true, titulo: true, formatoRef: { select: { nome: true } }, marca: { select: { nome: true, cor: true } } } },
       canal: { select: { id: true, plataforma: true, identificador: true } },
       // Ligada a um post do Instagram: aparece na seção Instagram de Publicados, não na lista de publicações.
       midia: { select: { id: true } },
@@ -179,10 +180,17 @@ export async function obterConteudo(ator: UsuarioAtual, conteudoId: string) {
           canais: {
             where: { excluidoEm: null },
             orderBy: { ordem: "asc" },
-            select: { id: true, plataforma: true, identificador: true, ativo: true },
+            select: {
+              id: true,
+              plataforma: true,
+              identificador: true,
+              ativo: true,
+              formatos: { orderBy: [{ ordem: "asc" }, { nome: "asc" }], select: { id: true, nome: true, ativo: true } },
+            },
           },
         },
       },
+      formatoRef: { select: { id: true, nome: true, canalId: true } },
       responsavel: { select: { id: true, nome: true } },
       criadoPor: { select: { nome: true } },
       aprovadoPor: { select: { nome: true } },
@@ -224,34 +232,55 @@ async function validarCanais(marcaId: string, canalIds: string[], permitirInativ
   return ids;
 }
 
+/** Formato ativo (ou o atual do conteúdo) de um canal ativo da marca; devolve o canal principal. */
+async function exigirFormato(formatoId: string, marcaId?: string, atual?: string | null) {
+  const formato = await prisma.formatoCanal.findFirst({
+    where: { id: formatoId, canal: { excluidoEm: null, marca: { excluidoEm: null } } },
+    include: { canal: { select: { id: true, marcaId: true, ativo: true } } },
+  });
+  const aceito = formato && (formatoId === atual || (formato.ativo && formato.canal.ativo));
+  if (!aceito || (marcaId && formato.canal.marcaId !== marcaId)) {
+    throw new ErroNegocio("Escolha um formato de um canal ativo da conta do conteúdo.");
+  }
+  return formato;
+}
+
 export async function criarConteudo(
   ator: UsuarioAtual,
-  dados: { marcaId: string; titulo: string; formato: Formato; canalIds: string[]; dataPublicacao: Date | null },
+  dados: { titulo: string; formatoId: string; canalIds: string[]; dataPublicacao: Date | null; etapa: Etapa },
 ) {
   exigirUso(ator);
-  const marca = await prisma.marca.findFirst({ where: { id: dados.marcaId, excluidoEm: null } });
-  if (!marca) throw new ErroNegocio(MENSAGEM_NAO_ENCONTRADO);
-  const canalIds = await validarCanais(dados.marcaId, dados.canalIds);
-  return prisma.conteudo.create({
-    data: {
-      marcaId: dados.marcaId,
-      titulo: dados.titulo,
-      formato: dados.formato,
-      dataPublicacao: dados.dataPublicacao,
-      criadoPorId: ator.id,
-      responsavelId: ator.id,
-      publicacoes: { create: canalIds.map((canalId) => ({ canalId })) },
-    },
+  const formato = await exigirFormato(dados.formatoId);
+  if (!etapaInicialPermitida(dados.etapa, podeAprovar(ator))) throw new ErroNegocio("O conteúdo não pode começar nesta etapa.");
+  // O canal do formato é o canal principal e sempre tem publicação.
+  const canalIds = await validarCanais(formato.canal.marcaId, [formato.canal.id, ...dados.canalIds]);
+  return prisma.$transaction(async (tx) => {
+    const conteudo = await tx.conteudo.create({
+      data: {
+        marcaId: formato.canal.marcaId,
+        titulo: dados.titulo,
+        formatoId: formato.id,
+        etapa: dados.etapa,
+        dataPublicacao: dados.dataPublicacao,
+        criadoPorId: ator.id,
+        responsavelId: ator.id,
+        ...(dados.etapa === "aprovado" ? { aprovadoPorId: ator.id, aprovadoEm: new Date() } : {}),
+        publicacoes: { create: canalIds.map((canalId) => ({ canalId })) },
+      },
+    });
+    if (dados.etapa === "aprovado") {
+      await registrarAuditoria({ usuarioId: ator.id, acao: "conteudo.aprovado", entidade: "Conteudo", entidadeId: conteudo.id }, tx);
+    }
+    return conteudo;
   });
 }
 
 type CamposConteudo = {
   titulo: string;
-  formato: Formato;
+  formatoId: string;
   canalIds: string[];
   dataPublicacao: Date | null;
   dataGravacao: Date | null;
-  roteiro: string | null;
   legenda: string | null;
   linkMaterial: string | null;
   responsavelId: string | null;
@@ -262,7 +291,9 @@ export async function atualizarConteudo(ator: UsuarioAtual, conteudoId: string, 
   const { canalIds: canaisPedidos, ...dados } = campos;
   const atual = await exigirConteudo(conteudoId);
   const atuaisIds = atual.publicacoes.map((p) => p.canalId);
-  const canalIds = await validarCanais(atual.marcaId, canaisPedidos, atuaisIds);
+  const formato = await exigirFormato(dados.formatoId, atual.marcaId, atual.formatoId);
+  // O canal do formato (principal) sempre fica entre os canais.
+  const canalIds = await validarCanais(atual.marcaId, [formato.canal.id, ...canaisPedidos], atuaisIds);
 
   const removidas = atual.publicacoes.filter((p) => !canalIds.includes(p.canalId));
   if (removidas.some((p) => p.status === "publicado")) {
@@ -279,8 +310,8 @@ export async function atualizarConteudo(ator: UsuarioAtual, conteudoId: string, 
   }
 
   // Regra 5: quem não aprova e mexe no texto de um conteúdo aprovado devolve para revisão.
-  const mudouTexto = dados.roteiro !== atual.roteiro || dados.legenda !== atual.legenda;
-  const voltaRevisao = atual.etapa === "aprovado" && mudouTexto && !podeAprovar(ator);
+  // (O roteiro tem salvamento próprio, em salvarRoteiro.)
+  const voltaRevisao = voltaParaRevisao(ator, atual.etapa, dados.legenda !== atual.legenda);
 
   await prisma.$transaction(async (tx) => {
     await tx.publicacao.deleteMany({ where: { id: { in: removidas.map((p) => p.id) } } });
@@ -303,6 +334,22 @@ export async function atualizarConteudo(ator: UsuarioAtual, conteudoId: string, 
         ...(etapa !== "publicado" ? { publicadoEm: null } : {}),
       },
     });
+  });
+  return { voltouParaRevisao: voltaRevisao };
+}
+
+/** Regra 5: quem não aprova e mexe no texto de um conteúdo aprovado devolve para revisão. */
+const voltaParaRevisao = (ator: UsuarioAtual, etapa: Etapa, mudouTexto: boolean) => etapa === "aprovado" && mudouTexto && !podeAprovar(ator);
+
+/** Anotações e roteiro (editor livre), salvos sozinhos enquanto a pessoa escreve. */
+export async function salvarRoteiro(ator: UsuarioAtual, conteudoId: string, roteiro: string | null) {
+  exigirUso(ator);
+  const atual = await exigirConteudo(conteudoId);
+  if (roteiro === atual.roteiro) return { voltouParaRevisao: false };
+  const voltaRevisao = voltaParaRevisao(ator, atual.etapa, true);
+  await prisma.conteudo.update({
+    where: { id: conteudoId },
+    data: { roteiro, ...(voltaRevisao ? { etapa: "revisao", aprovadoPorId: null, aprovadoEm: null } : {}) },
   });
   return { voltouParaRevisao: voltaRevisao };
 }

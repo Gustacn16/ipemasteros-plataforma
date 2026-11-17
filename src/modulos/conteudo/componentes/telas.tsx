@@ -26,15 +26,19 @@ import { formatarDataHora } from "@/lib/datas";
 import { cn } from "@/lib/utils";
 import { CLASSE_TITULO_SECAO } from "@/modulos/tarefas/componentes/exibicao";
 import { diaDaDataEntrega } from "@/modulos/tarefas/regras/prazo";
-import { COR_PLATAFORMA, ROTULO_FORMATO, ROTULO_PLATAFORMA, type Plataforma } from "../esquemas/conteudo";
+import { COR_PLATAFORMA, ROTULO_PLATAFORMA, type Plataforma } from "../esquemas/conteudo";
+import { rotuloCanalFormato } from "../regras/formatos";
 import { mesAnterior, mesAtual, proximoMes, taxaEngajamento, type DiaGrade } from "../regras/calendario";
 import { COR_ETAPA, ETAPAS_DO_QUADRO, ROTULO_ETAPA } from "../regras/etapas";
 import type { CartaoConteudo, LinhaPublicado, obterConteudo } from "../servicos/conteudos";
 import { Separator } from "@/componentes/ui/separator";
 import { BadgeEtapa, Cartao, ChipPublicacao, NomeCanal, SeloPlataforma } from "./exibicao";
+import { EditorBlocos } from "./editor-blocos";
 import { EditorConteudo } from "./editor-conteudo";
 import { PublicacoesConteudo } from "./publicacoes-conteudo";
 import { SeletorEtapa } from "./seletor-etapa";
+import { BotaoNovoConteudo } from "./novo-conteudo";
+import { QuadroConteudo } from "./quadro-conteudo";
 import { FotoConta, RelatorioInstagram as BlocoRelatorio } from "./relatorio-instagram";
 import { ListaMidiasInstagram } from "./ligar-midia";
 import type { OrdemMidia } from "../regras/instagram";
@@ -196,43 +200,20 @@ export function TelaPlanejamento({
   const total = ETAPAS_DO_QUADRO.reduce((n, e) => n + quadro[e].length, 0);
   return (
     <div className="grid grid-cols-1 gap-4">
-      <CabecalhoPagina titulo="Planejamento" descricao="Da ideia à aprovação. Publicados ficam na aba Publicados." />
+      <CabecalhoPagina
+        titulo="Planejamento"
+        descricao="Da ideia à aprovação. Arraste os cartões entre as colunas. Publicados ficam na aba Publicados."
+        acoes={<BotaoNovoConteudo />}
+      />
       {total === 0 ? (
         <EstadoVazio
           icone={KanbanIcon}
           titulo="Nenhum conteúdo em produção"
-          descricao="Crie um conteúdo em “Novo conteúdo”, no menu do módulo. Ele começa como ideia."
+          descricao="Crie o primeiro: ele começa como ideia. Atalho: tecla N."
+          acao={<BotaoNovoConteudo />}
         />
       ) : (
-        // No celular as colunas empilham; da tela média em diante o quadro rola dentro do próprio espaço.
-        <div className="relative min-w-0 md:overflow-x-auto md:pb-2">
-          <div className="flex flex-col gap-3 md:flex-row">
-            {ETAPAS_DO_QUADRO.map((etapa) => (
-              <section
-                key={etapa}
-                aria-labelledby={`col-${etapa}`}
-                className="bg-muted/40 grid min-w-0 content-start gap-2 rounded-xl border p-2 md:w-64 md:shrink-0"
-              >
-                <h2 id={`col-${etapa}`} className="flex items-center gap-2 px-1 py-0.5 text-sm font-semibold">
-                  <ChipSituacao cor={COR_ETAPA[etapa]} tamanho="sm">
-                    {ROTULO_ETAPA[etapa]}
-                  </ChipSituacao>
-                  <span className="text-muted-foreground font-normal tabular-nums">{quadro[etapa].length}</span>
-                </h2>
-                {quadro[etapa].map((item) => (
-                  <Cartao
-                    key={item.id}
-                    item={item}
-                    agora={agora}
-                    mostrarGravacao={etapa === "a_gravar"}
-                    acoes={<SeletorEtapa conteudoId={item.id} etapa={item.etapa} compacto />}
-                  />
-                ))}
-                {quadro[etapa].length === 0 && <p className="text-muted-foreground px-1 py-2 text-xs">Vazio</p>}
-              </section>
-            ))}
-          </div>
-        </div>
+        <QuadroConteudo quadro={quadro} agora={agora} />
       )}
     </div>
   );
@@ -274,6 +255,7 @@ export function TelaCalendario({
         acoes={
           <>
             <NavegacaoMes mes={mes} url={(m) => url({ mes: m })} mostrarHoje />
+            <BotaoNovoConteudo />
             <Link
               href={`/conteudo/calendario?${new URLSearchParams({ mes, ...(comGravacoes ? {} : { gravacoes: "1" }) })}`}
               className="hover:bg-muted flex items-center gap-2 rounded-md px-2 py-1 text-sm"
@@ -313,15 +295,23 @@ export function TelaCalendario({
                   !doMes && "bg-muted/30 text-muted-foreground",
                 )}
               >
-                <p
-                  className={cn(
-                    "mb-1 inline-flex size-6 items-center justify-center rounded-full text-xs tabular-nums",
-                    ehHoje && "bg-primary text-primary-foreground font-semibold",
-                  )}
-                >
-                  {Number(dia.slice(8))}
-                  {ehHoje && <span className="sr-only"> (hoje)</span>}
-                </p>
+                <div className="group/dia mb-1 flex items-center justify-between">
+                  <p
+                    className={cn(
+                      "inline-flex size-6 items-center justify-center rounded-full text-xs tabular-nums",
+                      ehHoje && "bg-primary text-primary-foreground font-semibold",
+                    )}
+                  >
+                    {Number(dia.slice(8))}
+                    {ehHoje && <span className="sr-only"> (hoje)</span>}
+                  </p>
+                  <BotaoNovoConteudo
+                    icone
+                    dataPublicacao={dia}
+                    rotulo={`Novo conteúdo para ${dia.slice(8)}/${dia.slice(5, 7)}`}
+                    className="opacity-60 group-hover/dia:opacity-100 focus-visible:opacity-100"
+                  />
+                </div>
                 <ul className="grid gap-1">
                   {eventos.map(({ id, tipo, item }) => (
                     <li key={id} className="min-w-0">
@@ -379,7 +369,11 @@ export function TelaGravacoes({
 }) {
   return (
     <div className="grid grid-cols-1 gap-8">
-      <CabecalhoPagina titulo="Gravações" descricao="Agenda de gravação e o banco de material gravado que ainda não foi publicado." />
+      <CabecalhoPagina
+        titulo="Gravações"
+        descricao="Agenda de gravação e o banco de material gravado que ainda não foi publicado."
+        acoes={<BotaoNovoConteudo etapa="a_gravar" rotulo="Novo para gravar" />}
+      />
 
       <section aria-labelledby="sec-agravar" className="grid gap-3">
         <TituloBloco id="sec-agravar" titulo="A gravar" total={aGravar.length} />
@@ -605,7 +599,7 @@ export function TelaPublicados({
                         {l.conteudo.titulo}
                       </Link>
                       <span className="text-muted-foreground text-xs">
-                        {l.conteudo.marca.nome} · {ROTULO_FORMATO[l.conteudo.formato]}
+                        {l.conteudo.marca.nome} · {l.conteudo.formatoRef?.nome ?? "Sem formato"}
                       </span>
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap">
@@ -638,7 +632,7 @@ export function TelaPublicados({
                       {l.conteudo.titulo}
                     </Link>
                     <span className="text-muted-foreground text-xs">
-                      {l.conteudo.marca.nome} · {ROTULO_FORMATO[l.conteudo.formato]}
+                      {l.conteudo.marca.nome} · {l.conteudo.formatoRef?.nome ?? "Sem formato"}
                     </span>
                   </div>
                   <span className="shrink-0 text-right">
@@ -696,7 +690,11 @@ export function TelaItemConteudo({ conteudo, pessoas, podeAprovar }: DadosItemCo
         >
           <span aria-hidden className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: conteudo.marca.cor }} />
           <span className="truncate">
-            {conteudo.marca.nome} · {ROTULO_FORMATO[conteudo.formato]}
+            {conteudo.marca.nome} ·{" "}
+            {rotuloCanalFormato({
+              plataforma: conteudo.marca.canais.find((k) => k.id === conteudo.formatoRef?.canalId)?.plataforma ?? null,
+              formato: conteudo.formatoRef?.nome ?? null,
+            })}
           </span>
         </Link>
         <CabecalhoPagina titulo={conteudo.titulo} descricao={autoria} />
@@ -710,6 +708,13 @@ export function TelaItemConteudo({ conteudo, pessoas, podeAprovar }: DadosItemCo
         </div>
       </div>
 
+      <section aria-labelledby="sec-anotacoes" className="grid gap-2">
+        <h2 id="sec-anotacoes" className={CLASSE_TITULO_SECAO}>
+          Anotações e roteiro
+        </h2>
+        <EditorBlocos conteudoId={conteudo.id} roteiro={conteudo.roteiro} />
+      </section>
+
       <Separator />
 
       <section aria-labelledby="sec-dados" className="grid gap-4">
@@ -718,7 +723,7 @@ export function TelaItemConteudo({ conteudo, pessoas, podeAprovar }: DadosItemCo
         </h2>
         <EditorConteudo
           conteudo={conteudo}
-          canais={conteudo.marca.canais}
+          conta={conteudo.marca}
           canaisSelecionados={conteudo.publicacoes.map((p) => p.canalId)}
           pessoas={pessoas}
         />

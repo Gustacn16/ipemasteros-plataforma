@@ -8,7 +8,7 @@ import { Label } from "@/componentes/ui/label";
 import { avisar } from "@/modulos/tarefas/componentes/avisar";
 import { valorInputData } from "@/modulos/tarefas/componentes/exibicao";
 import { atualizarConteudoAcao, excluirConteudoAcao } from "../acoes/conteudo";
-import { FORMATOS, ROTULO_FORMATO, ROTULO_PLATAFORMA, type Formato, type Plataforma } from "../esquemas/conteudo";
+import { SeletorCanalFormato, TambemPublicarEm, type ContaComCanais } from "./seletor-formato";
 
 const estiloCampo = "border-input bg-background w-full min-w-0 rounded-md border px-2 py-1.5 text-sm";
 const ID_FORMULARIO = "form-conteudo";
@@ -17,26 +17,25 @@ type Props = {
   conteudo: {
     id: string;
     titulo: string;
-    formato: Formato;
-    roteiro: string | null;
+    formatoRef: { id: string; canalId: string } | null;
     legenda: string | null;
     linkMaterial: string | null;
     responsavelId: string | null;
     dataGravacao: Date | null;
     dataPublicacao: Date | null;
   };
-  canais: { id: string; plataforma: Plataforma; identificador: string | null; ativo: boolean }[];
+  /** A conta do conteúdo, com os canais e formatos. */
+  conta: ContaComCanais;
   canaisSelecionados: string[];
   pessoas: { id: string; nome: string }[];
 };
 
-export function EditorConteudo({ conteudo, canais, canaisSelecionados, pessoas }: Props) {
+export function EditorConteudo({ conteudo, conta, canaisSelecionados, pessoas }: Props) {
   const router = useRouter();
   const [pendente, iniciar] = useTransition();
-  const [canalIds, setCanalIds] = useState(canaisSelecionados);
+  const [escolha, setEscolha] = useState({ canalId: conteudo.formatoRef?.canalId ?? "", formatoId: conteudo.formatoRef?.id ?? "" });
+  const [canalIds, setCanalIds] = useState(canaisSelecionados.filter((id) => id !== conteudo.formatoRef?.canalId));
   const [erros, setErros] = useState<Record<string, string[] | undefined>>({});
-  // Canal inativo só aparece se já estiver no conteúdo.
-  const visiveis = canais.filter((k) => k.ativo || canaisSelecionados.includes(k.id));
 
   function salvar(formData: FormData) {
     const campo = (n: string) => formData.get(n) ?? "";
@@ -44,14 +43,14 @@ export function EditorConteudo({ conteudo, canais, canaisSelecionados, pessoas }
       const r = await atualizarConteudoAcao({
         conteudoId: conteudo.id,
         titulo: campo("titulo"),
-        formato: campo("formato"),
-        roteiro: campo("roteiro"),
+        formatoId: escolha.formatoId,
         legenda: campo("legenda"),
         linkMaterial: campo("linkMaterial"),
         responsavelId: campo("responsavelId"),
         dataGravacao: campo("dataGravacao"),
         dataPublicacao: campo("dataPublicacao"),
-        canalIds,
+        // O canal que deixou de ser o principal continua como extra, se já estava no conteúdo.
+        canalIds: [...new Set([...canalIds, ...canaisSelecionados.filter((id) => id !== escolha.canalId && id === conteudo.formatoRef?.canalId)])],
       });
       setErros(r.erros ?? {});
       if (r.erros) return void avisar({ ok: false, mensagem: "Confira os campos destacados." });
@@ -77,17 +76,17 @@ export function EditorConteudo({ conteudo, canais, canaisSelecionados, pessoas }
           {erro("titulo")}
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="grid gap-1.5">
-            <Label htmlFor="c-formato">Formato</Label>
-            <select id="c-formato" name="formato" defaultValue={conteudo.formato} className={estiloCampo}>
-              {FORMATOS.map((f) => (
-                <option key={f} value={f}>
-                  {ROTULO_FORMATO[f]}
-                </option>
-              ))}
-            </select>
-          </div>
+        <SeletorCanalFormato
+          contas={[conta]}
+          canalId={escolha.canalId}
+          formatoId={escolha.formatoId}
+          formatoAtual={conteudo.formatoRef?.id}
+          aoMudar={setEscolha}
+          idPrefixo="c"
+        />
+        {erro("formatoId")}
+
+        <div className="grid gap-4 sm:grid-cols-3">
           <div className="grid gap-1.5">
             <Label htmlFor="c-resp">Responsável</Label>
             <select id="c-resp" name="responsavelId" defaultValue={conteudo.responsavelId ?? ""} className={estiloCampo}>
@@ -109,34 +108,13 @@ export function EditorConteudo({ conteudo, canais, canaisSelecionados, pessoas }
           </div>
         </div>
 
-        <fieldset className="grid gap-1.5">
-          <legend className="mb-1.5 text-sm font-medium">Canais de destino</legend>
-          <div className="flex flex-wrap gap-4">
-            {visiveis.map((k) => (
-              <label key={k.id} className="flex min-w-0 items-center gap-1.5 text-sm">
-                <input
-                  type="checkbox"
-                  className="accent-primary size-4"
-                  checked={canalIds.includes(k.id)}
-                  onChange={(e) => setCanalIds((a) => (e.target.checked ? [...a, k.id] : a.filter((x) => x !== k.id)))}
-                />
-                {ROTULO_PLATAFORMA[k.plataforma]}
-                {k.identificador && <span className="text-muted-foreground">{k.identificador}</span>}
-              </label>
-            ))}
-          </div>
-          {erro("canalIds")}
-        </fieldset>
+        <TambemPublicarEm canais={conta.canais} principal={escolha.canalId} marcados={canalIds} aoMudar={setCanalIds} />
+        {erro("canalIds")}
 
         <div className="grid gap-1.5">
           <Label htmlFor="c-link">Pasta do material (Google Drive)</Label>
           <Input id="c-link" name="linkMaterial" type="url" defaultValue={conteudo.linkMaterial ?? ""} placeholder="https://drive.google.com/…" />
           {erro("linkMaterial")}
-        </div>
-
-        <div className="grid gap-1.5">
-          <Label htmlFor="c-roteiro">Roteiro / briefing</Label>
-          <textarea id="c-roteiro" name="roteiro" rows={8} defaultValue={conteudo.roteiro ?? ""} className={estiloCampo} />
         </div>
 
         <div className="grid gap-1.5">

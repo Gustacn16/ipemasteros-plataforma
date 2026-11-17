@@ -28,6 +28,7 @@ export const COR_PLATAFORMA: Record<Plataforma, string> = {
   outro: "#737373",
 };
 
+/** Formatos antigos (lista fixa), de antes dos formatos por canal. Só para ler dados velhos. */
 export const FORMATOS = ["reels", "carrossel", "post", "story", "video", "short", "live", "newsletter", "artigo", "outro"] as const;
 export type Formato = (typeof FORMATOS)[number];
 
@@ -71,17 +72,23 @@ export const esquemaCanal = z.object({
 });
 export const esquemaEditarCanal = z.object({ canalId: id, identificador: textoOpcional(100), ativo: z.boolean() });
 
+const nomeFormato = z.string().trim().min(1, "Informe o nome do formato").max(60, "Nome longo demais");
+export const esquemaNovoFormato = z.object({ canalId: id, nome: nomeFormato });
+export const esquemaEditarFormato = z.object({ formatoId: id, nome: nomeFormato, ativo: z.boolean() });
+
+/** O canal principal vem do formato; `canalIds` são os outros canais da mesma conta. */
 export const esquemaNovoConteudo = z.object({
-  marcaId: id,
   titulo: z.string().trim().min(1, "Informe o título").max(200, "Título longo demais"),
-  formato: z.enum(FORMATOS),
+  formatoId: z.string().min(1, "Escolha o formato"),
   canalIds: z.array(id).max(20),
   dataPublicacao: data,
+  etapa: z.enum(ETAPAS_SELECIONAVEIS).default("ideia"),
 });
 
-export const esquemaAtualizarConteudo = esquemaNovoConteudo.omit({ marcaId: true }).extend({
+export const esquemaSalvarRoteiro = z.object({ conteudoId: id, roteiro: textoOpcional(50_000) });
+
+export const esquemaAtualizarConteudo = esquemaNovoConteudo.omit({ etapa: true }).extend({
   conteudoId: id,
-  roteiro: textoOpcional(50_000),
   legenda: textoOpcional(10_000),
   linkMaterial: link,
   responsavelId: z
@@ -122,7 +129,8 @@ export const esquemaFiltroConteudo = z.object({
   marca: idOpcional,
   canal: idOpcional,
   responsavel: idOpcional,
-  formato: z.enum(FORMATOS).optional().catch(undefined),
+  // Id do formato do canal. Valor antigo (da lista fixa) é ignorado.
+  formato: idOpcional.refine((v) => !v || !(FORMATOS as readonly string[]).includes(v)).catch(undefined),
   etapa: z.enum(ETAPAS).optional().catch(undefined),
 });
 export type FiltroConteudo = z.infer<typeof esquemaFiltroConteudo>;

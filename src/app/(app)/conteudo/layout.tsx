@@ -3,6 +3,7 @@ import { exigirPermissaoPagina } from "@/lib/sessao";
 import { BarraFiltros } from "@/modulos/conteudo/componentes/barra-filtros";
 import { lerFiltro } from "@/modulos/conteudo/componentes/filtro";
 import { MenuConteudo } from "@/modulos/conteudo/componentes/menu-conteudo";
+import { ProvedorNovoConteudo } from "@/modulos/conteudo/componentes/novo-conteudo";
 import { listarContas } from "@/modulos/conteudo/servicos/contas";
 import { listarPessoas } from "@/modulos/conteudo/servicos/conteudos";
 
@@ -12,6 +13,7 @@ export default async function LayoutConteudo({ children }: { children: React.Rea
   const [contas, pessoas, filtro] = await Promise.all([listarContas(), listarPessoas(), lerFiltro()]);
 
   return (
+    <ProvedorNovoConteudo contas={contas} filtro={filtro}>
     <div className="-m-4 flex flex-1 flex-col md:-m-8 md:flex-row">
       <MenuConteudo
         contas={contas}
@@ -24,5 +26,6 @@ export default async function LayoutConteudo({ children }: { children: React.Rea
         {children}
       </div>
     </div>
+    </ProvedorNovoConteudo>
   );
 }

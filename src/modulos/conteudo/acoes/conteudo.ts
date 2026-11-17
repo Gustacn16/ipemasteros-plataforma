@@ -7,14 +7,17 @@ import {
   esquemaAtualizarConteudo,
   esquemaCanal,
   esquemaEditarCanal,
+  esquemaEditarFormato,
   esquemaEditarMarca,
   esquemaMarca,
   esquemaMetricas,
   esquemaMudarEtapa,
   esquemaNovoConteudo,
+  esquemaNovoFormato,
   esquemaRegistrarPublicacao,
+  esquemaSalvarRoteiro,
 } from "../esquemas/conteudo";
-import { criarCanal, criarMarca, editarCanal, editarMarca, excluirMarca } from "../servicos/contas";
+import { criarCanal, criarFormato, criarMarca, editarCanal, editarFormato, editarMarca, excluirMarca } from "../servicos/contas";
 import {
   atualizarConteudo,
   criarConteudo,
@@ -22,6 +25,7 @@ import {
   mudarEtapa,
   registrarPublicacao,
   salvarMetricas,
+  salvarRoteiro,
 } from "../servicos/conteudos";
 
 // Todas as visões do módulo (e o menu de contas) leem os mesmos dados.
@@ -73,6 +77,37 @@ export async function editarCanalAcao(dados: unknown): Promise<EstadoAcao> {
     await editarCanal(ator, canalId, resto);
     return { ok: true, mensagem: "Canal atualizado." };
   });
+}
+
+export async function criarFormatoAcao(dados: unknown): Promise<EstadoAcao<{ id: string; nome: string }>> {
+  return executar("conteudo:usar", async (ator) => {
+    const f = await criarFormato(ator, esquemaNovoFormato.parse(dados));
+    return { ok: true, mensagem: "Formato criado.", dados: { id: f.id, nome: f.nome } };
+  });
+}
+
+export async function editarFormatoAcao(dados: unknown): Promise<EstadoAcao> {
+  return executar("conteudo:gerenciar_canais", async (ator) => {
+    const { formatoId, ...resto } = esquemaEditarFormato.parse(dados);
+    await editarFormato(ator, formatoId, resto);
+    return { ok: true, mensagem: "Formato atualizado." };
+  });
+}
+
+/**
+ * Salvamento automático das anotações. Não recarrega o módulo (o editor perderia o cursor);
+ * só quando o conteúdo voltou para revisão a tela precisa atualizar a etapa.
+ */
+export async function salvarRoteiroAcao(dados: unknown): Promise<EstadoAcao<{ voltouParaRevisao: boolean }>> {
+  try {
+    const ator = await exigirPermissao("conteudo:usar");
+    const { conteudoId, roteiro } = esquemaSalvarRoteiro.parse(dados);
+    const r = await salvarRoteiro(ator, conteudoId, roteiro);
+    if (r.voltouParaRevisao) revalidar();
+    return { ok: true, dados: r };
+  } catch (erro) {
+    return tratarErroAcao(erro);
+  }
 }
 
 export async function criarConteudoAcao(dados: unknown): Promise<EstadoAcao<{ id: string }>> {

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ChipSituacao } from "@/componentes/chip-situacao";
 import { cn } from "@/lib/utils";
 import { Avatares, DataEntrega, formatarDiaEntrega } from "@/modulos/tarefas/componentes/exibicao";
-import { ROTULO_FORMATO, ROTULO_PLATAFORMA, type Plataforma } from "../esquemas/conteudo";
+import { ROTULO_PLATAFORMA, type Plataforma } from "../esquemas/conteudo";
 import { conteudoAtrasado } from "../regras/calendario";
 import { COR_ETAPA, ROTULO_ETAPA, type Etapa } from "../regras/etapas";
 import type { CartaoConteudo } from "../servicos/conteudos";
@@ -53,10 +53,18 @@ export function Cartao({
       )}
     >
       <div className="flex min-w-0 items-center gap-1.5 text-xs">
+        {/* O formato é o que organiza o trabalho: vem primeiro, com o selo do canal. */}
+        {item.formatoRef ? (
+          <>
+            <SeloPlataforma plataforma={item.formatoRef.canal.plataforma} />
+            <span className="text-foreground truncate font-medium">{item.formatoRef.nome}</span>
+          </>
+        ) : (
+          <span className="text-muted-foreground truncate italic">Sem formato</span>
+        )}
+        <span className="text-muted-foreground">·</span>
         <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: item.marca.cor }} />
         <span className="text-muted-foreground truncate">{item.marca.nome}</span>
-        <span className="text-muted-foreground">·</span>
-        <span className="text-muted-foreground shrink-0">{ROTULO_FORMATO[item.formato]}</span>
         <span className="ml-auto shrink-0">
           <BadgeEtapa etapa={item.etapa} />
         </span>

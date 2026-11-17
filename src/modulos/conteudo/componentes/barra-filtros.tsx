@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { Button } from "@/componentes/ui/button";
 import { cn } from "@/lib/utils";
-import { COOKIE_FILTRO, FORMATOS, ROTULO_FORMATO, ROTULO_PLATAFORMA, limparFiltro, type FiltroConteudo } from "../esquemas/conteudo";
+import { COOKIE_FILTRO, ROTULO_PLATAFORMA, limparFiltro, type FiltroConteudo } from "../esquemas/conteudo";
 import { ETAPAS, ROTULO_ETAPA } from "../regras/etapas";
 import type { Conta } from "../servicos/contas";
 
@@ -37,11 +37,18 @@ export function BarraFiltros({ filtro, contas, pessoas }: Props) {
   if (caminho.startsWith("/conteudo/itens") || caminho.startsWith("/conteudo/configuracoes")) return null;
 
   const canais = contas.filter((c) => !filtro.marca || c.id === filtro.marca).flatMap((c) => c.canais.map((k) => ({ ...k, conta: c.nome })));
+  // Formatos dos canais que entram no filtro; sem canal escolhido, cada um leva o nome do canal.
+  const formatos = canais
+    .filter((k) => !filtro.canal || k.id === filtro.canal)
+    .flatMap((k) => k.formatos.map((f) => ({ ...f, rotulo: filtro.canal ? f.nome : `${ROTULO_PLATAFORMA[k.plataforma]} · ${f.nome}` })));
   const total = Object.keys(limparFiltro(filtro)).length;
   const mudar = (campo: keyof FiltroConteudo, valor: string) => {
     const novo = { ...filtro, [campo]: valor || undefined };
     // Trocar de conta solta o canal de outra conta.
     if (campo === "marca" && novo.canal && !contas.find((c) => c.id === valor)?.canais.some((k) => k.id === novo.canal)) novo.canal = undefined;
+    // Trocar de conta ou canal solta o formato de outro canal.
+    const canaisDoNovo = contas.filter((c) => !novo.marca || c.id === novo.marca).flatMap((c) => c.canais).filter((k) => !novo.canal || k.id === novo.canal);
+    if (novo.formato && !canaisDoNovo.some((k) => k.formatos.some((f) => f.id === novo.formato))) novo.formato = undefined;
     aplicar(novo);
   };
 
@@ -80,9 +87,9 @@ export function BarraFiltros({ filtro, contas, pessoas }: Props) {
       </select>
       <select aria-label="Formato" className={cn(estiloSelect, filtro.formato && ativo)} value={filtro.formato ?? ""} onChange={(e) => mudar("formato", e.target.value)}>
         <option value="">Todos os formatos</option>
-        {FORMATOS.map((f) => (
-          <option key={f} value={f}>
-            {ROTULO_FORMATO[f]}
+        {formatos.map((f) => (
+          <option key={f.id} value={f.id}>
+            {f.rotulo}
           </option>
         ))}
       </select>

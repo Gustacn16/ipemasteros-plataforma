@@ -19,6 +19,7 @@ Especificação da C1: `docs/superpowers/specs/2026-11-02-conteudo-c1-design.md`
 | `Marca` | id, nome, cor, ordem, excluidoEm |
 | `Canal` | id, marcaId, plataforma (`instagram`/`youtube`/`tiktok`/`facebook`/`linkedin`/`newsletter`/`blog`/`podcast`/`outro`), identificador (@perfil), ativo, excluidoEm |
 | `Conteudo` | id, marcaId, titulo, formato (`reels`/`carrossel`/`post`/`story`/`video`/`short`/`live`/`newsletter`/`artigo`/`outro`), etapa, roteiro, legenda, linkMaterial (Drive), responsavelId, dataGravacao, dataPublicacao, aprovadoPorId/Em, publicadoEm, criadoPorId, excluidoEm |
+| `FormatoCanal` | id, canalId, nome, ordem, ativo | Formatos de cada canal (ex.: YouTube → Avulso, Entrevista, Vlog); iniciais por plataforma em `regras/formatos.ts` |
 | `Publicacao` | id, conteudoId, canalId, status (`pendente`/`publicado`), url, publicadoEm, alcance, visualizacoes, curtidas, comentarios, compartilhamentos, salvamentos, metricasEm, metricasOrigem (`manual`/`instagram`) |
 | `ContaInstagram` (C2a) | id, idExterno, usuario, nome, paginaId, fotoUrl, canalId (único), ativa | Conta profissional que a chave da Meta enxerga, ligada a um canal |
 | `MidiaInstagram` (C2a) | id, contaId, idExterno, tipo (`post`/`carrossel`/`reels`/`story`), legenda, permalink, codigo, miniaturaUrl, publicadoEm, alcance, visualizacoes, curtidas, comentarios, salvamentos, compartilhamentos, interacoes, visitasPerfil, respostas, metricasEm, publicacaoId (único), desligadaEm, removidaEm | Post ou story importado; desligado à mão não é religado sozinho |
@@ -28,6 +29,7 @@ Especificação da C1: `docs/superpowers/specs/2026-11-02-conteudo-c1-design.md`
 **Etapas do conteúdo:** `ideia` → `planejado` → `a_gravar` → `gravado` → `edicao` → `revisao` → `aprovado` → `publicado` (e `cancelado`). `publicado` é automático: acontece quando todas as publicações nos canais são marcadas.
 
 ## Telas (C1)
+- Ajustes de uso (2026-11-17, spec `docs/superpowers/specs/2026-11-17-conteudo-ajustes-de-uso-design.md`): canal primeiro e depois o formato do canal (`Conteudo.formatoId`; o canal do formato é o principal, os outros são "também publicar em"); formatos no menu debaixo do canal escolhido e no filtro; novo conteúdo de qualquer tela (botão, + nas colunas e nos dias, tecla N, "Criar e adicionar outro"); arrastar cartões no quadro; anotações e roteiro num editor de blocos (Markdown simples no campo `roteiro`, salvo sozinho).
 - `/conteudo`: visão geral (atrasados, próximos 7 dias, gravações marcadas, gravados aguardando edição, publicados no mês por plataforma).
 - `/conteudo/planejamento`: quadro por etapa, de ideia a aprovado.
 - `/conteudo/calendario`: calendário mensal por data de publicação, com opção de mostrar gravações.

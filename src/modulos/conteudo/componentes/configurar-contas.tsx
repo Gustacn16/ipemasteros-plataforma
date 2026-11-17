@@ -7,7 +7,15 @@ import { Button } from "@/componentes/ui/button";
 import { Input } from "@/componentes/ui/input";
 import { avisar } from "@/modulos/tarefas/componentes/avisar";
 import { SeletorCor } from "@/modulos/tarefas/componentes/dialogos-estrutura";
-import { criarCanalAcao, criarMarcaAcao, editarCanalAcao, editarMarcaAcao, excluirMarcaAcao } from "../acoes/conteudo";
+import {
+  criarCanalAcao,
+  criarFormatoAcao,
+  criarMarcaAcao,
+  editarCanalAcao,
+  editarFormatoAcao,
+  editarMarcaAcao,
+  excluirMarcaAcao,
+} from "../acoes/conteudo";
 import { PLATAFORMAS, ROTULO_PLATAFORMA, type Plataforma } from "../esquemas/conteudo";
 import type { Conta } from "../servicos/contas";
 import { SeloPlataforma } from "./selo-plataforma";
@@ -30,6 +38,57 @@ export function NovaMarca() {
         Criar conta
       </Button>
     </form>
+  );
+}
+
+function Formato({ formato }: { formato: Conta["canais"][number]["formatos"][number] }) {
+  const [nome, setNome] = useState(formato.nome);
+  const [pendente, iniciar] = useTransition();
+  const salvar = (ativo: boolean) => iniciar(async () => void avisar(await editarFormatoAcao({ formatoId: formato.id, nome, ativo })));
+  return (
+    <li className="flex min-w-0 flex-wrap items-center gap-2">
+      <Input aria-label="Nome do formato" value={nome} onChange={(e) => setNome(e.target.value)} maxLength={60} className="h-8 w-full min-w-0 sm:w-44" />
+      <Button size="sm" variant="outline" disabled={pendente || nome.trim() === formato.nome} onClick={() => salvar(formato.ativo)}>
+        Renomear
+      </Button>
+      <Button size="sm" variant="ghost" disabled={pendente} onClick={() => salvar(!formato.ativo)}>
+        {formato.ativo ? "Desativar" : "Reativar"}
+      </Button>
+      {!formato.ativo && <span className="text-muted-foreground text-xs">inativo</span>}
+    </li>
+  );
+}
+
+/** Formatos do canal (ex.: YouTube → Avulso, Entrevista, Vlog). Desativado some dos formulários; os conteúdos ficam. */
+function FormatosDoCanal({ canal }: { canal: Conta["canais"][number] }) {
+  const [novo, setNovo] = useState("");
+  const [pendente, iniciar] = useTransition();
+  return (
+    <details className="group w-full pl-2">
+      <summary className="text-muted-foreground hover:text-foreground cursor-pointer text-xs">
+        Formatos: {canal.formatos.filter((f) => f.ativo).map((f) => f.nome).join(", ") || "nenhum"}
+      </summary>
+      <div className="grid gap-2 py-2">
+        <ul className="grid gap-2">
+          {canal.formatos.map((f) => (
+            <Formato key={`${f.id}-${f.nome}-${f.ativo}`} formato={f} />
+          ))}
+        </ul>
+        <form
+          className="flex min-w-0 flex-wrap items-center gap-2"
+          action={() =>
+            iniciar(async () => {
+              if (avisar(await criarFormatoAcao({ canalId: canal.id, nome: novo }))) setNovo("");
+            })
+          }
+        >
+          <Input aria-label="Formato novo" value={novo} onChange={(e) => setNovo(e.target.value)} placeholder="Ex.: Entrevista" maxLength={60} className="h-8 w-full min-w-0 sm:w-44" />
+          <Button type="submit" size="sm" disabled={pendente || !novo.trim()}>
+            Adicionar formato
+          </Button>
+        </form>
+      </div>
+    </details>
   );
 }
 
@@ -60,6 +119,7 @@ function Canal({ canal }: { canal: Conta["canais"][number] }) {
         {canal.ativo ? "Desativar" : "Reativar"}
       </Button>
       {!canal.ativo && <span className="text-muted-foreground text-xs">inativo</span>}
+      <FormatosDoCanal canal={canal} />
     </li>
   );
 }

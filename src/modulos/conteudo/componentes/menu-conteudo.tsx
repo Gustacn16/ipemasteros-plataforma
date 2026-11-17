@@ -1,15 +1,14 @@
 "use client";
 
-import { ChevronDownIcon, PlugIcon, PlusIcon, SettingsIcon } from "lucide-react";
+import { ChevronDownIcon, PlugIcon, SettingsIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Button } from "@/componentes/ui/button";
 import { cn } from "@/lib/utils";
 import { ROTULO_PLATAFORMA, type FiltroConteudo } from "../esquemas/conteudo";
 import { useAplicarFiltro } from "./barra-filtros";
 import type { Conta } from "../servicos/contas";
 import { SeloPlataforma } from "./selo-plataforma";
-import { NovoConteudo } from "./novo-conteudo";
+import { BotaoNovoConteudo } from "./novo-conteudo";
 
 const VISOES = [
   { href: "/conteudo", rotulo: "Visão geral" },
@@ -29,25 +28,17 @@ function Conteudo({ contas, podeConfigurar, podeIntegrar, filtro }: Props) {
   const caminho = usePathname();
   const router = useRouter();
   const { aplicar } = useAplicarFiltro();
-  const { marca, canal } = filtro;
+  const { marca, canal, formato } = filtro;
   // Fora das visões (detalhe, configurações), escolher uma conta leva para a visão geral.
   const ehVisao = VISOES.some((v) => v.href === caminho);
-  const filtrar = (novo: Pick<FiltroConteudo, "marca" | "canal">) => {
-    aplicar({ ...filtro, ...novo });
+  const filtrar = (novo: Pick<FiltroConteudo, "marca" | "canal" | "formato">) => {
+    aplicar({ ...filtro, formato: undefined, ...novo });
     if (!ehVisao) router.push("/conteudo");
   };
 
   return (
     <nav aria-label="Conteúdo" className="grid gap-4">
-      <NovoConteudo
-        contas={contas}
-        marcaPadrao={marca}
-        gatilho={
-          <Button size="sm" className="w-full">
-            <PlusIcon /> Novo conteúdo
-          </Button>
-        }
-      />
+      <BotaoNovoConteudo className="w-full" />
       <div className="grid gap-0.5">
         {VISOES.map((v) => (
           <Link
@@ -98,16 +89,34 @@ function Conteudo({ contas, podeConfigurar, podeIntegrar, filtro }: Props) {
               <span className="truncate">{c.nome}</span>
             </button>
             {c.canais.map((k) => (
-              <button
-                type="button"
-                key={k.id}
-                onClick={() => filtrar({ marca: c.id, canal: k.id })}
-                aria-pressed={canal === k.id}
-                className={cn(estiloItem, "pl-6", canal === k.id && "bg-muted font-medium")}
-              >
-                <SeloPlataforma plataforma={k.plataforma} />
-                <span className="truncate">{ROTULO_PLATAFORMA[k.plataforma]}</span>
-              </button>
+              <div key={k.id} className="grid gap-0.5">
+                <button
+                  type="button"
+                  onClick={() => filtrar({ marca: c.id, canal: k.id })}
+                  aria-pressed={canal === k.id && !formato}
+                  className={cn(estiloItem, "pl-6", canal === k.id && !formato && "bg-muted font-medium")}
+                >
+                  <SeloPlataforma plataforma={k.plataforma} />
+                  <span className="truncate">{ROTULO_PLATAFORMA[k.plataforma]}</span>
+                </button>
+                {/* Formatos do canal: o jeito de organizar o trabalho (ex.: YouTube → Entrevista). */}
+                {canal === k.id &&
+                  k.formatos.map((f) => (
+                  <button
+                    type="button"
+                    key={f.id}
+                    onClick={() => filtrar({ marca: c.id, canal: k.id, formato: f.id })}
+                    aria-pressed={formato === f.id}
+                    className={cn(
+                      estiloItem,
+                      "text-muted-foreground pl-12 text-xs",
+                      formato === f.id && "bg-muted text-foreground font-medium",
+                    )}
+                  >
+                    <span className="truncate">{f.nome}</span>
+                  </button>
+                ))}
+              </div>
             ))}
           </div>
         ))}

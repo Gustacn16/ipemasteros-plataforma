@@ -485,39 +485,62 @@ model Canal {
   marca          Marca           @relation(fields: [marcaId], references: [id])
   publicacoes    Publicacao[]
   contaInstagram ContaInstagram?
+  formatos       FormatoCanal[]
 
   @@index([marcaId])
   @@map("canais")
 }
 
-/// Peça de conteúdo. Passa pelas etapas do pipeline e sai em um ou mais canais (Publicacao).
-model Conteudo {
-  id             String          @id @default(cuid())
-  marcaId        String          @map("marca_id")
-  titulo         String          @db.VarChar(200)
-  formato        FormatoConteudo
-  etapa          EtapaConteudo   @default(ideia)
-  roteiro        String?         @db.Text
-  legenda        String?         @db.Text
-  linkMaterial   String?         @map("link_material") @db.VarChar(500)
-  responsavelId  String?         @map("responsavel_id")
-  dataGravacao   DateTime?       @map("data_gravacao") @db.Date
-  dataPublicacao DateTime?       @map("data_publicacao") @db.Date
-  aprovadoPorId  String?         @map("aprovado_por_id")
-  aprovadoEm     DateTime?       @map("aprovado_em")
-  publicadoEm    DateTime?       @map("publicado_em")
-  criadoPorId    String          @map("criado_por_id")
-  excluidoEm     DateTime?       @map("excluido_em")
-  criadoEm       DateTime        @default(now()) @map("criado_em")
-  atualizadoEm   DateTime        @updatedAt @map("atualizado_em")
+/// Formato de um canal (ex.: YouTube → Avulso, Entrevista, Vlog). Organiza as visões do Conteúdo.
+model FormatoCanal {
+  id           String   @id @default(cuid())
+  canalId      String   @map("canal_id")
+  nome         String   @db.VarChar(60)
+  ordem        Int
+  ativo        Boolean  @default(true)
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
 
-  marca       Marca        @relation(fields: [marcaId], references: [id])
-  responsavel Usuario?     @relation("ConteudoResponsavel", fields: [responsavelId], references: [id])
-  criadoPor   Usuario      @relation("ConteudoCriadoPor", fields: [criadoPorId], references: [id])
-  aprovadoPor Usuario?     @relation("ConteudoAprovadoPor", fields: [aprovadoPorId], references: [id])
+  canal     Canal      @relation(fields: [canalId], references: [id])
+  conteudos Conteudo[]
+
+  @@unique([canalId, nome])
+  @@map("formatos_canal")
+}
+
+/// Peça de conteúdo. Passa pelas etapas do pipeline e sai em um ou mais canais (Publicacao).
+/// O canal principal é o canal do formato; os outros canais são publicações extras.
+model Conteudo {
+  id             String           @id @default(cuid())
+  marcaId        String           @map("marca_id")
+  titulo         String           @db.VarChar(200)
+  /// Formato antigo (lista fixa), antes dos formatos por canal. Não é mais gravado.
+  formato        FormatoConteudo?
+  formatoId      String?          @map("formato_id")
+  etapa          EtapaConteudo    @default(ideia)
+  roteiro        String?          @db.Text
+  legenda        String?          @db.Text
+  linkMaterial   String?          @map("link_material") @db.VarChar(500)
+  responsavelId  String?          @map("responsavel_id")
+  dataGravacao   DateTime?        @map("data_gravacao") @db.Date
+  dataPublicacao DateTime?        @map("data_publicacao") @db.Date
+  aprovadoPorId  String?          @map("aprovado_por_id")
+  aprovadoEm     DateTime?        @map("aprovado_em")
+  publicadoEm    DateTime?        @map("publicado_em")
+  criadoPorId    String           @map("criado_por_id")
+  excluidoEm     DateTime?        @map("excluido_em")
+  criadoEm       DateTime         @default(now()) @map("criado_em")
+  atualizadoEm   DateTime         @updatedAt @map("atualizado_em")
+
+  marca       Marca         @relation(fields: [marcaId], references: [id])
+  responsavel Usuario?      @relation("ConteudoResponsavel", fields: [responsavelId], references: [id])
+  criadoPor   Usuario       @relation("ConteudoCriadoPor", fields: [criadoPorId], references: [id])
+  aprovadoPor Usuario?      @relation("ConteudoAprovadoPor", fields: [aprovadoPorId], references: [id])
+  formatoRef  FormatoCanal? @relation(fields: [formatoId], references: [id])
   publicacoes Publicacao[]
 
   @@index([marcaId, etapa])
+  @@index([formatoId])
   @@index([dataPublicacao])
   @@index([dataGravacao])
   @@map("conteudos")

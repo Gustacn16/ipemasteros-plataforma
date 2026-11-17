@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { esquemaAtualizarConteudo, esquemaMetricas, esquemaMudarEtapa, filtroDoCookie } from "./conteudo";
+import { esquemaAtualizarConteudo, esquemaMetricas, esquemaMudarEtapa, esquemaNovoConteudo, esquemaNovoFormato, filtroDoCookie } from "./conteudo";
 
 describe("esquemas de conteúdo", () => {
   const base = {
     conteudoId: "c1",
     titulo: "Reels: 3 erros na prova de residência",
-    formato: "reels",
+    formatoId: "f1",
     canalIds: ["k1"],
     dataPublicacao: "2026-11-27",
     roteiro: "  ",
@@ -17,7 +17,7 @@ describe("esquemas de conteúdo", () => {
 
   it("normaliza campos vazios para null", () => {
     const r = esquemaAtualizarConteudo.parse(base);
-    expect(r.roteiro).toBeNull();
+    expect(r.legenda).toBeNull();
     expect(r.linkMaterial).toBeNull();
     expect(r.responsavelId).toBeNull();
     expect(r.dataGravacao).toBeNull();
@@ -27,6 +27,20 @@ describe("esquemas de conteúdo", () => {
   it("recusa link que não é http(s)", () => {
     expect(esquemaAtualizarConteudo.safeParse({ ...base, linkMaterial: "javascript:alert(1)" }).success).toBe(false);
     expect(esquemaAtualizarConteudo.safeParse({ ...base, linkMaterial: "https://drive.google.com/x" }).success).toBe(true);
+  });
+
+  it("novo conteúdo nasce como ideia, a não ser que venha a etapa da coluna", () => {
+    const novo = { titulo: "Vlog da semana", formatoId: "f1", canalIds: [], dataPublicacao: "" };
+    expect(esquemaNovoConteudo.parse(novo).etapa).toBe("ideia");
+    expect(esquemaNovoConteudo.parse({ ...novo, etapa: "a_gravar" }).etapa).toBe("a_gravar");
+    expect(esquemaNovoConteudo.safeParse({ ...novo, etapa: "publicado" }).success).toBe(false);
+    expect(esquemaNovoConteudo.safeParse({ ...novo, formatoId: "" }).success).toBe(false);
+  });
+
+  it("nome do formato sem espaços nas pontas e com até 60 letras", () => {
+    expect(esquemaNovoFormato.parse({ canalId: "k1", nome: "  Entrevista " }).nome).toBe("Entrevista");
+    expect(esquemaNovoFormato.safeParse({ canalId: "k1", nome: " " }).success).toBe(false);
+    expect(esquemaNovoFormato.safeParse({ canalId: "k1", nome: "x".repeat(61) }).success).toBe(false);
   });
 
   it("não aceita escolher publicado à mão", () => {
@@ -43,14 +57,14 @@ describe("esquemas de conteúdo", () => {
 
 describe("filtroDoCookie", () => {
   it("lê o filtro salvo", () => {
-    expect(filtroDoCookie(JSON.stringify({ marca: "m1", formato: "reels", etapa: "aprovado" }))).toEqual({
+    expect(filtroDoCookie(JSON.stringify({ marca: "m1", formato: "cmformato1", etapa: "aprovado" }))).toEqual({
       marca: "m1",
-      formato: "reels",
+      formato: "cmformato1",
       etapa: "aprovado",
     });
   });
-  it("ignora campos inválidos e vazios", () => {
-    expect(filtroDoCookie(JSON.stringify({ marca: "", formato: "xyz", etapa: "nada", responsavel: "u1" }))).toEqual({ responsavel: "u1" });
+  it("ignora campos inválidos e vazios (o formato antigo, da lista fixa, também)", () => {
+    expect(filtroDoCookie(JSON.stringify({ marca: "", formato: "reels", etapa: "nada", responsavel: "u1" }))).toEqual({ responsavel: "u1" });
   });
   it("cookie ausente ou corrompido vira filtro vazio", () => {
     expect(filtroDoCookie(undefined)).toEqual({});
