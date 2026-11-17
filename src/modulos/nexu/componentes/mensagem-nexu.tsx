@@ -5,11 +5,22 @@ import remarkGfm from "remark-gfm";
 import { cn } from "cn";
 
 /** Resposta do Nexu em markdown simples. Sem HTML: o texto bruto nunca vira tag (não há rehype-raw). */
+/** Só http, https, mailto e caminhos relativos; qualquer outro esquema (javascript:, data:) vira vazio. */
+export function urlSegura(url: string): string {
+  const t = url.trim();
+  if (/^(https?:|mailto:)/i.test(t)) return t;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(t)) return "";
+  return t;
+}
+
 function Markdown_({ texto }: { texto: string }) {
   return (
     <Markdown
       remarkPlugins={[remarkGfm]}
+      urlTransform={urlSegura}
       components={{
+        // Imagem remota seria buscada sem clique (vazamento de dados por prompt injection).
+        img: () => null,
         p: (p) => <p className="my-2 first:mt-0 last:mb-0" {...clean(p)} />,
         ul: (p) => <ul className="my-2 list-disc pl-5" {...clean(p)} />,
         ol: (p) => <ol className="my-2 list-decimal pl-5" {...clean(p)} />,

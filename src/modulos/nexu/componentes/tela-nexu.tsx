@@ -39,10 +39,10 @@ export function TelaNexu({ conversas, atual, configurado, motivo, perguntasPorDi
   const [erroApagar, setErroApagar] = useState<string | null>(null);
 
   // Quando uma pergunta termina, atualiza a lista (a conversa nova passa a aparecer nela).
-  const terminou = !conversa.enviando && conversa.restantesHoje !== null;
+  const terminou = !conversa.enviando && (conversa.restantesHoje !== null || (conversa.erro !== null && conversa.conversaId !== null));
   useEffect(() => {
     if (terminou) router.refresh();
-  }, [terminou, conversa.restantesHoje, router]);
+  }, [terminou, conversa.restantesHoje, conversa.erro, router]);
 
   const usadas = conversa.restantesHoje !== null ? perguntasPorDia - conversa.restantesHoje : usadasHoje;
   const idAberto = atual?.id ?? conversa.conversaId;
@@ -61,11 +61,17 @@ export function TelaNexu({ conversas, atual, configurado, motivo, perguntasPorDi
   return (
     <div className="grid min-h-0 flex-1 gap-4 md:grid-cols-[18rem_1fr]">
       <aside aria-label="Conversas" className="grid content-start gap-2 md:max-h-[calc(100dvh-10rem)] md:overflow-y-auto">
-        <Button asChild variant="outline">
-          <Link href="/nexu">
+        {atual ? (
+          <Button asChild variant="outline">
+            <Link href="/nexu">
+              <PlusIcon /> Nova conversa
+            </Link>
+          </Button>
+        ) : (
+          <Button type="button" variant="outline" onClick={conversa.nova}>
             <PlusIcon /> Nova conversa
-          </Link>
-        </Button>
+          </Button>
+        )}
         {erroApagar && (
           <p role="alert" className="text-destructive text-sm">
             {erroApagar}
