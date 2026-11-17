@@ -160,6 +160,83 @@ describe("confirmarProposta", () => {
   });
 });
 
+describe("confirmarProposta: dados e links", () => {
+  beforeEach(() => m.prisma.propostaNexu.updateMany.mockResolvedValue({ count: 1 }));
+
+  it("dados gravados adulterados: falhou com 'Os dados da proposta não são mais válidos.' e o módulo não é chamado", async () => {
+    m.prisma.propostaNexu.findUniqueOrThrow.mockResolvedValue({ ...pendente, dados: { listaId: "l1", titulo: "" } });
+    const r = await confirmarProposta(quemConfirma, "p1");
+    expect(r).toMatchObject({ status: "falhou", erro: "Os dados da proposta não são mais válidos." });
+    expect(m.criarTarefa).not.toHaveBeenCalled();
+    expect(m.anexarMensagens).toHaveBeenCalledWith("c1", [
+      { papel: "usuario", conteudo: "[A proposta falhou: Os dados da proposta não são mais válidos.]" },
+    ]);
+  });
+
+  it("dados de outro tipo no registro: falhou e nada é chamado", async () => {
+    m.prisma.propostaNexu.findUniqueOrThrow.mockResolvedValue({ ...pendente, tipo: "registrar_venda" });
+    const r = await confirmarProposta(quemConfirma, "p1");
+    expect(r).toMatchObject({ status: "falhou", erro: "Os dados da proposta não são mais válidos." });
+    expect(m.criarVenda).not.toHaveBeenCalled();
+    expect(m.criarTarefa).not.toHaveBeenCalled();
+  });
+
+  it("venda confirmada: criarVenda recebe whatsappCliente, observacoes e proximosPassos como null", async () => {
+    m.prisma.propostaNexu.findUniqueOrThrow.mockResolvedValue({
+      ...pendente,
+      tipo: "registrar_venda",
+      dados: {
+        tipo: "registrar_venda",
+        produtoId: "pr1",
+        vendedorId: "u1",
+        dataVenda: "2026-11-17",
+        nomeCliente: "Fulano de Tal",
+        metodoPagamento: "pix",
+        entrada: "1500.00",
+        // Mesmo que algo tenha sido gravado por engano, não chega ao módulo.
+        whatsappCliente: "11999998888",
+      },
+    });
+    m.criarVenda.mockResolvedValue({ id: "v1" });
+    const r = await confirmarProposta(quemConfirma, "p1");
+    expect(r).toMatchObject({ status: "confirmada", resultadoUrl: "/comercial/vendas" });
+    expect(m.criarVenda.mock.calls[0][0]).toBe(quemConfirma);
+    expect(m.criarVenda.mock.calls[0][1]).toMatchObject({
+      produtoId: "pr1",
+      entrada: "1500.00",
+      whatsappCliente: null,
+      observacoes: null,
+      proximosPassos: null,
+    });
+    expect(m.criarVenda.mock.calls[0][1]).not.toHaveProperty("tipo");
+  });
+
+  it("mudar status: erro ao buscar o link depois da ação não vira falhou (link de reserva)", async () => {
+    m.prisma.propostaNexu.findUniqueOrThrow.mockResolvedValue({
+      ...pendente,
+      tipo: "mudar_status_tarefa",
+      dados: { tipo: "mudar_status_tarefa", tarefaId: "tar1", statusId: "s2" },
+    });
+    m.mudarStatus.mockResolvedValue(undefined);
+    m.prisma.tarefa.findUnique.mockRejectedValue(new Error("banco caiu"));
+    const r = await confirmarProposta(quemConfirma, "p1");
+    expect(m.mudarStatus).toHaveBeenCalledWith(quemConfirma, "tar1", "s2");
+    expect(r).toMatchObject({ status: "confirmada", resultadoUrl: "/tarefas/minhas" });
+  });
+
+  it("checklist: link da tarefa na lista", async () => {
+    m.prisma.propostaNexu.findUniqueOrThrow.mockResolvedValue({
+      ...pendente,
+      tipo: "adicionar_checklist",
+      dados: { tipo: "adicionar_checklist", tarefaId: "tar1", texto: "Revisar" },
+    });
+    m.prisma.tarefa.findUnique.mockResolvedValue({ listaId: "l1" });
+    const r = await confirmarProposta(quemConfirma, "p1");
+    expect(m.adicionarItemChecklist).toHaveBeenCalledWith(quemConfirma, "tar1", "Revisar");
+    expect(r).toMatchObject({ status: "confirmada", resultadoUrl: "/tarefas/listas/l1?tarefa=tar1" });
+  });
+});
+
 describe("recusarProposta", () => {
   it("pendente → recusada, com a mensagem na conversa e sem chamar o módulo", async () => {
     m.prisma.propostaNexu.updateMany.mockResolvedValue({ count: 1 });

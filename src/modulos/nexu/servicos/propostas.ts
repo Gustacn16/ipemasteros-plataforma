@@ -47,7 +47,8 @@ export const PERMISSAO_DO_TIPO: Record<TipoPropostaNexu, Permissao> = {
   criar_tarefa: "tarefas:usar",
   mudar_status_tarefa: "tarefas:usar",
   adicionar_checklist: "tarefas:usar",
-  criar_evento: "agenda:usar",
+  // Todo evento criado pela agenda é institucional (criarEvento exige editar_institucional). Ruling R11.
+  criar_evento: "agenda:editar_institucional",
   criar_post: "conteudo:usar",
   registrar_venda: "comercial:registrar_venda",
 };
@@ -136,8 +137,6 @@ async function resumir(ator: UsuarioAtual, d: DadosProposta): Promise<string> {
       return `Adicionar ao checklist de "${tarefa.titulo}": ${d.texto}`;
     }
     case "criar_evento": {
-      // Todo evento criado pela agenda é institucional.
-      exigirPermissaoDoTipo(ator, "agenda:editar_institucional");
       const tipos = await prisma.tipoEvento.findMany({
         where: { ativo: true },
         orderBy: { ordem: "asc" },
@@ -284,9 +283,14 @@ function semTipo<T extends { tipo: string }>(d: T): Omit<T, "tipo"> {
 
 const diaParaData = (d: string) => new Date(`${d}T00:00:00Z`);
 
+/** Link da tarefa. Roda depois que a ação já aconteceu no módulo, então nunca lança: na dúvida, "Minhas tarefas". */
 async function urlDaTarefa(tarefaId: string): Promise<string> {
-  const tarefa = await prisma.tarefa.findUnique({ where: { id: tarefaId }, select: { listaId: true } });
-  return tarefa ? `/tarefas/listas/${tarefa.listaId}?tarefa=${tarefaId}` : "/tarefas/minhas";
+  try {
+    const tarefa = await prisma.tarefa.findUnique({ where: { id: tarefaId }, select: { listaId: true } });
+    return tarefa ? `/tarefas/listas/${tarefa.listaId}?tarefa=${tarefaId}` : "/tarefas/minhas";
+  } catch {
+    return "/tarefas/minhas";
+  }
 }
 
 /** Roda a ação no serviço do módulo, como `ator`. Devolve o id e o link do que foi criado/alterado. */

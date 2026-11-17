@@ -17,6 +17,22 @@ describe("ferramentasDoPapel", () => {
     expect(ferramentasDoPapel("professor")).toEqual([]);
   });
 
+  it("propor_criar_evento exige editar a agenda institucional (todo evento criado é institucional)", () => {
+    const evento = TODAS_FERRAMENTAS.find((f) => f.nome === "propor_criar_evento");
+    expect(evento?.permissao).toBe("agenda:editar_institucional");
+    expect(nomes("colaborador")).toContain("propor_criar_evento");
+  });
+
+  it("propor_registrar_venda só para quem registra venda", () => {
+    expect(nomes("comercial")).toContain("propor_registrar_venda");
+    expect(nomes("colaborador")).not.toContain("propor_registrar_venda");
+  });
+
+  it("as ações ficam no fim da ordem fixa", () => {
+    const todas = TODAS_FERRAMENTAS.map((f) => f.tipo);
+    expect(todas.slice(todas.indexOf("proposta")).every((t) => t === "proposta")).toBe(true);
+  });
+
   it("a ordem é estável entre chamadas", () => {
     expect(nomes("admin")).toEqual(nomes("admin"));
     expect(nomes("admin")).toEqual(TODAS_FERRAMENTAS.map((f) => f.nome));
