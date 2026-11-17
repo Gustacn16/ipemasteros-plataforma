@@ -68,6 +68,12 @@ Regras:
 
 Tokens de integração ficam **criptografados no banco** (AES-256-GCM, chave em variável de ambiente).
 
+## Route Handlers do motor do WhatsApp
+O motor (projeto à parte, `motor-whatsapp/`) fala com o sistema por três rotas, todas com `Authorization: Bearer $MOTOR_WHATSAPP_SEGREDO` (sem segredo configurado, recusam tudo). Respostas de erro são só `{ ok: false }`, sem o motivo.
+- `POST /api/whatsapp/motor/eventos`: recebe `{ eventos }` (QR, conectado, desconectado, sinal) e responde `{ ok, aplicados, ignorados }`; 400 se o corpo não valida.
+- `GET /api/whatsapp/motor/comandos`: entrega `{ comandos: { id, numeroId, tipo }[] }` pendentes.
+- `POST /api/whatsapp/motor/comandos/:id`: recebe `{ situacao, erro? }`; 404 se o comando não existe.
+
 ## Jobs agendados
 A Hostinger Cloud oferece cron no hPanel. Cada job é um `GET /api/cron/<tarefa>` com o header `Authorization: Bearer $CRON_SECRET`.
 - `importar-meta-ads` (diário, 4h): refaz os últimos 7 dias do Meta Ads; implementado em `src/app/api/cron/[tarefa]/route.ts`.
@@ -93,7 +99,7 @@ Os jobs precisam ser **idempotentes**: rodar duas vezes não pode duplicar dados
 - O banco de homologação **nunca** usa cópia de dados reais de alunos. Usa o seed.
 
 ## Variáveis de ambiente
-`DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `CHAVE_CRIPTOGRAFIA`, `HMAC_CPF_SEGREDO`, `CRON_SECRET`, `SMTP_*`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `META_*`, `KOMMO_*`, `TURNSTILE_*`.
+`DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `CHAVE_CRIPTOGRAFIA`, `HMAC_CPF_SEGREDO`, `CRON_SECRET`, `MOTOR_WHATSAPP_SEGREDO`, `SMTP_*`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `META_*`, `KOMMO_*`, `TURNSTILE_*`.
 Ficam no painel da Hostinger e nunca no repositório. O `.env.example` documenta todas.
 
 ## Arquivos e anexos
