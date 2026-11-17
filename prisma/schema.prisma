@@ -65,6 +65,7 @@ model Usuario {
   importacoesAnuncios   ImportacaoAnuncios[]
   atualizacoesInstagram AtualizacaoInstagram[]
   assinaturaAgenda      AssinaturaAgenda?
+  numerosWhatsapp       NumeroWhatsapp[]
 
   @@map("usuarios")
 }
@@ -1195,4 +1196,73 @@ model AtualizacaoInstagram {
 
   @@index([tipo, iniciadoEm])
   @@map("atualizacoes_instagram")
+}
+
+enum FinalidadeNumeroWhatsapp {
+  escola
+  vendedor
+}
+
+enum SituacaoNumeroWhatsapp {
+  desconectado
+  aguardando_qr
+  conectado
+  erro
+}
+
+enum TipoComandoWhatsapp {
+  conectar
+  desconectar
+}
+
+enum SituacaoComandoWhatsapp {
+  pendente
+  em_andamento
+  concluido
+  falhou
+}
+
+/// Vaga de número de WhatsApp (da escola ou de um vendedor). A sessão fica no motor, nunca aqui.
+model NumeroWhatsapp {
+  id            String                   @id @default(cuid())
+  nome          String                   @db.VarChar(60)
+  finalidade    FinalidadeNumeroWhatsapp
+  usuarioId     String?                  @map("usuario_id")
+  telefone      String?                  @db.VarChar(20)
+  situacao      SituacaoNumeroWhatsapp   @default(desconectado)
+  qrAtual       String?                  @map("qr_atual") @db.Text
+  qrEm          DateTime?                @map("qr_em")
+  conectadoEm   DateTime?                @map("conectado_em")
+  ultimoSinalEm DateTime?                @map("ultimo_sinal_em")
+  erro          String?                  @db.VarChar(255)
+  excluidoEm    DateTime?                @map("excluido_em")
+  criadoEm      DateTime                 @default(now()) @map("criado_em")
+  atualizadoEm  DateTime                 @updatedAt @map("atualizado_em")
+
+  usuario  Usuario?          @relation(fields: [usuarioId], references: [id])
+  comandos ComandoWhatsapp[]
+
+  @@index([usuarioId])
+  @@map("numeros_whatsapp")
+}
+
+/// Fila de comandos do site para o motor do WhatsApp.
+model ComandoWhatsapp {
+  id           String                  @id @default(cuid())
+  numeroId     String                  @map("numero_id")
+  tipo         TipoComandoWhatsapp
+  dados        Json?
+  situacao     SituacaoComandoWhatsapp @default(pendente)
+  tentativas   Int                     @default(0)
+  iniciadoEm   DateTime?               @map("iniciado_em")
+  concluidoEm  DateTime?               @map("concluido_em")
+  erro         String?                 @db.VarChar(255)
+  criadoEm     DateTime                @default(now()) @map("criado_em")
+  atualizadoEm DateTime                @updatedAt @map("atualizado_em")
+
+  numero NumeroWhatsapp @relation(fields: [numeroId], references: [id])
+
+  @@index([situacao, criadoEm])
+  @@index([numeroId, situacao])
+  @@map("comandos_whatsapp")
 }
