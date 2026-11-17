@@ -48,7 +48,9 @@ export type Permissao =
   | "academico:gerenciar"
   | "academico:importar_alunos"
   | "whatsapp:gerenciar_numeros"
-  | "whatsapp:conectar_proprio";
+  | "whatsapp:conectar_proprio"
+  | "nexu:usar"
+  | "nexu:configurar";
 
 // Colaborador e professor têm regras por registro (membro do espaço, tarefas
 // atribuídas) em src/modulos/tarefas/servicos/acesso.ts.
@@ -97,6 +99,8 @@ const PERMISSOES_COLABORADOR: readonly Permissao[] = [
   "agenda:editar_institucional",
   "academico:ver",
   "academico:gerenciar",
+  // O Nexu (assistente de IA) vale para todo mundo que usa o sistema no dia a dia; professor e aluno ficam de fora.
+  "nexu:usar",
 ];
 
 const PERMISSOES_POR_PAPEL: Record<Papel, readonly Permissao[]> = {
@@ -112,6 +116,9 @@ const PERMISSOES_POR_PAPEL: Record<Papel, readonly Permissao[]> = {
     ...COMERCIAL_GESTAO,
     ...ACADEMICO_GESTAO,
     ...WHATSAPP_GESTAO,
+    "nexu:usar",
+    // Só o admin escolhe o modelo e os limites do Nexu.
+    "nexu:configurar",
     // Só o admin apaga produtos do catálogo.
     "comercial:excluir_produtos",
     // Só o admin mexe na integração com a Meta (chave e importação).
@@ -129,6 +136,7 @@ const PERMISSOES_POR_PAPEL: Record<Papel, readonly Permissao[]> = {
     ...COMERCIAL_GESTAO,
     ...ACADEMICO_GESTAO,
     ...WHATSAPP_GESTAO,
+    "nexu:usar",
   ],
   colaborador: PERMISSOES_COLABORADOR,
   comercial: [

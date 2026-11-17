@@ -38,7 +38,9 @@ export type AcaoAuditoria =
   | "whatsapp.numero_criado"
   | "whatsapp.numero_excluido"
   | "whatsapp.conexao_solicitada"
-  | "whatsapp.desconexao_solicitada";
+  | "whatsapp.desconexao_solicitada"
+  | "nexu.configuracao_alterada"
+  | "nexu.proposta_confirmada";
 
 type DadosAuditoria = {
   usuarioId: string | null;

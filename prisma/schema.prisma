@@ -66,6 +66,11 @@ model Usuario {
   atualizacoesInstagram AtualizacaoInstagram[]
   assinaturaAgenda      AssinaturaAgenda?
 
+  conversasNexu            ConversaNexu[]
+  propostasNexu            PropostaNexu[]
+  usosIa                   UsoIa[]
+  configuracoesIaAlteradas ConfiguracaoIa[]
+
   @@map("usuarios")
 }
 
@@ -1195,4 +1200,117 @@ model AtualizacaoInstagram {
 
   @@index([tipo, iniciadoEm])
   @@map("atualizacoes_instagram")
+}
+
+enum PapelMensagemNexu {
+  usuario
+  assistente
+}
+
+enum TipoPropostaNexu {
+  criar_tarefa
+  mudar_status_tarefa
+  adicionar_checklist
+  criar_evento
+  criar_post
+  registrar_venda
+}
+
+enum StatusPropostaNexu {
+  pendente
+  executando
+  confirmada
+  recusada
+  falhou
+}
+
+/// Conversa do Nexu (assistente de IA). Exclusão física (LGPD): apagada após 90 dias sem uso.
+model ConversaNexu {
+  id           String   @id @default(cuid())
+  usuarioId    String   @map("usuario_id")
+  titulo       String   @db.VarChar(120)
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  usuario   Usuario        @relation(fields: [usuarioId], references: [id])
+  mensagens MensagemNexu[]
+  propostas PropostaNexu[]
+
+  @@index([usuarioId, atualizadoEm])
+  @@map("conversas_nexu")
+}
+
+/// Blocos exatamente como a API devolve (inclui tool_use, tool_result e thinking), para reenviar o histórico sem alterar nada.
+model MensagemNexu {
+  id         String            @id @default(cuid())
+  conversaId String            @map("conversa_id")
+  papel      PapelMensagemNexu
+  conteudo   Json
+  ordem      Int
+  criadoEm   DateTime          @default(now()) @map("criado_em")
+
+  conversa ConversaNexu @relation(fields: [conversaId], references: [id], onDelete: Cascade)
+
+  @@index([conversaId, ordem])
+  @@map("mensagens_nexu")
+}
+
+/// Ação sugerida pelo Nexu que só roda depois do clique humano. `dados` é validado por Zod ao criar e ao confirmar.
+model PropostaNexu {
+  id           String             @id @default(cuid())
+  conversaId   String             @map("conversa_id")
+  usuarioId    String             @map("usuario_id")
+  toolUseId    String             @map("tool_use_id") @db.VarChar(64)
+  tipo         TipoPropostaNexu
+  dados        Json
+  resumo       String             @db.VarChar(500)
+  status       StatusPropostaNexu @default(pendente)
+  erro         String?            @db.VarChar(500)
+  resultadoId  String?            @map("resultado_id") @db.VarChar(40)
+  resultadoUrl String?            @map("resultado_url") @db.VarChar(300)
+  decididaEm   DateTime?          @map("decidida_em")
+  criadoEm     DateTime           @default(now()) @map("criado_em")
+  atualizadoEm DateTime           @updatedAt @map("atualizado_em")
+
+  conversa ConversaNexu @relation(fields: [conversaId], references: [id], onDelete: Cascade)
+  usuario  Usuario      @relation(fields: [usuarioId], references: [id])
+
+  @@index([conversaId])
+  @@index([usuarioId, status])
+  @@map("propostas_nexu")
+}
+
+/// Uma linha por chamada à API de IA. Sem texto; não é apagada na limpeza de 90 dias.
+model UsoIa {
+  id                 String   @id @default(cuid())
+  origem             String   @db.VarChar(30)
+  usuarioId          String?  @map("usuario_id")
+  inicioPergunta     Boolean  @default(false) @map("inicio_pergunta")
+  modelo             String   @db.VarChar(60)
+  tokensEntrada      Int      @map("tokens_entrada")
+  tokensCacheEscrita Int      @map("tokens_cache_escrita")
+  tokensCacheLeitura Int      @map("tokens_cache_leitura")
+  tokensSaida        Int      @map("tokens_saida")
+  custoMicroUsd      Int      @map("custo_micro_usd")
+  criadoEm           DateTime @default(now()) @map("criado_em")
+
+  usuario Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([criadoEm])
+  @@index([usuarioId, criadoEm])
+  @@map("usos_ia")
+}
+
+/// Linha única (id "unica") criada pela migration.
+model ConfiguracaoIa {
+  id                   String   @id
+  modelo               String   @db.VarChar(60)
+  limiteMensalMicroUsd Int      @map("limite_mensal_micro_usd")
+  perguntasPorDia      Int      @map("perguntas_por_dia")
+  atualizadoPorId      String?  @map("atualizado_por_id")
+  atualizadoEm         DateTime @updatedAt @map("atualizado_em")
+
+  atualizadoPor Usuario? @relation(fields: [atualizadoPorId], references: [id], onDelete: SetNull)
+
+  @@map("configuracoes_ia")
 }

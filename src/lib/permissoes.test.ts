@@ -266,3 +266,25 @@ describe("permissões do WhatsApp", () => {
     }
   });
 });
+
+describe("permissões do Nexu", () => {
+  it("nexu:usar vale para admin, gestor, colaborador e comercial", () => {
+    for (const papel of ["admin", "gestor", "colaborador", "comercial"] as const) {
+      expect(temPermissao(papel, "nexu:usar")).toBe(true);
+    }
+  });
+
+  it("professor e aluno não usam o Nexu", () => {
+    for (const papel of ["professor", "aluno"] as const) {
+      expect(temPermissao(papel, "nexu:usar")).toBe(false);
+      expect(temPermissao(papel, "nexu:configurar")).toBe(false);
+    }
+  });
+
+  it("nexu:configurar só para admin", () => {
+    expect(temPermissao("admin", "nexu:configurar")).toBe(true);
+    for (const papel of ["gestor", "colaborador", "comercial"] as const) {
+      expect(temPermissao(papel, "nexu:configurar")).toBe(false);
+    }
+  });
+});
