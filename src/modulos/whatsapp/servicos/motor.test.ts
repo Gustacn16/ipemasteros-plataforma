@@ -63,6 +63,11 @@ const banco = vi.hoisted(() => {
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/prisma", () => ({ prisma: banco.prisma }));
+const captura = vi.hoisted(() => ({
+  aplicarConversas: vi.fn(async () => {}),
+  aplicarMensagens: vi.fn(async () => ({ salvas: 0, descartadas: 0 })),
+}));
+vi.mock("./captura", () => captura);
 
 const { aplicarEventos, concluirComando, entregarComandos } = await import("./motor");
 
@@ -81,6 +86,8 @@ const comando = (id: string, extra: Linha = {}) => ({
 beforeEach(() => {
   banco.estado.numeros = [vaga("n1"), vaga("n2"), vaga("nx", { excluidoEm: minAtras(100) })];
   banco.estado.comandos = [];
+  captura.aplicarConversas.mockClear();
+  captura.aplicarMensagens.mockClear();
 });
 
 describe("aplicarEventos", () => {
@@ -138,6 +145,36 @@ describe("aplicarEventos", () => {
     expect(r).toEqual({ aplicados: 1, ignorados: 2 });
     expect(banco.estado.numeros[1]!.qrAtual).toBe("C");
     expect(banco.estado.numeros[2]!.qrAtual).toBeNull();
+  });
+
+  it("conversas e mensagens vão para a captura e contam como aplicados", async () => {
+    const conversas = [{ jid: "1@g.us", tipo: "grupo" as const }];
+    const mensagens = [
+      { idExterno: "m1", jid: "1@g.us", deMim: false, tipo: "texto" as const, enviadaEm: AGORA.toISOString() },
+    ];
+    const r = await aplicarEventos(
+      [
+        { tipo: "conversas", numeroId: "n1", conversas },
+        { tipo: "mensagens", numeroId: "n2", origem: "historico", mensagens },
+      ],
+      AGORA,
+    );
+    expect(r).toEqual({ aplicados: 2, ignorados: 0 });
+    expect(captura.aplicarConversas).toHaveBeenCalledWith("n1", conversas, AGORA);
+    expect(captura.aplicarMensagens).toHaveBeenCalledWith("n2", "historico", mensagens, AGORA);
+  });
+
+  it("conversas e mensagens de vaga excluída ou inexistente são ignoradas", async () => {
+    const r = await aplicarEventos(
+      [
+        { tipo: "conversas", numeroId: "nx", conversas: [] },
+        { tipo: "mensagens", numeroId: "inexistente", origem: "ao_vivo", mensagens: [] },
+      ],
+      AGORA,
+    );
+    expect(r).toEqual({ aplicados: 0, ignorados: 2 });
+    expect(captura.aplicarConversas).not.toHaveBeenCalled();
+    expect(captura.aplicarMensagens).not.toHaveBeenCalled();
   });
 
   it("sinal atualiza ultimoSinalEm das vagas não excluídas", async () => {

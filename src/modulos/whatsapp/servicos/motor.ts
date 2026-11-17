@@ -2,6 +2,7 @@ import "server-only";
 import type { TipoComandoWhatsapp } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { EventoMotor } from "../esquemas/motor";
+import { aplicarConversas, aplicarMensagens } from "./captura";
 
 const REENTREGA_MS = 2 * 60_000;
 const MAX_TENTATIVAS = 3;
@@ -34,17 +35,16 @@ export async function aplicarEventos(
       aplicados++;
       continue;
     }
-    if (ev.tipo === "conversas" || ev.tipo === "mensagens") {
-      // Captura de conversas e mensagens entra em tarefa própria; até lá o evento é aceito e ignorado.
-      ignorados++;
-      continue;
-    }
     const numero = await prisma.numeroWhatsapp.findUnique({ where: { id: ev.numeroId }, select: { id: true, excluidoEm: true } });
     if (!numero || numero.excluidoEm) {
       ignorados++;
       continue;
     }
-    if (ev.tipo === "qr") {
+    if (ev.tipo === "conversas") {
+      await aplicarConversas(numero.id, ev.conversas, agora);
+    } else if (ev.tipo === "mensagens") {
+      await aplicarMensagens(numero.id, ev.origem, ev.mensagens, agora);
+    } else if (ev.tipo === "qr") {
       await prisma.numeroWhatsapp.update({
         where: { id: numero.id },
         data: { qrAtual: ev.qr, qrEm: agora, situacao: "aguardando_qr" },
