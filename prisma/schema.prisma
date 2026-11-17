@@ -66,6 +66,7 @@ model Usuario {
   atualizacoesInstagram AtualizacaoInstagram[]
   assinaturaAgenda      AssinaturaAgenda?
   numerosWhatsapp       NumeroWhatsapp[]
+  contatosWhatsapp      ContatoWhatsapp[]
 
   conversasNexu            ConversaNexu[]
   propostasNexu            PropostaNexu[]
@@ -867,8 +868,9 @@ model Turma {
   criadoEm     DateTime      @default(now()) @map("criado_em")
   atualizadoEm DateTime      @updatedAt @map("atualizado_em")
 
-  produto    Produto     @relation(fields: [produtoId], references: [id])
-  matriculas Matricula[]
+  produto           Produto            @relation(fields: [produtoId], references: [id])
+  matriculas        Matricula[]
+  conversasWhatsapp ConversaWhatsapp[]
 
   @@index([produtoId])
   @@map("turmas")
@@ -888,7 +890,8 @@ model Aluno {
   criadoEm     DateTime @default(now()) @map("criado_em")
   atualizadoEm DateTime @updatedAt @map("atualizado_em")
 
-  matriculas Matricula[]
+  matriculas       Matricula[]
+  contatosWhatsapp ContatoWhatsapp[]
 
   @@index([nomeBusca])
   @@map("alunos")
@@ -1357,8 +1360,11 @@ model NumeroWhatsapp {
   criadoEm      DateTime                 @default(now()) @map("criado_em")
   atualizadoEm  DateTime                 @updatedAt @map("atualizado_em")
 
-  usuario  Usuario?          @relation(fields: [usuarioId], references: [id])
-  comandos ComandoWhatsapp[]
+  usuario   Usuario?           @relation(fields: [usuarioId], references: [id])
+  comandos  ComandoWhatsapp[]
+  conversas ConversaWhatsapp[]
+  nosGrupos NumeroNoGrupo[]
+  mensagens MensagemWhatsapp[]
 
   @@index([usuarioId])
   @@map("numeros_whatsapp")
@@ -1383,4 +1389,117 @@ model ComandoWhatsapp {
   @@index([situacao, criadoEm])
   @@index([numeroId, situacao])
   @@map("comandos_whatsapp")
+}
+
+enum TipoConversaWhatsapp {
+  grupo
+  individual
+}
+
+enum CategoriaConversaWhatsapp {
+  aluno
+  lead
+  equipe
+  pessoal
+  outro
+}
+
+enum TipoMensagemWhatsapp {
+  texto
+  imagem
+  audio
+  video
+  documento
+  figurinha
+  outro
+}
+
+/// Pessoa que fala no WhatsApp. Telefone só dígitos, como o WhatsApp entrega; lid quando o telefone não vem.
+model ContatoWhatsapp {
+  id           String   @id @default(cuid())
+  telefone     String?  @unique @db.VarChar(20)
+  lid          String?  @unique @db.VarChar(40)
+  nomeExibido  String?  @map("nome_exibido") @db.VarChar(100)
+  alunoId      String?  @map("aluno_id")
+  usuarioId    String?  @map("usuario_id")
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  aluno     Aluno?             @relation(fields: [alunoId], references: [id], onDelete: SetNull)
+  usuario   Usuario?           @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+  conversas ConversaWhatsapp[]
+  mensagens MensagemWhatsapp[]
+
+  @@index([alunoId])
+  @@index([usuarioId])
+  @@map("contatos_whatsapp")
+}
+
+/// Conversa individual (por número da empresa) ou grupo (única por jid, garantido no serviço).
+model ConversaWhatsapp {
+  id               String                    @id @default(cuid())
+  jid              String                    @db.VarChar(60)
+  tipo             TipoConversaWhatsapp
+  numeroId         String?                   @map("numero_id")
+  nome             String?                   @db.VarChar(120)
+  contatoId        String?                   @map("contato_id")
+  turmaId          String?                   @map("turma_id")
+  /// Número que envia mensagens ao grupo; sem uso na entrega 2a.
+  numeroEnvioId    String?                   @map("numero_envio_id")
+  categoria        CategoriaConversaWhatsapp @default(outro)
+  monitorada       Boolean                   @default(false)
+  provisoriaAte    DateTime?                 @map("provisoria_ate")
+  ultimaMensagemEm DateTime?                 @map("ultima_mensagem_em")
+  criadoEm         DateTime                  @default(now()) @map("criado_em")
+  atualizadoEm     DateTime                  @updatedAt @map("atualizado_em")
+
+  numero    NumeroWhatsapp?    @relation(fields: [numeroId], references: [id])
+  contato   ContatoWhatsapp?   @relation(fields: [contatoId], references: [id])
+  turma     Turma?             @relation(fields: [turmaId], references: [id], onDelete: SetNull)
+  nosGrupo  NumeroNoGrupo[]
+  mensagens MensagemWhatsapp[]
+
+  @@unique([numeroId, jid])
+  @@index([tipo, monitorada])
+  @@index([jid])
+  @@map("conversas_whatsapp")
+}
+
+/// Quais números da empresa participam de cada grupo.
+model NumeroNoGrupo {
+  numeroId   String   @map("numero_id")
+  conversaId String   @map("conversa_id")
+  criadoEm   DateTime @default(now()) @map("criado_em")
+
+  numero   NumeroWhatsapp   @relation(fields: [numeroId], references: [id])
+  conversa ConversaWhatsapp @relation(fields: [conversaId], references: [id], onDelete: Cascade)
+
+  @@id([numeroId, conversaId])
+  @@map("numeros_no_grupo")
+}
+
+/// Mensagem capturada (só texto e tipo; mídia nunca é baixada).
+model MensagemWhatsapp {
+  id                 String               @id @default(cuid())
+  conversaId         String               @map("conversa_id")
+  idExterno          String               @map("id_externo") @db.VarChar(100)
+  /// Número da empresa que capturou primeiro.
+  numeroId           String               @map("numero_id")
+  /// Autor.
+  contatoId          String?              @map("contato_id")
+  deMim              Boolean              @map("de_mim")
+  tipo               TipoMensagemWhatsapp
+  texto              String?              @db.Text
+  respondeAIdExterno String?              @map("responde_a_id_externo") @db.VarChar(100)
+  enviadaEm          DateTime             @map("enviada_em")
+  criadoEm           DateTime             @default(now()) @map("criado_em")
+
+  conversa ConversaWhatsapp @relation(fields: [conversaId], references: [id], onDelete: Cascade)
+  numero   NumeroWhatsapp   @relation(fields: [numeroId], references: [id])
+  contato  ContatoWhatsapp? @relation(fields: [contatoId], references: [id])
+
+  @@unique([conversaId, idExterno])
+  @@index([conversaId, enviadaEm])
+  @@index([enviadaEm])
+  @@map("mensagens_whatsapp")
 }
