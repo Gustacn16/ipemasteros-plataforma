@@ -3,7 +3,7 @@
 ## Objetivo
 Assistente de IA dentro do IPEMaster OS. Responde perguntas sobre os dados da plataforma (Tarefas, Agenda, Acadêmico, Conteúdo e Comercial) e **propõe ações que a pessoa confirma com um clique**. Nada é executado sem a confirmação.
 
-Especificação da N1: `docs/superpowers/specs/2026-11-17-nexu-n1-design.md`. Decisão de arquitetura: `docs/decisoes/0006-ia-claude-no-sistema.md`.
+Especificação da N1: `docs/superpowers/specs/2026-11-17-nexu-n1-design.md`. Decisão de arquitetura: `docs/decisoes/0007-ia-claude-no-sistema.md`.
 
 ## Vocabulário
 | Termo | No sistema |
@@ -87,7 +87,7 @@ A fonte da verdade é `src/lib/permissoes.ts`; a matriz acima acompanha a permis
 - **`/admin/nexu`** (`nexu:configurar`): modelo, limite mensal e perguntas por dia; painel de uso (gasto do mês contra o limite, por pessoa e por dia). **Sem acesso ao conteúdo das conversas.** Salvar gera auditoria `nexu.configuracao_alterada`.
 
 ## Resposta aos poucos (SSE)
-`POST /api/nexu/mensagens` devolve `text/event-stream`, um `data: <JSON>` por evento: `conversa`, `texto`, `consultando`, `proposta`, `fim` e `erro`. É a exceção à regra "Route Handlers só para o que vem de fora" (ADR 0006).
+`POST /api/nexu/mensagens` devolve `text/event-stream`, um `data: <JSON>` por evento: `conversa`, `texto`, `consultando`, `proposta`, `fim` e `erro`. É a exceção à regra "Route Handlers só para o que vem de fora" (ADR 0007).
 
 ## Camada compartilhada `src/lib/ia/`
 `cliente` (SDK, só no servidor), `precos` (tabela por modelo e cálculo do custo), `uso` (grava `UsoIa`), `limites` (regras puras do dia e do mês) e `configuracao` (lê `ConfiguracaoIa`). Não importa nada de `src/modulos/nexu`, para o agente do WhatsApp reaproveitar a chave, o custo e os limites.

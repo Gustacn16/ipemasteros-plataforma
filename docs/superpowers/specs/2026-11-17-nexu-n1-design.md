@@ -180,7 +180,7 @@ Regras puras (limites, cálculo de custo, filtro de ferramentas por papel, minim
 ## 12. Documentação e implantação
 - **Novos ou atualizados:**
   - `docs/modulos/nexu.md` (novo);
-  - ADR `docs/decisoes/0006-ia-claude-no-sistema.md` (fornecedor, modelo, ferramentas sobre serviços, SSE em Route Handler e camada `src/lib/ia`);
+  - ADR `docs/decisoes/0007-ia-claude-no-sistema.md` (fornecedor, modelo, ferramentas sobre serviços, SSE em Route Handler e camada `src/lib/ia`);
   - `docs/02-arquitetura.md` (dependência `nexu` → módulos, Anthropic na tabela de integrações, limpeza no cron diário);
   - `docs/04-seguranca-permissoes.md`.
 - **Gustavo, antes de testar em `teste`:**

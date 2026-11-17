@@ -62,4 +62,6 @@ Os 12 produtos de 02/11/2026 ficam em `src/modulos/comercial/dados/catalogo-prod
 
 **Meta Ads, entrega 1 (feito):** importação diária (4h, refaz os últimos 7 dias; a primeira carga vai desde 2026-01-01) e manual, pela chave de um usuário do sistema (`META_ACCESS_TOKEN`), via `GET /api/cron/importar-meta-ads`. Leads = formulário da Meta + site (pixel) + conversas iniciadas. Spec: `docs/superpowers/specs/2026-11-02-meta-ads-design.md`. Entrega 3 (feito em 2026-11-04): visão Mídia no dashboard, com filtros de campanha. Próxima: atribuição de campanhas a produtos (entrega 2), que libera o filtro por produto na mídia.
 
-**Próximas, cada uma com especificação própria:** integração com o Kommo (funil de leads), parcelas e MRR dos alunos, e cálculo de comissão.
+**Comissões (2026-11-17):** aba `/comercial/comissoes`. A comissão sai das vendas registradas no mês: por produto, R$ fixo por venda ou % do valor total do contrato. Quem bate a meta (em quantidade) do produto no mês ganha o "bônus meta" em todas as vendas desse produto; senão, vale a base (regra em `regras/comissao.ts`). Cada vendedor tem "ver cálculo". Quem gerencia produtos edita a tabela "Comissão por produto" na mesma aba.
+
+**Próximas, cada uma com especificação própria:** integração com o Kommo (funil de leads) e parcelas e MRR dos alunos.

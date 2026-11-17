@@ -54,7 +54,7 @@ prisma/
 
 Regras:
 - Leituras em Server Components chamam serviços. Nada de `fetch` para a própria API.
-- Route Handlers só são usados para o que vem de fora: webhooks, cron, OAuth callbacks e formulários públicos (com rate limit). Exceção: `POST /api/nexu/mensagens`, que transmite a resposta do Nexu por SSE (ADR 0006).
+- Route Handlers só são usados para o que vem de fora: webhooks, cron, OAuth callbacks e formulários públicos (com rate limit). Exceção: `POST /api/nexu/mensagens`, que transmite a resposta do Nexu por SSE (ADR 0007).
 - Módulos não importam serviços uns dos outros livremente. Dependências permitidas: todos → `core`; `agenda` → `academico`/`tarefas` (para criar eventos); `academico` → `comercial` (produtos); `nexu` → `tarefas`, `agenda`, `academico`, `conteudo`, `comercial` (ferramentas de consulta e propostas de ação). Nenhum módulo importa o `nexu`; a camada de IA comum fica em `src/lib/ia/`, que não importa módulos.
 
 ## Integrações
@@ -64,10 +64,16 @@ Regras:
 | Meta Graph API (Instagram) | Métricas do Instagram (C2a) e, depois, publicar (C2b) | A mesma chave de usuário do sistema do Meta Ads (`META_ACCESS_TOKEN`), com `instagram_basic`, `instagram_manage_insights`, `pages_show_list` e `pages_read_engagement`; base em `src/lib/meta-graph.ts`. Runbook: `docs/runbooks/instagram.md` | F5 |
 | Meta Marketing API | Investimento, impressões, cliques, leads | Chave de usuário do sistema do Business Manager (`META_ACCESS_TOKEN`, só `ads_read`); versão em `VERSAO_GRAPH`. Runbook: `docs/runbooks/meta-ads.md` | F6 |
 | Kommo API | Leads, negócios, vendas | OAuth Kommo + webhooks | F6 |
-| Anthropic API (Claude) | Nexu, o assistente de IA (consultas e propostas de ação); depois, o agente do WhatsApp | `ANTHROPIC_API_KEY` só no servidor (`src/lib/ia/cliente.ts`). Modelo e limites na tela `/admin/nexu`. ADR 0006 | N1 |
+| Anthropic API (Claude) | Nexu, o assistente de IA (consultas e propostas de ação); depois, o agente do WhatsApp | `ANTHROPIC_API_KEY` só no servidor (`src/lib/ia/cliente.ts`). Modelo e limites na tela `/admin/nexu`. ADR 0007 | N1 |
 | E-mail (SMTP Hostinger) | Convites, recuperação de senha, avisos | Credenciais SMTP | F0 |
 
 Tokens de integração ficam **criptografados no banco** (AES-256-GCM, chave em variável de ambiente).
+
+## Route Handlers do motor do WhatsApp
+O motor (projeto à parte, `motor-whatsapp/`) fala com o sistema por três rotas, todas com `Authorization: Bearer $MOTOR_WHATSAPP_SEGREDO` (sem segredo configurado, recusam tudo). Respostas de erro são só `{ ok: false }`, sem o motivo.
+- `POST /api/whatsapp/motor/eventos`: recebe `{ eventos }` (QR, conectado, desconectado, sinal) e responde `{ ok, aplicados, ignorados }`; 400 se o corpo não valida.
+- `GET /api/whatsapp/motor/comandos`: entrega `{ comandos: { id, numeroId, tipo }[] }` pendentes.
+- `POST /api/whatsapp/motor/comandos/:id`: recebe `{ situacao, erro? }`; 404 se o comando não existe.
 
 ## Jobs agendados
 A Hostinger Cloud oferece cron no hPanel. Cada job é um `GET /api/cron/<tarefa>` com o header `Authorization: Bearer $CRON_SECRET`.
@@ -94,7 +100,7 @@ Os jobs precisam ser **idempotentes**: rodar duas vezes não pode duplicar dados
 - O banco de homologação **nunca** usa cópia de dados reais de alunos. Usa o seed.
 
 ## Variáveis de ambiente
-`DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `CHAVE_CRIPTOGRAFIA`, `HMAC_CPF_SEGREDO`, `CRON_SECRET`, `SMTP_*`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `META_*`, `ANTHROPIC_API_KEY`, `KOMMO_*`, `TURNSTILE_*`.
+`DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `CHAVE_CRIPTOGRAFIA`, `HMAC_CPF_SEGREDO`, `CRON_SECRET`, `MOTOR_WHATSAPP_SEGREDO`, `SMTP_*`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `META_*`, `ANTHROPIC_API_KEY`, `KOMMO_*`, `TURNSTILE_*`.
 Ficam no painel da Hostinger e nunca no repositório. O `.env.example` documenta todas.
 
 ## Arquivos e anexos

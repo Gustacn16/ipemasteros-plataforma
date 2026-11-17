@@ -1,4 +1,4 @@
-# 0006 — Claude dentro do sistema (Nexu)
+# 0007 — Claude dentro do sistema (Nexu)
 
 - **Status:** Aceito
 - **Data:** 2026-11-17

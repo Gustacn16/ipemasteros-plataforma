@@ -1,0 +1,5 @@
+node_modules
+.env
+sessoes/
+# O .gitignore da raiz ignora .env*; o exemplo (sem segredos) vai para o Git.
+!.env.exemplo
