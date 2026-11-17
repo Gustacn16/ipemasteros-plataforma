@@ -1,6 +1,6 @@
 import type { EventoNexu, PropostaVisivel } from "../tipos";
 
-export type MensagemTela = { id: string; papel: "usuario" | "assistente"; texto: string };
+export type MensagemTela = { id: string; papel: "usuario" | "assistente"; texto: string; propostas?: PropostaVisivel[] };
 
 export type EstadoConversa = {
   conversaId: string | null;
@@ -48,12 +48,23 @@ export function aplicarEvento(estado: EstadoConversa, evento: EventoNexu): Estad
     case "consultando":
       return { ...estado, consultando: evento.rotulo };
     case "proposta": {
-      const existe = estado.propostas.some((p) => p.id === evento.proposta.id);
+      const nova = evento.proposta;
+      const existe = estado.propostas.some((p) => p.id === nova.id);
+      const jaNaTela = estado.mensagens.some((m) => m.propostas?.some((p) => p.id === nova.id));
+      let mensagens = estado.mensagens;
+      if (jaNaTela) {
+        mensagens = mensagens.map((m) =>
+          m.propostas?.some((p) => p.id === nova.id) ? { ...m, propostas: m.propostas.map((p) => (p.id === nova.id ? nova : p)) } : m,
+        );
+      } else {
+        // Cartão novo: fica na resposta do Nexu que está sendo escrita, depois do texto.
+        const i = mensagens.map((m) => m.papel).lastIndexOf("assistente");
+        if (i >= 0) mensagens = mensagens.map((m, j) => (j === i ? { ...m, propostas: [...(m.propostas ?? []), nova] } : m));
+      }
       return {
         ...estado,
-        propostas: existe
-          ? estado.propostas.map((p) => (p.id === evento.proposta.id ? evento.proposta : p))
-          : [...estado.propostas, evento.proposta],
+        mensagens,
+        propostas: existe ? estado.propostas.map((p) => (p.id === nova.id ? nova : p)) : [...estado.propostas, nova],
       };
     }
     case "fim":
@@ -61,6 +72,11 @@ export function aplicarEvento(estado: EstadoConversa, evento: EventoNexu): Estad
     case "erro":
       return { ...estado, enviando: false, consultando: null, erro: evento.mensagem };
   }
+}
+
+/** Atualização local de um cartão (depois de Confirmar/Recusar): mesma regra de upsert por id. */
+export function atualizarProposta(estado: EstadoConversa, proposta: PropostaVisivel): EstadoConversa {
+  return aplicarEvento(estado, { tipo: "proposta", proposta });
 }
 
 /** Interpreta o texto cru do SSE: devolve os eventos completos e o resto ainda incompleto. */

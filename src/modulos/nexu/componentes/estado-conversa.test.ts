@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PropostaVisivel } from "../tipos";
-import { aplicarEvento, estadoInicial, iniciarPergunta, lerEventosSse } from "./estado-conversa";
+import { aplicarEvento, atualizarProposta, estadoInicial, iniciarPergunta, lerEventosSse } from "./estado-conversa";
 
 const base = () => iniciarPergunta(estadoInicial(), "Quantas turmas?", "u1", "a1");
 
@@ -62,5 +62,16 @@ describe("lerEventosSse", () => {
     const { eventos, resto } = lerEventosSse('data: {"tipo":"texto","texto":"a"}\n\ndata: {"tipo":"fim","restan');
     expect(eventos).toEqual([{ tipo: "texto", texto: "a" }]);
     expect(resto).toBe('data: {"tipo":"fim","restan');
+  });
+
+  it("a proposta fica na resposta a que pertence e a atualização local troca pelo id", () => {
+    let e = aplicarEvento(base(), { tipo: "texto", texto: "Posso criar esta tarefa:" });
+    e = aplicarEvento(e, { tipo: "proposta", proposta: proposta() });
+    expect(e.mensagens[1]).toMatchObject({ texto: "Posso criar esta tarefa:", propostas: [{ id: "p1", status: "pendente" }] });
+    expect(e.mensagens[0].propostas).toBeUndefined();
+    e = atualizarProposta(e, proposta({ status: "confirmada", resultadoUrl: "/tarefas/t1" }));
+    expect(e.mensagens[1].propostas).toHaveLength(1);
+    expect(e.mensagens[1].propostas?.[0]).toMatchObject({ status: "confirmada", resultadoUrl: "/tarefas/t1" });
+    expect(e.propostas).toHaveLength(1);
   });
 });

@@ -1,3 +1,4 @@
+import type { PropostaVisivel } from "../tipos";
 import type { MensagemTela } from "../componentes/estado-conversa";
 import { ehPerguntaDoUsuario } from "./prompt";
 
@@ -14,9 +15,16 @@ function textosDosBlocos(conteudo: unknown): string {
 
 /**
  * Converte as mensagens gravadas no que a tela mostra: da pessoa, só o texto da pergunta (nunca o bloco
- * <contexto>); do Nexu, só os blocos `text`. `tool_result` e mensagens sem texto ficam ocultos.
+ * <contexto>); do Nexu, só os blocos `text` e os cartões das propostas criadas pelos `tool_use` da mensagem. `tool_result`, mensagens sem texto/cartão e os avisos internos ("[Confirmei a proposta: …]") ficam ocultos.
  */
-export function mensagensParaTela(mensagens: MensagemGravada[]): MensagemTela[] {
+export type PropostaGravada = PropostaVisivel & { toolUseId: string };
+
+function idsDeToolUse(conteudo: unknown): string[] {
+  if (!Array.isArray(conteudo)) return [];
+  return conteudo.filter((b) => b?.type === "tool_use" && typeof b.id === "string").map((b) => b.id as string);
+}
+
+export function mensagensParaTela(mensagens: MensagemGravada[], propostas: PropostaGravada[] = []): MensagemTela[] {
   const saida: MensagemTela[] = [];
   for (const m of mensagens) {
     if (m.papel === "usuario") {
@@ -26,7 +34,11 @@ export function mensagensParaTela(mensagens: MensagemGravada[]): MensagemTela[] 
       if (texto) saida.push({ id: m.id, papel: "usuario", texto });
     } else {
       const texto = textosDosBlocos(m.conteudo).trim();
-      if (texto) saida.push({ id: m.id, papel: "assistente", texto });
+      const ids = idsDeToolUse(m.conteudo);
+      const dela = propostas
+        .filter((p) => ids.includes(p.toolUseId))
+        .map(({ id, tipo, resumo, status, erro, resultadoUrl }) => ({ id, tipo, resumo, status, erro, resultadoUrl }));
+      if (texto || dela.length) saida.push({ id: m.id, papel: "assistente", texto, ...(dela.length ? { propostas: dela } : {}) });
     }
   }
   return saida;

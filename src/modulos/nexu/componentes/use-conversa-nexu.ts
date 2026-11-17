@@ -1,8 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { EventoNexu } from "../tipos";
-import { aplicarEvento, estadoInicial, iniciarPergunta, lerEventosSse, type EstadoConversa, type MensagemTela } from "./estado-conversa";
+import type { EventoNexu, PropostaVisivel } from "../tipos";
+import {
+  aplicarEvento,
+  atualizarProposta as atualizarPropostaNoEstado,
+  estadoInicial,
+  iniciarPergunta,
+  lerEventosSse,
+  type EstadoConversa,
+  type MensagemTela,
+} from "./estado-conversa";
 
 const MSG_INDISPONIVEL = "O Nexu está indisponível agora, tente de novo em instantes.";
 
@@ -64,6 +72,10 @@ export function useConversaNexu(conversaIdInicial: string | null, mensagensInici
     [aplicar],
   );
 
+  const atualizarProposta = useCallback((proposta: PropostaVisivel) => {
+    setEstado((e) => atualizarPropostaNoEstado(e, proposta));
+  }, []);
+
   const nova = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
@@ -80,6 +92,7 @@ export function useConversaNexu(conversaIdInicial: string | null, mensagensInici
     conversaId: estado.conversaId,
     erro: estado.erro,
     enviar,
+    atualizarProposta,
     nova,
   };
 }

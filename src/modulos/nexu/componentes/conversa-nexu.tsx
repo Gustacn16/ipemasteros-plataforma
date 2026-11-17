@@ -4,13 +4,14 @@ import { SendIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/componentes/ui/button";
 import type { ConversaNexu } from "./use-conversa-nexu";
+import { CartaoProposta } from "./cartao-proposta";
 import { MensagemNexu } from "./mensagem-nexu";
 
 /** Lista de mensagens + campo de texto, compartilhados pelo painel e pela página. Enter envia; Shift+Enter quebra a linha. */
 export function ConversaNexuView({ conversa, vazio }: { conversa: ConversaNexu; vazio?: string }) {
   const [texto, setTexto] = useState("");
   const fim = useRef<HTMLDivElement>(null);
-  const { mensagens, enviando, consultando, erro, enviar } = conversa;
+  const { mensagens, enviando, consultando, erro, enviar, atualizarProposta } = conversa;
 
   useEffect(() => {
     fim.current?.scrollIntoView({ block: "end" });
@@ -37,7 +38,12 @@ export function ConversaNexuView({ conversa, vazio }: { conversa: ConversaNexu; 
           </p>
         )}
         {mensagens.map((m, i) => (
-          <MensagemNexu key={m.id} papel={m.papel} texto={m.texto} carregando={enviando && i === mensagens.length - 1 && !consultando} />
+          <div key={m.id} className="flex flex-col gap-2">
+            <MensagemNexu papel={m.papel} texto={m.texto} carregando={enviando && i === mensagens.length - 1 && !consultando} />
+            {m.propostas?.map((p) => (
+              <CartaoProposta key={p.id} proposta={p} aoAtualizar={atualizarProposta} />
+            ))}
+          </div>
         ))}
         {consultando && <p className="text-muted-foreground text-xs">{consultando}</p>}
         {erro && (

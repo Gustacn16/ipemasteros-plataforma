@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { CabecalhoPagina } from "@/componentes/cabecalho-pagina";
+import { prisma } from "@/lib/prisma";
 import { ErroNegocio } from "@/lib/erros";
 import { exigirPermissaoPagina } from "@/lib/sessao";
 import { TelaNexu } from "@/modulos/nexu/componentes/tela-nexu";
@@ -18,7 +19,15 @@ export default async function PaginaConversaNexu({ params }: { params: Promise<{
     dadosDaTelaNexu(ator),
   ]);
   if (!conversa) notFound();
-  const mensagens = mensagensParaTela(conversa.mensagens.map((m) => ({ id: m.id, papel: m.papel, conteudo: m.conteudo })));
+  const propostas = await prisma.propostaNexu.findMany({
+    where: { conversaId: conversa.id },
+    orderBy: { criadoEm: "asc" },
+    select: { id: true, toolUseId: true, tipo: true, resumo: true, status: true, erro: true, resultadoUrl: true },
+  });
+  const mensagens = mensagensParaTela(
+    conversa.mensagens.map((m) => ({ id: m.id, papel: m.papel, conteudo: m.conteudo })),
+    propostas,
+  );
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       <CabecalhoPagina titulo="Nexu" descricao="Seu assistente de IA. As conversas são só suas e somem após 90 dias sem uso." />
