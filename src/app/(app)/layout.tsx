@@ -1,5 +1,7 @@
 import { ROTULO_PAPEL, temPermissao } from "@/lib/permissoes";
+import { iaConfigurada } from "@/lib/ia/cliente";
 import { exigirUsuario } from "@/lib/sessao";
+import { PainelNexu } from "@/modulos/nexu/componentes/painel-nexu";
 import { MenuNavegacao, type ItemMenu } from "./menu-navegacao";
 
 export default async function LayoutApp({ children }: { children: React.ReactNode }) {
@@ -11,11 +13,16 @@ export default async function LayoutApp({ children }: { children: React.ReactNod
     ...(temPermissao(usuario.papel, "agenda:usar") ? [{ href: "/agenda", rotulo: "Agenda", icone: "agenda" } as const] : []),
     ...(temPermissao(usuario.papel, "academico:ver") ? [{ href: "/academico", rotulo: "Acadêmico", icone: "academico" } as const] : []),
     ...(temPermissao(usuario.papel, "comercial:ver") ? [{ href: "/comercial", rotulo: "Comercial", icone: "comercial" } as const] : []),
+    ...(temPermissao(usuario.papel, "nexu:usar") ? [{ href: "/nexu", rotulo: "Nexu", icone: "nexu" } as const] : []),
   ];
 
   const admin: ItemMenu[] = [
-    ...(temPermissao(usuario.papel, "core:ver_usuarios") ? [{ href: "/admin/usuarios", rotulo: "Usuários", icone: "usuarios" } as const] : []),
-    ...(temPermissao(usuario.papel, "core:ver_auditoria") ? [{ href: "/admin/auditoria", rotulo: "Auditoria", icone: "auditoria" } as const] : []),
+    ...(temPermissao(usuario.papel, "core:ver_usuarios")
+      ? [{ href: "/admin/usuarios", rotulo: "Usuários", icone: "usuarios" } as const]
+      : []),
+    ...(temPermissao(usuario.papel, "core:ver_auditoria")
+      ? [{ href: "/admin/auditoria", rotulo: "Auditoria", icone: "auditoria" } as const]
+      : []),
     ...(temPermissao(usuario.papel, "nexu:configurar") ? [{ href: "/admin/nexu", rotulo: "Nexu", icone: "nexu" } as const] : []),
   ];
 
@@ -23,6 +30,12 @@ export default async function LayoutApp({ children }: { children: React.ReactNod
     <div className="flex min-h-full flex-1 flex-col md:flex-row">
       <MenuNavegacao modulos={modulos} admin={admin} usuario={{ nome: usuario.nome, papel: ROTULO_PAPEL[usuario.papel] }} />
       <main className="flex min-w-0 flex-1 flex-col p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:p-8 md:pb-8">{children}</main>
+      {temPermissao(usuario.papel, "nexu:usar") && (
+        <PainelNexu
+          configurado={iaConfigurada()}
+          motivo={temPermissao(usuario.papel, "nexu:configurar") ? "Falta a chave ANTHROPIC_API_KEY no hPanel." : undefined}
+        />
+      )}
     </div>
   );
 }

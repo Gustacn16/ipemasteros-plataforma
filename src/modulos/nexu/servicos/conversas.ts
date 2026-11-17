@@ -20,7 +20,8 @@ export type MensagemParaGravar = { papel: PapelMensagemNexu; conteudo: Anthropic
 
 export async function listarConversas(ator: UsuarioAtual) {
   return prisma.conversaNexu.findMany({
-    where: { usuarioId: ator.id },
+    // Conversa sem mensagens sobra de uma primeira pergunta interrompida: não aparece na lista.
+    where: { usuarioId: ator.id, mensagens: { some: {} } },
     orderBy: { atualizadoEm: "desc" },
     select: { id: true, titulo: true, atualizadoEm: true },
   });
