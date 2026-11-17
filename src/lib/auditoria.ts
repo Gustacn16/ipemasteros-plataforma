@@ -34,7 +34,11 @@ export type AcaoAuditoria =
   | "matricula.editada"
   | "alunos.importados"
   | "professor.criado"
-  | "professor.editado";
+  | "professor.editado"
+  | "whatsapp.numero_criado"
+  | "whatsapp.numero_excluido"
+  | "whatsapp.conexao_solicitada"
+  | "whatsapp.desconexao_solicitada";
 
 type DadosAuditoria = {
   usuarioId: string | null;

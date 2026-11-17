@@ -46,7 +46,9 @@ export type Permissao =
   | "comercial:gerenciar_integracao_meta"
   | "academico:ver"
   | "academico:gerenciar"
-  | "academico:importar_alunos";
+  | "academico:importar_alunos"
+  | "whatsapp:gerenciar_numeros"
+  | "whatsapp:conectar_proprio";
 
 // Colaborador e professor têm regras por registro (membro do espaço, tarefas
 // atribuídas) em src/modulos/tarefas/servicos/acesso.ts.
@@ -83,6 +85,9 @@ const COMERCIAL_GESTAO: readonly Permissao[] = [
 // Importar a planilha grava dados pessoais em lote: só admin e gestor.
 const ACADEMICO_GESTAO: readonly Permissao[] = ["academico:ver", "academico:gerenciar", "academico:importar_alunos"];
 
+// Cadastrar e excluir números do WhatsApp é coisa de gestão; o comercial só conecta o próprio.
+const WHATSAPP_GESTAO: readonly Permissao[] = ["whatsapp:gerenciar_numeros"];
+
 const PERMISSOES_COLABORADOR: readonly Permissao[] = [
   "tarefas:gerenciar_listas",
   "tarefas:usar",
@@ -106,6 +111,7 @@ const PERMISSOES_POR_PAPEL: Record<Papel, readonly Permissao[]> = {
     ...AGENDA_GESTAO,
     ...COMERCIAL_GESTAO,
     ...ACADEMICO_GESTAO,
+    ...WHATSAPP_GESTAO,
     // Só o admin apaga produtos do catálogo.
     "comercial:excluir_produtos",
     // Só o admin mexe na integração com a Meta (chave e importação).
@@ -122,9 +128,16 @@ const PERMISSOES_POR_PAPEL: Record<Papel, readonly Permissao[]> = {
     ...AGENDA_GESTAO,
     ...COMERCIAL_GESTAO,
     ...ACADEMICO_GESTAO,
+    ...WHATSAPP_GESTAO,
   ],
   colaborador: PERMISSOES_COLABORADOR,
-  comercial: [...PERMISSOES_COLABORADOR, "comercial:ver", "comercial:registrar_venda"],
+  comercial: [
+    ...PERMISSOES_COLABORADOR,
+    "comercial:ver",
+    "comercial:registrar_venda",
+    // O vendedor conecta o próprio número de WhatsApp ao motor.
+    "whatsapp:conectar_proprio",
+  ],
   professor: ["tarefas:usar", "agenda:usar", "agenda:ver_institucional_professor"],
   aluno: [],
 };

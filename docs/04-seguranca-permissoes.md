@@ -74,6 +74,14 @@ O papel `comercial` tem, nos outros módulos, as mesmas permissões do colaborad
 
 Admin e gestor convidam usuários com o papel `comercial`.
 
+### WhatsApp
+Colaborador e professor não usam o módulo. Só admin e gestor cadastram e excluem números; o comercial conecta o próprio número.
+
+| Permissão | admin | gestor | comercial |
+|---|---|---|---|
+| `whatsapp:gerenciar_numeros` (cadastrar, excluir e ver o estado dos números) | ✅ | ✅ | — |
+| `whatsapp:conectar_proprio` (conectar e desconectar o próprio número pelo QR) | — | — | 🔸 só o próprio |
+
 ## Auditoria
 `LogAuditoria` registra: `usuarioId`, `acao`, `entidade`, `entidadeId`, `diff` (antes/depois, **sem** CPF em claro), `ip`, `userAgent` e `criadoEm`.
 

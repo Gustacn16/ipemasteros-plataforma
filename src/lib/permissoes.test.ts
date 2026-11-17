@@ -240,3 +240,29 @@ describe("Integração Instagram", () => {
     }
   });
 });
+
+describe("permissões do WhatsApp", () => {
+  it("admin e gestor gerenciam os números do WhatsApp", () => {
+    for (const papel of ["admin", "gestor"] as const) {
+      expect(temPermissao(papel, "whatsapp:gerenciar_numeros")).toBe(true);
+    }
+  });
+
+  it("comercial não gerencia números, mas conecta o próprio", () => {
+    expect(temPermissao("comercial", "whatsapp:gerenciar_numeros")).toBe(false);
+    expect(temPermissao("comercial", "whatsapp:conectar_proprio")).toBe(true);
+  });
+
+  it("colaborador, professor e aluno não têm nenhuma das duas", () => {
+    for (const papel of ["colaborador", "professor", "aluno"] as const) {
+      expect(temPermissao(papel, "whatsapp:gerenciar_numeros")).toBe(false);
+      expect(temPermissao(papel, "whatsapp:conectar_proprio")).toBe(false);
+    }
+  });
+
+  it("admin e gestor não precisam de conectar_proprio", () => {
+    for (const papel of ["admin", "gestor"] as const) {
+      expect(temPermissao(papel, "whatsapp:conectar_proprio")).toBe(false);
+    }
+  });
+});
