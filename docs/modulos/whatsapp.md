@@ -22,7 +22,7 @@ A tela nunca fala com o motor: grava comandos no banco e o motor os busca. O mot
 
 ## Regras de negócio
 1. Número de vendedor exige dono (usuário ativo com papel `comercial`); número da escola nunca tem dono.
-2. A situação exibida combina o banco com o sinal do motor: sem sinal há mais de 5 min vira "Motor sem resposta"; QR com mais de 90 s vira (o primeiro QR da Baileys vale 60 s; a folga evita expirar um QR ainda válido) "O QR expirou. Clique em Conectar de novo." e o QR antigo não é mostrado.
+2. A situação exibida combina o banco com o sinal do motor: sem sinal há mais de 5 min vira "Motor sem resposta"; QR com mais de 90 s vira "O QR expirou. Clique em Conectar de novo." e o QR antigo não é mostrado (o primeiro QR da Baileys vale 60 s; a folga evita expirar um QR ainda válido). O sinal traz a lista de vagas conectadas no motor: uma vaga "conectada" há mais de 2 min que não está na lista vira erro "O motor não está com este número conectado.".
 3. Clique duplo em Conectar ou Desconectar não cria dois comandos pendentes para a mesma vaga.
 4. Quando o celular remove o aparelho, a tela pede para ler o QR de novo.
 5. Só não se exclui número conectado (desconecte antes); a exclusão é lógica (`excluidoEm`) e pede ao motor um `desconectar`, que é entregue mesmo com a vaga excluída para encerrar e apagar a sessão dela. Erro informado pelo motor põe a vaga em `erro` com o detalhe. Criar, excluir, conectar e desconectar geram auditoria (`whatsapp.*`).

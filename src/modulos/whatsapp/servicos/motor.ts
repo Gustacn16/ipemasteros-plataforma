@@ -6,6 +6,8 @@ import type { EventoMotor } from "../esquemas/motor";
 const REENTREGA_MS = 2 * 60_000;
 const MAX_TENTATIVAS = 3;
 const MAX_POR_CHAMADA = 20;
+/** Vaga conectada há menos que isso não é conferida pelo sinal. */
+const CONEXAO_RECENTE_MS = 2 * 60_000;
 
 /** Aplica um lote de eventos do motor. Evento de vaga inexistente ou excluída é ignorado. */
 export async function aplicarEventos(
@@ -17,6 +19,18 @@ export async function aplicarEventos(
   for (const ev of eventos) {
     if (ev.tipo === "sinal") {
       await prisma.numeroWhatsapp.updateMany({ where: { excluidoEm: null }, data: { ultimoSinalEm: agora } });
+      // O motor está vivo, mas a vaga "conectada" não está na lista dele (ex.: derrubada por outra
+      // sessão ou motor reiniciado sem ela): a tela não pode continuar dizendo "Conectado".
+      // Vagas conectadas há menos de 2 min ficam de fora, porque o motor pode ainda não tê-las contado.
+      await prisma.numeroWhatsapp.updateMany({
+        where: {
+          excluidoEm: null,
+          situacao: "conectado",
+          id: { notIn: ev.conectados },
+          conectadoEm: { lt: new Date(agora.getTime() - CONEXAO_RECENTE_MS) },
+        },
+        data: { situacao: "erro", erro: "O motor não está com este número conectado." },
+      });
       aplicados++;
       continue;
     }

@@ -13,8 +13,14 @@ const banco = vi.hoisted(() => {
       findUnique: async ({ where }: { where: { id: string } }) => estado.numeros.find((n) => n.id === where.id) ?? null,
       update: async ({ where, data }: { where: { id: string }; data: Linha }) =>
         Object.assign(estado.numeros.find((n) => n.id === where.id)!, data),
-      updateMany: async ({ where, data }: { where: { excluidoEm: null }; data: Linha }) => {
-        const alvo = estado.numeros.filter((n) => n.excluidoEm === where.excluidoEm);
+      updateMany: async ({ where, data }: { where: Linha; data: Linha }) => {
+        const alvo = estado.numeros.filter(
+          (n) =>
+            n.excluidoEm === where.excluidoEm &&
+            (where.situacao === undefined || n.situacao === where.situacao) &&
+            (where.id?.notIn === undefined || !where.id.notIn.includes(n.id)) &&
+            (where.conectadoEm?.lt === undefined || (n.conectadoEm !== null && n.conectadoEm < where.conectadoEm.lt)),
+        );
         alvo.forEach((n) => Object.assign(n, data));
         return { count: alvo.length };
       },
@@ -139,6 +145,22 @@ describe("aplicarEventos", () => {
     expect(banco.estado.numeros[0]!.ultimoSinalEm).toEqual(AGORA);
     expect(banco.estado.numeros[1]!.ultimoSinalEm).toEqual(AGORA);
     expect(banco.estado.numeros[2]!.ultimoSinalEm).toBeNull();
+  });
+
+  it("sinal tira de 'conectado' a vaga que o motor não tem mais conectada", async () => {
+    banco.estado.numeros = [
+      vaga("n1", { situacao: "conectado", conectadoEm: minAtras(10) }),
+      vaga("n2", { situacao: "conectado", conectadoEm: minAtras(10) }),
+    ];
+    await aplicarEventos([{ tipo: "sinal", conectados: ["n2"] }], AGORA);
+    expect(banco.estado.numeros[0]).toMatchObject({ situacao: "erro", erro: "O motor não está com este número conectado." });
+    expect(banco.estado.numeros[1]).toMatchObject({ situacao: "conectado", erro: null });
+  });
+
+  it("sinal não mexe na vaga que acabou de conectar (o motor pode ainda não ter contado)", async () => {
+    banco.estado.numeros = [vaga("n1", { situacao: "conectado", conectadoEm: minAtras(1) })];
+    await aplicarEventos([{ tipo: "sinal", conectados: [] }], AGORA);
+    expect(banco.estado.numeros[0]).toMatchObject({ situacao: "conectado", erro: null });
   });
 });
 
