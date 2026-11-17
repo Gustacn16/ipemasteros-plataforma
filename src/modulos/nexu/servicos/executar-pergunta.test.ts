@@ -1,0 +1,330 @@
+import Anthropic from "@anthropic-ai/sdk";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
+import type { UsuarioAtual } from "@/lib/sessao";
+
+// Banco em memória: só o que conversas.ts usa.
+const banco = vi.hoisted(() => {
+  type Conversa = { id: string; usuarioId: string; titulo: string; atualizadoEm: Date };
+  type Mensagem = { id: string; conversaId: string; papel: string; conteudo: unknown; ordem: number };
+  const estado = { conversas: [] as Conversa[], mensagens: [] as Mensagem[], seq: 0 };
+  const doConversa = (conversaId: string) => estado.mensagens.filter((m) => m.conversaId === conversaId).sort((a, b) => a.ordem - b.ordem);
+  const prisma = {
+    conversaNexu: {
+      create: async ({ data }: { data: Omit<Conversa, "id" | "atualizadoEm"> }) => {
+        const c = { id: `c${++estado.seq}`, atualizadoEm: new Date(), ...data };
+        estado.conversas.push(c);
+        return c;
+      },
+      findFirst: async ({ where }: { where: { id: string; usuarioId: string } }) => {
+        const c = estado.conversas.find((x) => x.id === where.id && x.usuarioId === where.usuarioId);
+        return c ? { ...c, mensagens: doConversa(c.id) } : null;
+      },
+      update: async ({ where }: { where: { id: string } }) => estado.conversas.find((x) => x.id === where.id),
+    },
+    mensagemNexu: {
+      aggregate: async ({ where }: { where: { conversaId: string } }) => {
+        const ms = doConversa(where.conversaId);
+        return { _max: { ordem: ms.length ? Math.max(...ms.map((m) => m.ordem)) : null } };
+      },
+      createMany: async ({ data }: { data: Omit<Mensagem, "id">[] }) => {
+        for (const d of data) estado.mensagens.push({ id: `m${++estado.seq}`, ...d });
+        return { count: data.length };
+      },
+    },
+    $transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma),
+  };
+  return { estado, prisma };
+});
+
+const ia = vi.hoisted(() => ({
+  registrarUsoIa: vi.fn(),
+  situacaoLimites: vi.fn(),
+  executarA: vi.fn(),
+  executarB: vi.fn(),
+}));
+
+vi.mock("server-only", () => ({}));
+vi.mock("@/lib/prisma", () => ({ prisma: banco.prisma }));
+vi.mock("@/lib/ia/cliente", () => ({ obterClienteAnthropic: () => null }));
+vi.mock("@/lib/ia/uso", () => ({ registrarUsoIa: ia.registrarUsoIa, situacaoLimites: ia.situacaoLimites }));
+vi.mock("@/lib/ia/configuracao", () => ({
+  obterConfiguracaoIa: async () => ({ modelo: "claude-haiku-5-5", limiteMensalMicroUsd: 20_000_000, perguntasPorDia: 50 }),
+}));
+vi.mock("../ferramentas/registro", () => {
+  const ferramenta = (nome: string, executar: unknown) => ({
+    nome,
+    descricao: nome,
+    entrada: z.object({ n: z.number() }),
+    permissao: "nexu:usar",
+    rotulo: `Consultando ${nome}…`,
+    tipo: "consulta",
+    executar,
+  });
+  const lista = [ferramenta("ferramenta_a", ia.executarA), ferramenta("ferramenta_b", ia.executarB)];
+  return {
+    TODAS_FERRAMENTAS: lista,
+    ferramentasDoPapel: () => lista,
+    paraFerramentaApi: (f: { nome: string }) => ({ name: f.nome, description: f.nome, input_schema: { type: "object" } }),
+  };
+});
+
+const { executarPergunta } = await import("./executar-pergunta");
+const { ErroPermissao } = await import("@/lib/permissoes");
+
+const ator = { id: "u1", nome: "Ana", papel: "colaborador" } as UsuarioAtual;
+const usage = { input_tokens: 10, output_tokens: 5, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 };
+
+type Resposta = { content: unknown[]; stop_reason: string } | Error;
+
+function resposta(content: unknown[], stop_reason = "end_turn"): Resposta {
+  return { content, stop_reason };
+}
+const texto = (t: string) => ({ type: "text", text: t, citations: null });
+const usoDe = (id: string, name = "ferramenta_a", input: unknown = { n: 1 }) => ({ type: "tool_use", id, name, input });
+
+/** Cliente falso: cada chamada a messages.stream consome a próxima resposta do roteiro. */
+function clienteFalso(roteiro: Resposta[]) {
+  const pedidos: Anthropic.MessageCreateParamsNonStreaming[] = [];
+  const cliente = {
+    messages: {
+      stream: (params: Anthropic.MessageCreateParamsNonStreaming, opcoes?: { signal?: AbortSignal }) => {
+        pedidos.push(structuredClone(params));
+        expect(opcoes?.signal).toBeInstanceOf(AbortSignal);
+        const r = roteiro.shift();
+        if (!r) throw new Error("roteiro acabou");
+        const textos = r instanceof Error ? [] : r.content.filter((b) => (b as { type: string }).type === "text");
+        return {
+          async *[Symbol.asyncIterator]() {
+            if (r instanceof Error) throw r;
+            for (const b of textos)
+              yield { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: (b as { text: string }).text } };
+          },
+          finalMessage: async () => {
+            if (r instanceof Error) throw r;
+            return {
+              id: "msg",
+              type: "message",
+              role: "assistant",
+              model: "claude-haiku-5-5",
+              content: r.content,
+              stop_reason: r.stop_reason,
+              usage,
+            };
+          },
+        };
+      },
+    },
+  };
+  return { cliente: cliente as unknown as Anthropic, pedidos };
+}
+
+async function coletar(gerador: AsyncGenerator<unknown>) {
+  const eventos: { tipo: string; [k: string]: unknown }[] = [];
+  for await (const e of gerador) eventos.push(e as { tipo: string });
+  return eventos;
+}
+
+const rodar = (cliente: Anthropic, extra: Partial<Parameters<typeof executarPergunta>[0]> = {}) =>
+  coletar(executarPergunta({ ator, conversaId: null, pergunta: "Quais tarefas?", tela: "/tarefas", cliente, ...extra }));
+
+beforeEach(() => {
+  banco.estado.conversas = [];
+  banco.estado.mensagens = [];
+  banco.estado.seq = 0;
+  ia.registrarUsoIa.mockReset().mockResolvedValue(10);
+  ia.situacaoLimites.mockReset().mockResolvedValue({ ok: true, restantesHoje: 49 });
+  ia.executarA.mockReset().mockResolvedValue({ itens: [], total: 0 });
+  ia.executarB.mockReset().mockResolvedValue({ itens: [1], total: 1 });
+});
+
+describe("executarPergunta", () => {
+  it("(a) resposta direta: textos e fim, 1 UsoIa com inicioPergunta", async () => {
+    const { cliente } = clienteFalso([resposta([texto("Olá"), texto(" mundo")])]);
+    ia.situacaoLimites.mockResolvedValueOnce({ ok: true, restantesHoje: 49 }).mockResolvedValueOnce({ ok: true, restantesHoje: 48 });
+    const eventos = await rodar(cliente);
+    expect(eventos.map((e) => e.tipo)).toEqual(["texto", "texto", "conversa", "fim"]);
+    expect(eventos.at(-1)).toEqual({ tipo: "fim", restantesHoje: 48 });
+    expect(ia.registrarUsoIa).toHaveBeenCalledTimes(1);
+    expect(ia.registrarUsoIa.mock.calls[0][0]).toMatchObject({
+      origem: "nexu",
+      usuarioId: "u1",
+      inicioPergunta: true,
+      modelo: "claude-haiku-5-5",
+    });
+    // Conversa criada com a pergunta como título e mensagens gravadas em ordem.
+    expect(banco.estado.conversas[0]).toMatchObject({ usuarioId: "u1", titulo: "Quais tarefas?" });
+    expect(banco.estado.mensagens.map((m) => [m.papel, m.ordem])).toEqual([
+      ["usuario", 1],
+      ["assistente", 2],
+    ]);
+    expect(banco.estado.mensagens[1].conteudo).toEqual([texto("Olá"), texto(" mundo")]);
+  });
+
+  it("(b) 2 tool_use na mesma resposta: as duas rodam e o user seguinte tem 2 tool_result", async () => {
+    const pensamento = { type: "thinking", thinking: "vou olhar", signature: "sig" };
+    const { cliente, pedidos } = clienteFalso([
+      resposta([pensamento, usoDe("t1", "ferramenta_a"), usoDe("t2", "ferramenta_b")], "tool_use"),
+      resposta([texto("Achei.")]),
+    ]);
+    const eventos = await rodar(cliente);
+    expect(ia.executarA).toHaveBeenCalledWith(ator, { n: 1 }, { conversaId: "c1", toolUseId: "t1" });
+    expect(ia.executarB).toHaveBeenCalledWith(ator, { n: 1 }, { conversaId: "c1", toolUseId: "t2" });
+    expect(eventos.filter((e) => e.tipo === "consultando").map((e) => e.rotulo)).toEqual([
+      "Consultando ferramenta_a…",
+      "Consultando ferramenta_b…",
+    ]);
+    const segundo = pedidos[1].messages;
+    const resultados = segundo.at(-1)?.content as Anthropic.ToolResultBlockParam[];
+    expect(segundo.at(-1)?.role).toBe("user");
+    expect(resultados.map((r) => [r.type, r.tool_use_id, r.is_error ?? false])).toEqual([
+      ["tool_result", "t1", false],
+      ["tool_result", "t2", false],
+    ]);
+    expect(JSON.parse(resultados[1].content as string)).toEqual({ itens: [1], total: 1 });
+    // O assistente é gravado inteiro (com thinking) e o histórico reenviado não muda.
+    expect(segundo.at(-2)?.content).toEqual([pensamento, usoDe("t1", "ferramenta_a"), usoDe("t2", "ferramenta_b")]);
+    expect(banco.estado.mensagens.map((m) => m.papel)).toEqual(["usuario", "assistente", "usuario", "assistente"]);
+    expect(banco.estado.mensagens[1].conteudo).toEqual(segundo.at(-2)?.content);
+    expect(ia.registrarUsoIa.mock.calls.map((c) => c[0].inicioPergunta)).toEqual([true, false]);
+  });
+
+  it("(c) 9 tool_use seguidos: o 9º recebe is_error e há exatamente 1 chamada extra", async () => {
+    const roteiro = Array.from({ length: 9 }, (_, i) => resposta([usoDe(`t${i + 1}`)], "tool_use"));
+    const { cliente, pedidos } = clienteFalso([...roteiro, resposta([texto("Resumo final.")])]);
+    const eventos = await rodar(cliente);
+    expect(ia.executarA).toHaveBeenCalledTimes(8);
+    expect(pedidos).toHaveLength(10);
+    const ultimo = pedidos[9].messages.at(-1)?.content as Anthropic.ToolResultBlockParam[];
+    expect(ultimo).toEqual([
+      {
+        type: "tool_result",
+        tool_use_id: "t9",
+        is_error: true,
+        content: "limite de consultas desta pergunta atingido; responda com o que já tem",
+      },
+    ]);
+    expect(eventos.at(-1)?.tipo).toBe("fim");
+  });
+
+  it("(c2) se a chamada extra ainda pedir ferramenta, para sem outra chamada", async () => {
+    const roteiro = Array.from({ length: 10 }, (_, i) => resposta([usoDe(`t${i + 1}`)], "tool_use"));
+    const { cliente, pedidos } = clienteFalso(roteiro);
+    const eventos = await rodar(cliente);
+    expect(pedidos).toHaveLength(10);
+    expect(eventos.at(-1)?.tipo).toBe("fim");
+  });
+
+  it("(d) APIError 529 na 1ª chamada: erro, nenhum UsoIa, nada gravado", async () => {
+    const erro = new Anthropic.APIError(529, { type: "overloaded_error" }, "Overloaded", new Headers());
+    const { cliente } = clienteFalso([erro]);
+    const eventos = await rodar(cliente);
+    expect(eventos).toEqual([{ tipo: "erro", mensagem: "O Nexu está indisponível agora, tente de novo em instantes." }]);
+    expect(ia.registrarUsoIa).not.toHaveBeenCalled();
+    expect(banco.estado.mensagens).toEqual([]);
+    expect(banco.estado.conversas).toEqual([]);
+  });
+
+  it("(d2) erro de conexão depois de uma ferramenta: erro, e o que veio antes fica gravado", async () => {
+    const { cliente } = clienteFalso([resposta([usoDe("t1")], "tool_use"), new Anthropic.APIConnectionError({})]);
+    const eventos = await rodar(cliente);
+    expect(eventos.at(-1)).toEqual({ tipo: "erro", mensagem: "O Nexu está indisponível agora, tente de novo em instantes." });
+    expect(ia.registrarUsoIa).toHaveBeenCalledTimes(1);
+    expect(banco.estado.mensagens.map((m) => m.papel)).toEqual(["usuario", "assistente", "usuario"]);
+  });
+
+  it("(e) stop_reason refusal: texto fixo de recusa", async () => {
+    const { cliente } = clienteFalso([resposta([], "refusal")]);
+    const eventos = await rodar(cliente);
+    expect(eventos.filter((e) => e.tipo === "texto").map((e) => e.texto)).toEqual(["Não consegui responder a isso. Tente reformular."]);
+    expect(eventos.at(-1)?.tipo).toBe("fim");
+  });
+
+  it("max_tokens: acrescenta a nota de resposta cortada", async () => {
+    const { cliente } = clienteFalso([resposta([texto("Parte")], "max_tokens")]);
+    const eventos = await rodar(cliente);
+    expect(eventos.filter((e) => e.tipo === "texto").map((e) => e.texto)).toEqual(["Parte", "\n\n_(resposta cortada)_"]);
+  });
+
+  it("(f) ferramenta lança ErroPermissao: tool_result com is_error 'sem permissão para isso'", async () => {
+    ia.executarA.mockRejectedValue(new ErroPermissao("tarefas:usar"));
+    const { cliente, pedidos } = clienteFalso([resposta([usoDe("t1")], "tool_use"), resposta([texto("Sem acesso.")])]);
+    await rodar(cliente);
+    expect(pedidos[1].messages.at(-1)?.content).toEqual([
+      { type: "tool_result", tool_use_id: "t1", is_error: true, content: "sem permissão para isso" },
+    ]);
+  });
+
+  it("entrada inválida e ferramenta desconhecida viram is_error sem executar", async () => {
+    const { cliente, pedidos } = clienteFalso([
+      resposta([usoDe("t1", "ferramenta_a", { n: "x" }), usoDe("t2", "nao_existe")], "tool_use"),
+      resposta([texto("ok")]),
+    ]);
+    await rodar(cliente);
+    expect(ia.executarA).not.toHaveBeenCalled();
+    const resultados = pedidos[1].messages.at(-1)?.content as Anthropic.ToolResultBlockParam[];
+    expect(resultados.map((r) => r.is_error)).toEqual([true, true]);
+    expect(resultados[0].content).toMatch(/^entrada inválida/);
+  });
+
+  it("(g) limite do dia: texto fixo, sem chamar o cliente", async () => {
+    ia.situacaoLimites.mockResolvedValue({ ok: false, motivo: "dia" });
+    const stream = vi.fn();
+    const eventos = await rodar({ messages: { stream } } as unknown as Anthropic);
+    expect(stream).not.toHaveBeenCalled();
+    expect(eventos[0]).toEqual({ tipo: "texto", texto: "O limite de perguntas de hoje acabou. Volta amanhã." });
+  });
+
+  it("limite do mês: texto fixo do mês", async () => {
+    ia.situacaoLimites.mockResolvedValue({ ok: false, motivo: "mes" });
+    const eventos = await rodar({ messages: { stream: vi.fn() } } as unknown as Anthropic);
+    expect(eventos[0]).toEqual({ tipo: "texto", texto: "O limite do mês foi atingido. Fale com o admin." });
+  });
+
+  it("sem cliente: erro 'Nexu ainda não configurado'", async () => {
+    const eventos = await coletar(executarPergunta({ ator, conversaId: null, pergunta: "oi", tela: null }));
+    expect(eventos).toEqual([{ tipo: "erro", mensagem: "Nexu ainda não configurado" }]);
+  });
+
+  it("conversa com 30 perguntas: pede uma conversa nova sem chamar o cliente", async () => {
+    banco.estado.conversas.push({ id: "cx", usuarioId: "u1", titulo: "t", atualizadoEm: new Date() });
+    const { montarPedido } = await import("./prompt");
+    const msg = montarPedido({
+      modelo: "claude-haiku-5-5",
+      ferramentas: [],
+      historico: [],
+      contexto: { agora: new Date(), nome: "Ana", papel: "colaborador", tela: null },
+      pergunta: "p",
+    }).messages[0];
+    for (let i = 0; i < 30; i++) {
+      banco.estado.mensagens.push({ id: `q${i}`, conversaId: "cx", papel: "usuario", conteudo: msg.content, ordem: i * 2 + 1 });
+      banco.estado.mensagens.push({ id: `r${i}`, conversaId: "cx", papel: "assistente", conteudo: [texto("r")], ordem: i * 2 + 2 });
+    }
+    const stream = vi.fn();
+    const eventos = await rodar({ messages: { stream } } as unknown as Anthropic, { conversaId: "cx" });
+    expect(stream).not.toHaveBeenCalled();
+    expect(eventos[0]).toEqual({ tipo: "texto", texto: "Esta conversa ficou longa. Comece uma nova conversa para continuar." });
+  });
+
+  it("conversa existente: reenvia o histórico sem o turno incompleto e continua a ordem", async () => {
+    banco.estado.conversas.push({ id: "cx", usuarioId: "u1", titulo: "t", atualizadoEm: new Date() });
+    banco.estado.mensagens.push(
+      { id: "a", conversaId: "cx", papel: "usuario", conteudo: [{ type: "text", text: "antes" }], ordem: 1 },
+      { id: "b", conversaId: "cx", papel: "assistente", conteudo: [usoDe("tz")], ordem: 2 },
+    );
+    const { cliente, pedidos } = clienteFalso([resposta([texto("ok")])]);
+    const eventos = await rodar(cliente, { conversaId: "cx" });
+    expect(eventos.some((e) => e.tipo === "conversa")).toBe(false);
+    expect(pedidos[0].messages).toHaveLength(2);
+    expect(pedidos[0].messages[0].content).toEqual([{ type: "text", text: "antes" }]);
+    expect(banco.estado.mensagens.filter((m) => m.conversaId === "cx").map((m) => m.ordem)).toEqual([1, 2, 3, 4]);
+  });
+
+  it("conversa de outra pessoa: erro 'Não encontrado.'", async () => {
+    banco.estado.conversas.push({ id: "cy", usuarioId: "u2", titulo: "t", atualizadoEm: new Date() });
+    const { cliente, pedidos } = clienteFalso([resposta([texto("ok")])]);
+    const eventos = await rodar(cliente, { conversaId: "cy" });
+    expect(eventos).toEqual([{ tipo: "erro", mensagem: "Não encontrado." }]);
+    expect(pedidos).toHaveLength(0);
+  });
+});
