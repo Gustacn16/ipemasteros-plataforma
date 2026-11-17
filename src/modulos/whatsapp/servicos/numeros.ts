@@ -108,8 +108,14 @@ export async function excluirNumero(ator: UsuarioAtual, numeroId: string): Promi
 
 type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
-/** Cria o comando, a menos que já exista um igual na fila. Devolve se criou. */
+/**
+ * Cria o comando, a menos que já exista um igual na fila. Devolve se criou.
+ * MySQL não tem índice único parcial, então a vaga é travada antes da checagem: o update
+ * segura o lock da linha (InnoDB) até o fim da transação e cliques simultâneos na mesma
+ * vaga passam um de cada vez, o segundo já enxerga o comando criado pelo primeiro.
+ */
 async function enfileirar(tx: Tx, numeroId: string, tipo: "conectar" | "desconectar"): Promise<boolean> {
+  await tx.numeroWhatsapp.update({ where: { id: numeroId }, data: { atualizadoEm: new Date() } });
   const existente = await tx.comandoWhatsapp.findFirst({
     where: { numeroId, tipo, situacao: { in: ["pendente", "em_andamento"] } },
     select: { id: true },
@@ -122,7 +128,8 @@ async function enfileirar(tx: Tx, numeroId: string, tipo: "conectar" | "desconec
 export async function solicitarConexao(ator: UsuarioAtual, numeroId: string): Promise<void> {
   const numero = await vagaDoAtor(ator, numeroId);
   await prisma.$transaction(async (tx) => {
-    await enfileirar(tx, numero.id, "conectar");
+    // Segundo clique com o pedido ainda na fila: não zera o QR que o motor já gravou.
+    if (!(await enfileirar(tx, numero.id, "conectar"))) return;
     await tx.numeroWhatsapp.update({
       where: { id: numero.id },
       data: { situacao: "aguardando_qr", qrAtual: null, qrEm: null, erro: null },
@@ -143,7 +150,7 @@ export async function solicitarConexao(ator: UsuarioAtual, numeroId: string): Pr
 export async function solicitarDesconexao(ator: UsuarioAtual, numeroId: string): Promise<void> {
   const numero = await vagaDoAtor(ator, numeroId);
   await prisma.$transaction(async (tx) => {
-    await enfileirar(tx, numero.id, "desconectar");
+    if (!(await enfileirar(tx, numero.id, "desconectar"))) return;
     await registrarAuditoria(
       {
         usuarioId: ator.id,

@@ -12,6 +12,7 @@ const banco = vi.hoisted(() => {
     usuarios: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
     auditorias: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
     seq: 0,
+    chamadas: [] as string[],
   };
   const prisma = {
     numeroWhatsapp: {
@@ -28,14 +29,18 @@ const banco = vi.hoisted(() => {
         estado.numeros.push(n);
         return n;
       },
-      update: async ({ where, data }: { where: { id: string }; data: Linha }) =>
-        Object.assign(estado.numeros.find((n) => n.id === where.id)!, data),
+      update: async ({ where, data }: { where: { id: string }; data: Linha }) => {
+        estado.chamadas.push("numero.update");
+        return Object.assign(estado.numeros.find((n) => n.id === where.id)!, data);
+      },
     },
     comandoWhatsapp: {
-      findFirst: async ({ where }: { where: { numeroId: string; tipo: string; situacao: { in: string[] } } }) =>
-        estado.comandos.find(
+      findFirst: async ({ where }: { where: { numeroId: string; tipo: string; situacao: { in: string[] } } }) => {
+        estado.chamadas.push("comando.findFirst");
+        return estado.comandos.find(
           (c) => c.numeroId === where.numeroId && c.tipo === where.tipo && where.situacao.in.includes(c.situacao),
-        ) ?? null,
+        ) ?? null;
+      },
       create: async ({ data }: { data: Linha }) => {
         const c = { id: `c${++estado.seq}`, situacao: "pendente", tentativas: 0, ...data };
         estado.comandos.push(c);
@@ -72,6 +77,7 @@ beforeEach(() => {
   const e = banco.estado;
   e.seq = 0;
   e.comandos = [];
+  e.chamadas = [];
   e.auditorias = [];
   e.usuarios = [
     { id: "u1", nome: "Ana Souza", apelido: "Aninha", papel: "comercial", ativo: true },
@@ -104,6 +110,19 @@ describe("solicitarConexao", () => {
     await solicitarConexao(ana, "va");
     await solicitarConexao(ana, "va");
     expect(banco.estado.comandos.filter((c) => c.tipo === "conectar" && c.situacao === "pendente")).toHaveLength(1);
+  });
+
+  it("segundo clique com o pedido na fila mantém o QR já gravado pelo motor", async () => {
+    await solicitarConexao(ana, "va");
+    Object.assign(banco.estado.numeros[1]!, { qrAtual: "QR", qrEm: agora() });
+    await solicitarConexao(ana, "va");
+    expect(banco.estado.numeros[1]!.qrAtual).toBe("QR");
+    expect(banco.estado.auditorias).toHaveLength(1);
+  });
+
+  it("trava a vaga antes de checar se já há comando na fila", async () => {
+    await solicitarConexao(ana, "va");
+    expect(banco.estado.chamadas.slice(0, 2)).toEqual(["numero.update", "comando.findFirst"]);
   });
 
   it("limpa QR e erro anteriores", async () => {

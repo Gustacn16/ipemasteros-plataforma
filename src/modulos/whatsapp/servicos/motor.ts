@@ -64,23 +64,28 @@ export async function entregarComandos(
     take: MAX_POR_CHAMADA,
   });
   const entregues: { id: string; numeroId: string; tipo: TipoComandoWhatsapp }[] = [];
+  // Cada comando é reivindicado com um update condicional: se outra consulta do motor
+  // chegou primeiro, a condição não bate (count 0) e este comando não é entregue de novo.
+  const aindaDisponivel = (id: string) => ({
+    id,
+    OR: [{ situacao: "pendente" as const }, { situacao: "em_andamento" as const, iniciadoEm: { lt: presoAntesDe } }],
+  });
   for (const c of candidatos) {
-    if (c.numero.excluidoEm) {
-      await prisma.comandoWhatsapp.update({
-        where: { id: c.id },
-        data: { situacao: "falhou", concluidoEm: agora, erro: "Número excluído." },
-      });
-    } else if (c.tentativas >= MAX_TENTATIVAS) {
-      await prisma.comandoWhatsapp.update({
-        where: { id: c.id },
-        data: { situacao: "falhou", concluidoEm: agora, erro: "O motor não concluiu o comando." },
+    if (c.numero.excluidoEm || c.tentativas >= MAX_TENTATIVAS) {
+      await prisma.comandoWhatsapp.updateMany({
+        where: aindaDisponivel(c.id),
+        data: {
+          situacao: "falhou",
+          concluidoEm: agora,
+          erro: c.numero.excluidoEm ? "Número excluído." : "O motor não concluiu o comando.",
+        },
       });
     } else {
-      await prisma.comandoWhatsapp.update({
-        where: { id: c.id },
-        data: { situacao: "em_andamento", iniciadoEm: agora, tentativas: c.tentativas + 1 },
+      const { count } = await prisma.comandoWhatsapp.updateMany({
+        where: aindaDisponivel(c.id),
+        data: { situacao: "em_andamento", iniciadoEm: agora, tentativas: { increment: 1 } },
       });
-      entregues.push({ id: c.id, numeroId: c.numeroId, tipo: c.tipo });
+      if (count === 1) entregues.push({ id: c.id, numeroId: c.numeroId, tipo: c.tipo });
     }
   }
   return entregues;

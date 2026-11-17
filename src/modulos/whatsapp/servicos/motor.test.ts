@@ -35,6 +35,20 @@ const banco = vi.hoisted(() => {
       },
       update: async ({ where, data }: { where: { id: string }; data: Linha }) =>
         Object.assign(estado.comandos.find((c) => c.id === where.id)!, data),
+      // Update condicional: só atinge o comando se ele ainda está pendente ou preso.
+      updateMany: async ({ where, data }: { where: { id: string; OR: Linha[] }; data: Linha }) => {
+        const [pendente, preso] = where.OR as [{ situacao: string }, { situacao: string; iniciadoEm: { lt: Date } }];
+        const c = estado.comandos.find(
+          (x) =>
+            x.id === where.id &&
+            (x.situacao === pendente.situacao || (x.situacao === preso.situacao && x.iniciadoEm && x.iniciadoEm < preso.iniciadoEm.lt)),
+        );
+        if (!c) return { count: 0 };
+        const { tentativas, ...resto } = data;
+        Object.assign(c, resto);
+        if (tentativas) c.tentativas += tentativas.increment;
+        return { count: 1 };
+      },
     },
     $transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma),
   };
@@ -141,6 +155,13 @@ describe("entregarComandos", () => {
     banco.estado.comandos = [comando("c1", { numeroId: "nx" })];
     expect(await entregarComandos(AGORA)).toEqual([]);
     expect(banco.estado.comandos[0]!.situacao).toBe("falhou");
+  });
+
+  it("duas consultas ao mesmo tempo não entregam o mesmo comando duas vezes", async () => {
+    banco.estado.comandos = [comando("c1")];
+    const [a, b] = await Promise.all([entregarComandos(AGORA), entregarComandos(AGORA)]);
+    expect(a.length + b.length).toBe(1);
+    expect(banco.estado.comandos[0]!.tentativas).toBe(1);
   });
 
   it("entrega no máximo 20 por chamada", async () => {
