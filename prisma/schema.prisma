@@ -1435,11 +1435,13 @@ model ContatoWhatsapp {
   @@map("contatos_whatsapp")
 }
 
-/// Conversa individual (por número da empresa) ou grupo (única por jid, garantido no serviço).
+/// Conversa individual (por número da empresa) ou grupo (único por jid, via chaveGrupo).
 model ConversaWhatsapp {
   id               String                    @id @default(cuid())
   jid              String                    @db.VarChar(60)
   tipo             TipoConversaWhatsapp
+  /// Igual ao jid nos grupos e nulo nos individuais: garante grupo único por jid (o MySQL aceita vários nulos).
+  chaveGrupo       String?                   @unique @map("chave_grupo") @db.VarChar(60)
   numeroId         String?                   @map("numero_id")
   nome             String?                   @db.VarChar(120)
   contatoId        String?                   @map("contato_id")

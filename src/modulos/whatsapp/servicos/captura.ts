@@ -5,8 +5,6 @@ import type { EventoConversas, EventoMensagens, MensagemMotor } from "../esquema
 import { categoriaInicial, chaveTelefone, decidirGuardar, dentroDoHistorico, HORAS_PROVISORIO } from "../regras/captura";
 
 const MAX_TEXTO = 4000;
-/** Segundos esperando a trava do grupo; passou disso, o lote falha e o motor reenvia. */
-const ESPERA_TRAVA_S = 10;
 
 type Conversa = {
   id: string;
@@ -69,7 +67,12 @@ async function contatoPorChave(chave: string): Promise<Contato | null> {
   return candidatos.find((c) => chaveTelefone(c.telefone) === chave) ?? null;
 }
 
-async function resolverContato(lid: string | null, telefone: string | null, nome: string | null): Promise<Contato> {
+async function resolverContato(
+  lid: string | null,
+  telefone: string | null,
+  nome: string | null,
+  trocarNome: boolean,
+): Promise<Contato> {
   const chave = chaveTelefone(telefone);
   const porLid = lid ? await prisma.contatoWhatsapp.findUnique({ where: { lid }, select: CAMPOS_CONTATO }) : null;
   const porTelefone = chave ? await contatoPorChave(chave) : null;
@@ -83,7 +86,7 @@ async function resolverContato(lid: string | null, telefone: string | null, nome
     });
   }
   const mudancas: Partial<Omit<Contato, "id">> = {};
-  if (nome && nome !== contato.nomeExibido) mudancas.nomeExibido = nome;
+  if (nome && nome !== contato.nomeExibido && (trocarNome || !contato.nomeExibido)) mudancas.nomeExibido = nome;
   if (lid && !contato.lid && !porLid) mudancas.lid = lid;
   if (chave && !contato.telefone) {
     // Contato que só tinha lid ganha o telefone e, com ele, a ligação com aluno/usuário.
@@ -94,54 +97,40 @@ async function resolverContato(lid: string | null, telefone: string | null, nome
   return prisma.contatoWhatsapp.update({ where: { id: contato.id }, data: mudancas, select: CAMPOS_CONTATO });
 }
 
-/** Contato pelo lid ou pela chave do telefone; null quando não há nenhum dos dois. */
-async function contatoDe(dados: { jid?: string; telefone?: string | null; nome?: string | null }): Promise<Contato | null> {
+type DadosContato = { jid?: string; telefone?: string | null; nome?: string | null };
+
+/**
+ * Contato pelo lid ou pela chave do telefone; null quando não há nenhum dos dois.
+ * `trocarNome` falso (histórico): o nome só preenche quem está sem nome, para não voltar a um nome antigo.
+ */
+async function contatoDe(dados: DadosContato, trocarNome = true): Promise<Contato | null> {
   const lid = lidDoJid(dados.jid);
   const telefone = dados.telefone ?? telefoneDoJid(dados.jid);
   const nome = dados.nome?.trim().slice(0, 100) || null;
   if (!lid && !chaveTelefone(telefone)) return null;
   try {
-    return await resolverContato(lid, telefone, nome);
+    return await resolverContato(lid, telefone, nome, trocarNome);
   } catch (e) {
     // Outro lote criou o mesmo contato no meio do caminho (telefone e lid são únicos): busca de novo.
-    if (codigoErro(e) === "P2002") return resolverContato(lid, telefone, nome);
+    if (codigoErro(e) === "P2002") return resolverContato(lid, telefone, nome, trocarNome);
     throw e;
   }
 }
 
-export async function obterOuCriarContato(dados: { jid?: string; telefone?: string | null; nome?: string | null }): Promise<string> {
+export async function obterOuCriarContato(dados: DadosContato): Promise<string> {
   const contato = await contatoDe(dados);
   if (!contato) throw new Error("Contato sem lid nem telefone.");
   return contato.id;
 }
 
 /**
- * Cria o grupo sem duplicar. O banco não garante grupo único por jid (o único é (numeroId, jid) e o
- * grupo tem numeroId nulo, que o MySQL não compara), e dois lotes do motor — um de cada número da
- * empresa que está no grupo — podem chegar juntos. Por isso, numa transação READ COMMITTED:
- *  1. GET_LOCK('wag:<jid>') — só uma transação por jid segue daqui (a trava é da conexão, que a
- *     transação interativa mantém fixa; é solta no finally);
- *  2. confere com SELECT ... FOR UPDATE: a leitura travada vê o último dado gravado e, se a transação
- *     anterior já soltou a trava mas ainda não confirmou a criação, espera por ela;
- *  3. só então cria.
+ * Cria o grupo sem duplicar: dois lotes do motor (um de cada número da empresa no grupo) podem chegar
+ * juntos. `chaveGrupo` (= jid nos grupos, nula nos individuais) é única no banco, então o INSERT IGNORE
+ * de um dos dois não faz nada e os dois leem o mesmo grupo em seguida.
  */
 async function criarGrupo(jid: string, nome: string | null): Promise<Conversa> {
-  const trava = `wag:${jid}`; // jid tem até 60 caracteres; o nome da trava cabe nos 64 do MySQL
-  return prisma.$transaction(
-    async (tx) => {
-      const [r] = await tx.$queryRaw<{ ok: number | bigint | null }[]>`SELECT GET_LOCK(${trava}, ${ESPERA_TRAVA_S}) AS ok`;
-      if (Number(r?.ok) !== 1) throw new Error("Não foi possível travar o grupo.");
-      try {
-        const [existente] = await tx.$queryRaw<{ id: string }[]>`
-          SELECT id FROM conversas_whatsapp WHERE jid = ${jid} AND tipo = 'grupo' LIMIT 1 FOR UPDATE`;
-        if (existente) return (await tx.conversaWhatsapp.findUnique({ where: { id: existente.id }, select: CAMPOS_CONVERSA }))!;
-        return tx.conversaWhatsapp.create({ data: { jid, tipo: "grupo", nome }, select: CAMPOS_CONVERSA });
-      } finally {
-        await tx.$queryRaw`SELECT RELEASE_LOCK(${trava})`;
-      }
-    },
-    { isolationLevel: "ReadCommitted" },
-  );
+  await prisma.conversaWhatsapp.createMany({ data: [{ jid, chaveGrupo: jid, tipo: "grupo", nome }], skipDuplicates: true });
+  return (await prisma.conversaWhatsapp.findUnique({ where: { chaveGrupo: jid }, select: CAMPOS_CONVERSA }))!;
 }
 
 /** Grupos (de qualquer número) e individuais deste número, pelo jid. */
@@ -197,7 +186,8 @@ export async function aplicarConversas(numeroId: string, conversas: EventoConver
   const usadas: Conversa[] = [];
   for (const c of conversas) {
     const nome = c.nome?.trim().slice(0, 120) || null;
-    const conversa = await obterConversa(numeroId, c.jid, c.tipo, nome, cache);
+    // O tipo vem do jid; o `tipo` do motor que não bate é ignorado.
+    const conversa = await obterConversa(numeroId, c.jid, tipoDoJid(c.jid), nome, cache);
     if (nome && nome !== conversa.nome) {
       await prisma.conversaWhatsapp.update({ where: { id: conversa.id }, data: { nome } });
       conversa.nome = nome;
@@ -214,7 +204,7 @@ async function chavesDaEmpresa(): Promise<Set<string>> {
 }
 
 /** Autor da mensagem: o informado pelo motor; em conversa individual sem autor, quem não é a empresa é o contato da conversa. */
-function dadosDoAutor(m: MensagemMotor, conversa: Conversa): { jid?: string; telefone?: string | null; nome?: string | null } | null {
+function dadosDoAutor(m: MensagemMotor, conversa: Conversa): DadosContato | null {
   if (m.autorJid || m.autorTelefone) return { jid: m.autorJid, telefone: m.autorTelefone ?? null, nome: m.autorNome ?? null };
   if (conversa.tipo === "individual" && !m.deMim) return { jid: conversa.jid, nome: m.autorNome ?? null };
   return null;
@@ -264,7 +254,7 @@ export async function aplicarMensagens(
     let autor: Contato | null = null;
     if (dados) {
       const chaveCache = `${dados.jid ?? ""}|${dados.telefone ?? ""}|${dados.nome ?? ""}`;
-      if (!contatos.has(chaveCache)) contatos.set(chaveCache, await contatoDe(dados));
+      if (!contatos.has(chaveCache)) contatos.set(chaveCache, await contatoDe(dados, origem === "ao_vivo"));
       autor = contatos.get(chaveCache)!;
     }
     const chaveAutor = chaveTelefone(autor?.telefone);

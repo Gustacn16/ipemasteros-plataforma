@@ -12,8 +12,6 @@ const banco = vi.hoisted(() => {
     mensagens: [] as L[],
     alunos: [] as L[],
     usuarios: [] as L[],
-    /** Ordem das travas e leituras travadas feitas por SQL cru. */
-    sql: [] as string[],
   };
   let seq = 0;
 
@@ -92,14 +90,10 @@ const banco = vi.hoisted(() => {
     };
   }
 
-  // Trava nomeada de verdade (fila por nome), para o teste de corrida.
-  const filas = new Map<string, Promise<void>>();
-  const soltar = new Map<string, () => void>();
-
   const prisma: L = {
     numeroWhatsapp: tabela("numeros", []),
-    conversaWhatsapp: tabela("conversas", [["numeroId", "jid"]], {
-      numeroId: null, nome: null, contatoId: null, categoria: "outro", monitorada: false,
+    conversaWhatsapp: tabela("conversas", [["numeroId", "jid"], ["chaveGrupo"]], {
+      chaveGrupo: null, numeroId: null, nome: null, contatoId: null, categoria: "outro", monitorada: false,
       provisoriaAte: null, ultimaMensagemEm: null,
     }),
     numeroNoGrupo: tabela("numerosNoGrupo", [["numeroId", "conversaId"]]),
@@ -109,31 +103,6 @@ const banco = vi.hoisted(() => {
     mensagemWhatsapp: tabela("mensagens", [["conversaId", "idExterno"]]),
     aluno: tabela("alunos", []),
     usuario: tabela("usuarios", []),
-    $queryRaw: async (partes: TemplateStringsArray, ...valores: unknown[]) => {
-      const sql = partes.join("?");
-      if (sql.includes("GET_LOCK")) {
-        const nome = String(valores[0]);
-        estado.sql.push(`trava ${nome}`);
-        const anterior = filas.get(nome) ?? Promise.resolve();
-        let liberar!: () => void;
-        const minha = new Promise<void>((r) => (liberar = r));
-        filas.set(nome, anterior.then(() => minha));
-        await anterior;
-        soltar.set(nome, liberar);
-        return [{ ok: 1 }];
-      }
-      if (sql.includes("RELEASE_LOCK")) {
-        const nome = String(valores[0]);
-        estado.sql.push(`solta ${nome}`);
-        soltar.get(nome)?.();
-        return [{ ok: 1 }];
-      }
-      if (sql.includes("FOR UPDATE")) {
-        estado.sql.push("confere");
-        return estado.conversas.filter((c) => c.jid === valores[0] && c.tipo === "grupo").map((c) => ({ id: c.id }));
-      }
-      throw new Error(`SQL inesperado: ${sql}`);
-    },
     $transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma),
   };
   return { estado, prisma };
@@ -177,7 +146,6 @@ beforeEach(() => {
   banco.estado.mensagens = [];
   banco.estado.alunos = [];
   banco.estado.usuarios = [];
-  banco.estado.sql = [];
 });
 
 describe("aplicarConversas", () => {
@@ -198,9 +166,24 @@ describe("aplicarConversas", () => {
     expect(banco.estado.numerosNoGrupo).toHaveLength(2);
   });
 
-  it("cria o grupo só depois de travar o jid e conferir com leitura travada", async () => {
-    await aplicarConversas("n1", [{ jid: GRUPO, tipo: "grupo" }], AGORA);
-    expect(banco.estado.sql).toEqual([`trava wag:${GRUPO}`, "confere", `solta wag:${GRUPO}`]);
+  it("grupo nasce com chaveGrupo = jid; individual fica com chaveGrupo nula", async () => {
+    await aplicarConversas(
+      "n1",
+      [{ jid: GRUPO, tipo: "grupo" }, { jid: "5562988887777@s.whatsapp.net", tipo: "individual" }, { jid: "5562977776666@s.whatsapp.net", tipo: "individual" }],
+      AGORA,
+    );
+    expect(banco.estado.conversas.map((c) => [c.tipo, c.chaveGrupo])).toEqual([
+      ["grupo", GRUPO],
+      ["individual", null],
+      ["individual", null],
+    ]);
+  });
+
+  it("o tipo vem do jid: tipo do motor que não bate é ignorado", async () => {
+    await aplicarConversas("n1", [{ jid: "5562988887777@s.whatsapp.net", tipo: "grupo" }], AGORA);
+    expect(banco.estado.conversas).toHaveLength(1);
+    expect(banco.estado.conversas[0]).toMatchObject({ tipo: "individual", numeroId: "n1", chaveGrupo: null });
+    expect(banco.estado.numerosNoGrupo).toHaveLength(0);
   });
 
   it("atualiza o nome do grupo quando vem um novo", async () => {
@@ -274,6 +257,21 @@ describe("contato e ligação com aluno", () => {
       lid: "123456789012345@lid", telefone: "556281707432", nomeExibido: "Ana", alunoId: "a1",
     });
     expect(banco.estado.mensagens.map((m) => m.contatoId)).toEqual([banco.estado.contatos[0]!.id, banco.estado.contatos[0]!.id]);
+  });
+
+  it("nome do contato só muda com mensagem ao vivo (o histórico não volta a um nome antigo)", async () => {
+    await grupoMonitorado();
+    await aplicarMensagens("n1", "ao_vivo", [msg("m1", { autorNome: "Ana Atual" })], AGORA);
+    await aplicarMensagens("n1", "historico", [msg("m0", { autorNome: "Ana Antiga", enviadaEm: horasAtras(48).toISOString() })], AGORA);
+    expect(banco.estado.contatos[0]!.nomeExibido).toBe("Ana Atual");
+    await aplicarMensagens("n1", "ao_vivo", [msg("m2", { autorNome: "Ana Nova" })], AGORA);
+    expect(banco.estado.contatos[0]!.nomeExibido).toBe("Ana Nova");
+  });
+
+  it("histórico dá nome a contato que ainda não tem", async () => {
+    await grupoMonitorado();
+    await aplicarMensagens("n1", "historico", [msg("m0", { autorNome: "Bia" })], AGORA);
+    expect(banco.estado.contatos[0]!.nomeExibido).toBe("Bia");
   });
 
   it("acha o contato pela chave mesmo com o telefone em outro formato", async () => {
