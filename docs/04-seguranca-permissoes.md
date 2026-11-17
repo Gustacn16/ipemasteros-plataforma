@@ -82,6 +82,19 @@ Colaborador e professor não usam o módulo. Só admin e gestor cadastram e excl
 | `whatsapp:gerenciar_numeros` (cadastrar, excluir e ver o estado dos números) | ✅ | ✅ | — |
 | `whatsapp:conectar_proprio` (conectar e desconectar o próprio número pelo QR) | — | — | 🔸 só o próprio |
 
+### Nexu (assistente de IA)
+Professor e aluno não usam o Nexu. Cada ferramenta do Nexu exige, além de `nexu:usar`, a permissão do módulo que ela consulta ou altera (lista completa em `docs/modulos/nexu.md`).
+
+| Permissão | admin | gestor | colaborador | comercial |
+|---|---|---|---|---|
+| `nexu:usar` (conversar, ver o próprio histórico, confirmar ou recusar as próprias propostas) | ✅ | ✅ | ✅ | ✅ |
+| `nexu:configurar` (modelo, limites e painel de uso em `/admin/nexu`) | ✅ | — | — | — |
+
+- Conversa e proposta só são lidas ou alteradas pelo **dono**, inclusive pelo admin. O admin vê só números de uso, nunca o conteúdo.
+- A ação proposta roda como a pessoa que confirmou, e o serviço do módulo refaz a checagem de permissão.
+- `ver_agenda` exige `agenda:ver_institucional`. `propor_criar_evento` exige `agenda:editar_institucional` (só eventos institucionais).
+- Nenhuma ferramenta devolve e-mail, telefone, CRM ou observações de aluno, nem nome de cliente de venda.
+
 ## Auditoria
 `LogAuditoria` registra: `usuarioId`, `acao`, `entidade`, `entidadeId`, `diff` (antes/depois, **sem** CPF em claro), `ip`, `userAgent` e `criadoEm`.
 
@@ -92,6 +105,7 @@ Ações sempre auditadas:
 - Visualização do CPF completo, exportação de dados.
 - Conexão e desconexão de integrações.
 - Publicação de conteúdo.
+- Nexu: proposta confirmada (`nexu.proposta_confirmada`) e mudança de modelo ou limites (`nexu.configuracao_alterada`).
 - Criação, edição e exclusão de venda (só nomes de campos e valor total, sem dados do cliente).
 
 O log é somente inserção: ninguém edita nem apaga, nem pela interface. A retenção é de 5 anos.
@@ -124,6 +138,7 @@ São as únicas telas sem login, por isso recebem proteção extra:
 | Professor | Nome, contato, CPF, CRM, dados bancários (futuro) | Contratação e gestão docente | Execução de contrato (V) |
 | Usuário interno | Nome, e-mail, logs de acesso | Operação do sistema e segurança | Legítimo interesse (IX) / Marco Civil (art. 15) |
 | Usuário interno | Apelido, WhatsApp, cargo, data de nascimento, foto de perfil | Identificação da equipe nas telas, contato interno e aniversários. A data de nascimento não é exibida a outros colaboradores, e a foto só é servida a usuários logados | Legítimo interesse (IX) / execução de contrato de trabalho (V) |
+| Usuário interno e aluno (citado em conversa) | Texto das conversas com o Nexu, que pode citar nomes de alunos e dados de vendas; o sistema não envia à IA e-mail, telefone, CRM ou observações de aluno | Responder perguntas e propor ações da equipe | Legítimo interesse (IX) |
 | Fornecedor (PF) | Nome, contato, documento | Relação comercial | Execução de contrato (V) |
 
 Não coletamos dados sensíveis (art. 5º, II), como saúde ou religião. Se algum campo novo puder conter esse tipo de dado, ele precisa de uma ADR e de revisão jurídica antes.
@@ -144,6 +159,8 @@ Não coletamos dados sensíveis (art. 5º, II), como saúde ou religião. Se alg
 | Registros acadêmicos de pós-graduação (matrícula, frequência) | Conforme regras do MEC para acervo acadêmico (**validar com o jurídico**) | Manter |
 | Alunos de cursos livres sem vínculo ativo | 5 anos após o fim da turma | Anonimizar |
 | Respostas de avaliação | Indeterminado (já são anônimas) | — |
+| Conversas, mensagens e propostas do Nexu | 90 dias sem atividade (ou quando a pessoa apaga) | Excluir de verdade (cron diário) |
+| Registro de uso da IA (`UsoIa`: custo e tokens, **sem texto**) | Indeterminado, para histórico de custo | Manter |
 | Logs de auditoria | 5 anos | Excluir |
 | Logs de acesso (Marco Civil) | Mínimo de 6 meses | Excluir após 1 ano |
 | Tokens de integração de usuário desativado | Imediato | Revogar e excluir |

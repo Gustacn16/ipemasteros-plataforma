@@ -54,8 +54,8 @@ prisma/
 
 Regras:
 - Leituras em Server Components chamam serviços. Nada de `fetch` para a própria API.
-- Route Handlers só são usados para o que vem de fora: webhooks, cron, OAuth callbacks e formulários públicos (com rate limit).
-- Módulos não importam serviços uns dos outros livremente. Dependências permitidas: todos → `core`; `agenda` → `academico`/`tarefas` (para criar eventos); `academico` → `comercial` (produtos); `nexu` → `tarefas`, `agenda`, `academico`, `conteudo`, `comercial` (ferramentas de consulta).
+- Route Handlers só são usados para o que vem de fora: webhooks, cron, OAuth callbacks e formulários públicos (com rate limit). Exceção: `POST /api/nexu/mensagens`, que transmite a resposta do Nexu por SSE (ADR 0006).
+- Módulos não importam serviços uns dos outros livremente. Dependências permitidas: todos → `core`; `agenda` → `academico`/`tarefas` (para criar eventos); `academico` → `comercial` (produtos); `nexu` → `tarefas`, `agenda`, `academico`, `conteudo`, `comercial` (ferramentas de consulta e propostas de ação). Nenhum módulo importa o `nexu`; a camada de IA comum fica em `src/lib/ia/`, que não importa módulos.
 
 ## Integrações
 | Integração | Uso | Autenticação | Fase |
@@ -64,13 +64,14 @@ Regras:
 | Meta Graph API (Instagram) | Métricas do Instagram (C2a) e, depois, publicar (C2b) | A mesma chave de usuário do sistema do Meta Ads (`META_ACCESS_TOKEN`), com `instagram_basic`, `instagram_manage_insights`, `pages_show_list` e `pages_read_engagement`; base em `src/lib/meta-graph.ts`. Runbook: `docs/runbooks/instagram.md` | F5 |
 | Meta Marketing API | Investimento, impressões, cliques, leads | Chave de usuário do sistema do Business Manager (`META_ACCESS_TOKEN`, só `ads_read`); versão em `VERSAO_GRAPH`. Runbook: `docs/runbooks/meta-ads.md` | F6 |
 | Kommo API | Leads, negócios, vendas | OAuth Kommo + webhooks | F6 |
+| Anthropic API (Claude) | Nexu, o assistente de IA (consultas e propostas de ação); depois, o agente do WhatsApp | `ANTHROPIC_API_KEY` só no servidor (`src/lib/ia/cliente.ts`). Modelo e limites na tela `/admin/nexu`. ADR 0006 | N1 |
 | E-mail (SMTP Hostinger) | Convites, recuperação de senha, avisos | Credenciais SMTP | F0 |
 
 Tokens de integração ficam **criptografados no banco** (AES-256-GCM, chave em variável de ambiente).
 
 ## Jobs agendados
 A Hostinger Cloud oferece cron no hPanel. Cada job é um `GET /api/cron/<tarefa>` com o header `Authorization: Bearer $CRON_SECRET`.
-- `importar-meta-ads` (diário, 4h): refaz os últimos 7 dias do Meta Ads; implementado em `src/app/api/cron/[tarefa]/route.ts`.
+- `importar-meta-ads` (diário, 4h): refaz os últimos 7 dias do Meta Ads; implementado em `src/app/api/cron/[tarefa]/route.ts`. A mesma tarefa também apaga as conversas do Nexu com mais de 90 dias, isolada em `try/catch` para não derrubar a importação.
 - `importar-instagram` (diário, 4h): posts novos, números dos posts dos últimos 30 dias e da conta (últimos 7 dias e mês) e seguidores do dia.
 - `importar-stories-instagram` (de hora em hora): números dos stories enquanto estão no ar.
 - `importar-kommo` (de hora em hora, complementando os webhooks): futuro.
@@ -93,7 +94,7 @@ Os jobs precisam ser **idempotentes**: rodar duas vezes não pode duplicar dados
 - O banco de homologação **nunca** usa cópia de dados reais de alunos. Usa o seed.
 
 ## Variáveis de ambiente
-`DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `CHAVE_CRIPTOGRAFIA`, `HMAC_CPF_SEGREDO`, `CRON_SECRET`, `SMTP_*`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `META_*`, `KOMMO_*`, `TURNSTILE_*`.
+`DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `CHAVE_CRIPTOGRAFIA`, `HMAC_CPF_SEGREDO`, `CRON_SECRET`, `SMTP_*`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `META_*`, `ANTHROPIC_API_KEY`, `KOMMO_*`, `TURNSTILE_*`.
 Ficam no painel da Hostinger e nunca no repositório. O `.env.example` documenta todas.
 
 ## Arquivos e anexos

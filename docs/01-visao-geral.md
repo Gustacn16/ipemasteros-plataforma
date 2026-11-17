@@ -30,6 +30,7 @@ A IPEMaster oferece pós-graduações e cursos livres para médicos. Hoje a oper
 | Acadêmico | Cursos, turmas, aulas, alunos, professores, fornecedores, presença e avaliação | `modulos/academico.md` |
 | Conteúdo | Canais, calendário editorial, fluxo de aprovação e publicação | `modulos/conteudo.md` |
 | Comercial | Catálogo de produtos, vendas, metas e dashboard (depois: Kommo e Meta Ads) | `modulos/comercial.md` |
+| Nexu | Assistente de IA: responde sobre os dados dos módulos e propõe ações que a pessoa confirma | `modulos/nexu.md` |
 
 ## Roadmap por fases
 | Fase | Entrega |

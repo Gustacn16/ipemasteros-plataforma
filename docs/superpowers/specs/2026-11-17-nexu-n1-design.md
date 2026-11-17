@@ -1,6 +1,6 @@
 # Nexu N1 — Agente de IA da plataforma (base, consultas e ações): especificação
 
-- **Status:** Proposto
+- **Status:** Implementado no ramo nexu-n1
 - **Data:** 2026-11-17
 - **Base:** `docs/01-visao-geral.md`, `docs/02-arquitetura.md`, `docs/04-seguranca-permissoes.md`, `src/lib/permissoes.ts` e os docs de cada módulo em `docs/modulos/`. Onde divergir deles, vale este documento, e os docs afetados são atualizados na implementação.
 - **Próxima etapa (spec própria):** N2, o espião de concorrentes (Instagram com transcrição dos Reels, landing pages, SEO orgânico e relatório). A N2 usa a base desta etapa. Os anúncios (Meta e Google) ficam para depois, por um caminho barato.
@@ -57,7 +57,7 @@ Convenções do projeto: ids `cuid`, `criadoEm`/`atualizadoEm`, tabelas `snake_c
 |---|---|---|
 | `ConversaNexu` | id, usuarioId, titulo (≤120), criadoEm, atualizadoEm | O título vem da 1ª pergunta, cortado. Índice: (usuarioId, atualizadoEm) |
 | `MensagemNexu` | id, conversaId, papel (`usuario`/`assistente`), conteudo (Json, os blocos da API), ordem (int), criadoEm | Guarda os blocos exatamente como a API devolve, incluindo `tool_use`, `tool_result` e `thinking`, para reenviar o histórico sem alterar nada. `onDelete: Cascade` a partir da conversa |
-| `PropostaNexu` | id, conversaId, usuarioId, toolUseId (≤64), tipo (`criar_tarefa`/`mudar_status_tarefa`/`adicionar_checklist`/`criar_evento`/`criar_post`/`registrar_venda`), dados (Json), resumo (≤500), status (`pendente`/`confirmada`/`recusada`/`falhou`), erro (≤500)?, resultadoId (≤40)?, resultadoUrl (≤300)?, decididaEm? | `dados` é validado por Zod na criação **e** na confirmação. `onDelete: Cascade` a partir da conversa |
+| `PropostaNexu` | id, conversaId, usuarioId, toolUseId (≤64), tipo (`criar_tarefa`/`mudar_status_tarefa`/`adicionar_checklist`/`criar_evento`/`criar_post`/`registrar_venda`), dados (Json), resumo (≤500), status (`pendente`/`executando`/`confirmada`/`recusada`/`falhou`), erro (≤500)?, resultadoId (≤40)?, resultadoUrl (≤300)?, decididaEm? | `dados` é validado por Zod na criação **e** na confirmação. `onDelete: Cascade` a partir da conversa |
 | `UsoIa` | id, origem (`nexu`/`whatsapp`/…, ≤30), usuarioId?, inicioPergunta (bool: true na 1ª chamada de cada pergunta), modelo (≤60), tokensEntrada, tokensCacheEscrita, tokensCacheLeitura, tokensSaida, custoMicroUsd (int), criadoEm | Uma linha por chamada à API. **Sem texto.** Não é apagada na limpeza de 90 dias. `usuarioId` com `onDelete: SetNull`. Índices: (criadoEm), (usuarioId, criadoEm) |
 | `ConfiguracaoIa` | id (linha única), modelo (≤60), limiteMensalMicroUsd (int), perguntasPorDia (int), atualizadoPorId?, atualizadoEm | Criada pela migration com os valores padrão: `claude-haiku-5-5`, 20.000.000 e 50 |
 
@@ -97,12 +97,12 @@ Cada ferramenta tem nome, descrição em português, esquema de entrada (JSON Sc
 |---|---|---|---|
 | `buscar_tarefas` | `tarefas:usar` | `tarefas/servicos` (`listarMinhasTarefas`, `obterListaComTarefas` e uma busca nova com filtros) | Filtros: minhas, atrasadas, espaço/lista, responsável, prazo entre datas, status. Respeita os espaços em que a pessoa é membro (`acesso.ts`) |
 | `relatorio_tarefas_equipe` | `tarefas:ver_relatorio_equipe` | `tarefas/servicos/relatorio.ts` | Por pessoa: abertas, atrasadas e concluídas no período |
-| `ver_agenda` | `agenda:usar` | `agenda/servicos/eventos.ts` (`listarEventos`) | Período de no máximo 62 dias |
+| `ver_agenda` | `agenda:ver_institucional` | `agenda/servicos/eventos.ts` (`listarEventos`) | Período de no máximo 62 dias |
 | `turmas_e_formaturas` | `academico:ver` | `academico/servicos/turmas.ts`, `visao.ts` | Turmas com início, data de formatura, situação e alunos ativos; filtro "formam entre datas" |
 | `buscar_aluno` | `academico:ver` | `academico/servicos/alunos.ts` | Devolve **só** nome, turma(s), situação da matrícula, início e formatura |
 | `calendario_conteudo` | `conteudo:usar` | `conteudo/servicos/conteudos.ts` (`listarCalendario`, `listarQuadro`) | Posts do período com etapa, canal, responsável e aprovação |
 | `metricas_instagram` | `conteudo:usar` | `conteudo/servicos/visao-instagram.ts` | Números do mês e melhores posts |
-| `vendas_e_metas` | `comercial:ver` | `comercial/servicos/vendas.ts`, `metas.ts`, `dashboard.ts` | O vendedor vê só as próprias vendas; a equipe exige `comercial:ver_equipe` (a regra fica no serviço) |
+| `vendas_e_metas` | `comercial:ver` | `comercial/servicos/vendas.ts`, `metas.ts`, `dashboard.ts` | Não devolve nome de cliente. O vendedor vê só as próprias vendas; a equipe exige `comercial:ver_equipe` (a regra fica no serviço) |
 | `produtos` | `comercial:ver` | `comercial/servicos/produtos.ts` | Catálogo e preços |
 
 **Ações** (todas gravam proposta; o serviço só roda ao confirmar)
@@ -112,7 +112,7 @@ Cada ferramenta tem nome, descrição em português, esquema de entrada (JSON Sc
 | `propor_criar_tarefa` | `tarefas:usar` | `criarTarefa` (com subtarefas) |
 | `propor_mudar_status_tarefa` | `tarefas:usar` | `mudarStatus` |
 | `propor_adicionar_checklist` | `tarefas:usar` | `adicionarItemChecklist` (`tarefas/servicos/detalhes.ts`). As tarefas ainda não têm comentários; "comentar" entra quando o módulo Tarefas ganhar comentários |
-| `propor_criar_evento` | `agenda:usar` (institucional também exige `agenda:editar_institucional`) | `criarEvento` |
+| `propor_criar_evento` | `agenda:editar_institucional` (a agenda só cria eventos institucionais; não há evento pessoal pelo Nexu) | `criarEvento` |
 | `propor_criar_post` | `conteudo:usar` | serviço de criação de conteúdo (legenda como rascunho) |
 | `propor_registrar_venda` | `comercial:registrar_venda` | `criarVenda` (vendedor: só no próprio nome, regra do serviço) |
 
