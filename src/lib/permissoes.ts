@@ -49,6 +49,9 @@ export type Permissao =
   | "academico:importar_alunos"
   | "whatsapp:gerenciar_numeros"
   | "whatsapp:conectar_proprio"
+  | "whatsapp:ver_grupos"
+  | "whatsapp:ver_equipe"
+  | "whatsapp:ver_proprio"
   | "nexu:usar"
   | "nexu:configurar";
 
@@ -88,7 +91,8 @@ const COMERCIAL_GESTAO: readonly Permissao[] = [
 const ACADEMICO_GESTAO: readonly Permissao[] = ["academico:ver", "academico:gerenciar", "academico:importar_alunos"];
 
 // Cadastrar e excluir números do WhatsApp é coisa de gestão; o comercial só conecta o próprio.
-const WHATSAPP_GESTAO: readonly Permissao[] = ["whatsapp:gerenciar_numeros"];
+// Gestão também vê os grupos e todas as conversas individuais.
+const WHATSAPP_GESTAO: readonly Permissao[] = ["whatsapp:gerenciar_numeros", "whatsapp:ver_grupos", "whatsapp:ver_equipe"];
 
 const PERMISSOES_COLABORADOR: readonly Permissao[] = [
   "tarefas:gerenciar_listas",
@@ -145,6 +149,8 @@ const PERMISSOES_POR_PAPEL: Record<Papel, readonly Permissao[]> = {
     "comercial:registrar_venda",
     // O vendedor conecta o próprio número de WhatsApp ao motor.
     "whatsapp:conectar_proprio",
+    // ...e só as conversas individuais dos próprios números.
+    "whatsapp:ver_proprio",
   ],
   professor: ["tarefas:usar", "agenda:usar", "agenda:ver_institucional_professor"],
   aluno: [],

@@ -81,6 +81,9 @@ Colaborador e professor não usam o módulo. Só admin e gestor cadastram e excl
 |---|---|---|---|
 | `whatsapp:gerenciar_numeros` (cadastrar, excluir e ver o estado dos números) | ✅ | ✅ | — |
 | `whatsapp:conectar_proprio` (conectar e desconectar o próprio número pelo QR) | — | — | 🔸 só o próprio |
+| `whatsapp:ver_grupos` (ver grupos, ligar turma, escolher quais acompanhar) | ✅ | ✅ | — |
+| `whatsapp:ver_equipe` (ver e categorizar todas as conversas individuais; abrir conversa de número de outro dono é auditado) | ✅ | ✅ | — |
+| `whatsapp:ver_proprio` (ver e categorizar só as conversas dos próprios números) | — | — | 🔸 só o próprio |
 
 ### Nexu (assistente de IA)
 Professor e aluno não usam o Nexu. Cada ferramenta do Nexu exige, além de `nexu:usar`, a permissão do módulo que ela consulta ou altera (lista completa em `docs/modulos/nexu.md`).

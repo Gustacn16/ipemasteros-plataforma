@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { CabecalhoPagina } from "@/componentes/cabecalho-pagina";
 import { temPermissao } from "@/lib/permissoes";
 import { exigirUsuario } from "@/lib/sessao";
+import { AbasWhatsapp } from "@/modulos/whatsapp/componentes/abas-whatsapp";
 import { ListaNumeros } from "@/modulos/whatsapp/componentes/lista-numeros";
 import { NovoNumero } from "@/modulos/whatsapp/componentes/novo-numero";
 import { listarNumeros, listarVendedoresAtivos } from "@/modulos/whatsapp/servicos/numeros";
@@ -28,6 +29,7 @@ export default async function PaginaNumeros() {
         descricao="Conecte cada número lendo o QR no celular. A escola e cada vendedor têm o seu."
         acoes={gestao ? <NovoNumero vendedores={vendedores} /> : undefined}
       />
+      <AbasWhatsapp papel={usuario.papel} ativa="numeros" />
       <ListaNumeros numeros={linhas} podeExcluir={gestao} />
     </div>
   );

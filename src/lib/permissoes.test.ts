@@ -267,6 +267,30 @@ describe("permissões do WhatsApp", () => {
   });
 });
 
+describe("permissões de grupos e conversas do WhatsApp", () => {
+  it("admin e gestor veem grupos e conversas da equipe, não as próprias", () => {
+    for (const papel of ["admin", "gestor"] as const) {
+      expect(temPermissao(papel, "whatsapp:ver_grupos")).toBe(true);
+      expect(temPermissao(papel, "whatsapp:ver_equipe")).toBe(true);
+      expect(temPermissao(papel, "whatsapp:ver_proprio")).toBe(false);
+    }
+  });
+
+  it("comercial vê só as próprias conversas", () => {
+    expect(temPermissao("comercial", "whatsapp:ver_proprio")).toBe(true);
+    expect(temPermissao("comercial", "whatsapp:ver_grupos")).toBe(false);
+    expect(temPermissao("comercial", "whatsapp:ver_equipe")).toBe(false);
+  });
+
+  it("colaborador, professor e aluno não veem nada", () => {
+    for (const papel of ["colaborador", "professor", "aluno"] as const) {
+      expect(temPermissao(papel, "whatsapp:ver_grupos")).toBe(false);
+      expect(temPermissao(papel, "whatsapp:ver_equipe")).toBe(false);
+      expect(temPermissao(papel, "whatsapp:ver_proprio")).toBe(false);
+    }
+  });
+});
+
 describe("permissões do Nexu", () => {
   it("nexu:usar vale para admin, gestor, colaborador e comercial", () => {
     for (const papel of ["admin", "gestor", "colaborador", "comercial"] as const) {

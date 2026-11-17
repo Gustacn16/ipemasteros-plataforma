@@ -39,6 +39,9 @@ export type AcaoAuditoria =
   | "whatsapp.numero_excluido"
   | "whatsapp.conexao_solicitada"
   | "whatsapp.desconexao_solicitada"
+  | "whatsapp.grupo_monitorado"
+  | "whatsapp.categoria_alterada"
+  | "whatsapp.conversa_aberta"
   | "nexu.configuracao_alterada"
   | "nexu.proposta_confirmada";
 

@@ -14,9 +14,14 @@ A tela nunca fala com o motor: grava comandos no banco e o motor os busca. O mot
 ## Permissões
 - `whatsapp:gerenciar_numeros` (admin e gestor): vê todos os números, cria vagas, conecta, desconecta e exclui.
 - `whatsapp:conectar_proprio` (papel `comercial`): vê, conecta e desconecta só os números dos quais é dono. Não cria nem exclui.
+- `whatsapp:ver_grupos` (admin e gestor): vê os grupos, liga turma e escolhe quais acompanhar. Só a gestão enxerga grupos.
+- `whatsapp:ver_equipe` (admin e gestor): vê todas as conversas individuais e muda a categoria delas.
+- `whatsapp:ver_proprio` (papel `comercial`): vê e categoriza só as conversas dos números dos quais é dono.
 
 ## Telas
-- `/whatsapp` redireciona para `/whatsapp/numeros`. O item "WhatsApp" do menu aparece para quem tem uma das duas permissões.
+- `/whatsapp` redireciona para a primeira aba que a pessoa pode ver. As abas no topo são **Grupos · Conversas · Números**, cada uma só para quem pode. O item "WhatsApp" do menu aparece para quem tem qualquer uma das permissões do módulo.
+- `/whatsapp/grupos`: tabela com nome, números da empresa no grupo, mensagens nos últimos 7 dias, turma (seletor) e o interruptor "Acompanhar". Grupo provisório mostra "Histórico guardado até <data>". Ao desmarcar, confirma "As mensagens guardadas deste grupo serão apagadas."
+- `/whatsapp/conversas`: filtro por número e categoria; categoria editável por linha (marcar "pessoal" pede confirmação). O clique abre `/whatsapp/conversas/[id]` com as últimas 200 mensagens (texto, ou "[áudio]", "[imagem]" etc.).
 - `/whatsapp/numeros`: tabela com nome, finalidade, dono, telefone, situação, conectado em e último sinal. Por linha: **Conectar** (quando não conectado), **Desconectar** (conectado; pede confirmação) e **Excluir** (qualquer situação menos conectado, só gestão). Em erro, a linha mostra o detalhe enviado pelo motor abaixo da situação. **Novo número** (só gestão): nome, finalidade e, para vendedor, o dono entre os usuários ativos com papel `comercial`.
 - **Diálogo Conectar:** pede a conexão e consulta a situação a cada 2 s enquanto aberto. Mostra o QR com a instrução "No celular: WhatsApp › Aparelhos conectados › Conectar um aparelho". Ao conectar, mostra "Conectado!" e fecha em 2 s. Em QR expirado, erro, desconectado, removido no celular ou motor sem resposta, para de consultar e oferece "Tentar de novo". Em erro, mostra o detalhe enviado pelo motor (ex.: "Acesso recusado pelo WhatsApp.", "Não foi possível abrir a conexão (status 405).").
 
@@ -28,5 +33,12 @@ A tela nunca fala com o motor: grava comandos no banco e o motor os busca. O mot
 5. Só não se exclui número conectado (desconecte antes); a exclusão é lógica (`excluidoEm`) e pede ao motor um `desconectar`, que é entregue mesmo com a vaga excluída para encerrar e apagar a sessão dela. Erro informado pelo motor põe a vaga em `erro` com o detalhe. Criar, excluir, conectar e desconectar geram auditoria (`whatsapp.*`).
 6. O QR é gerado em SVG no servidor (`qrcode`) a cada consulta e nunca vai para log nem URL. O segredo do motor (`MOTOR_WHATSAPP_SEGREDO`) nunca aparece na tela.
 
+7. **Grupos:** marcar "Acompanhar" limpa `provisoriaAte` (o histórico guardado vira definitivo); desmarcar apaga as mensagens do grupo na mesma transação. Ligar turma não gera auditoria.
+8. **Categoria "pessoal":** apaga as mensagens da conversa na mesma transação da mudança, e a captura passa a descartar as próximas.
+9. **Autor das mensagens:** nome do perfil; sem nome, "…" e os 4 últimos dígitos do telefone; sem telefone, "Contato sem nome". A tela nunca mostra o telefone completo nem o JID. Mensagens enviadas pelo próprio número aparecem como "Você".
+10. **Auditoria (só ids e nomes de campos, nunca texto):** `whatsapp.grupo_monitorado`, `whatsapp.categoria_alterada` e `whatsapp.conversa_aberta`. Esta última só quando a conversa é de número cujo dono não é quem abre (inclui números da escola, sem dono); abrir a própria conversa ou um grupo não audita.
+
 ## Situação da implementação
 **Entrega 1:** motor, comandos, tela de números e conexão por QR. Verificação na tela com o motor ligado é feita no site `teste`.
+
+**Entrega 2a (tela):** abas, grupos e conversas com as mensagens capturadas. Responder mensagens fica para depois.
