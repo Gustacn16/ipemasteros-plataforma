@@ -247,7 +247,7 @@ async function exigirFormato(formatoId: string, marcaId?: string, atual?: string
 
 export async function criarConteudo(
   ator: UsuarioAtual,
-  dados: { titulo: string; formatoId: string; canalIds: string[]; dataPublicacao: Date | null; etapa: Etapa },
+  dados: { titulo: string; formatoId: string; canalIds: string[]; dataPublicacao: Date | null; etapa: Etapa; legenda?: string | null },
 ) {
   exigirUso(ator);
   const formato = await exigirFormato(dados.formatoId);
@@ -262,6 +262,7 @@ export async function criarConteudo(
         formatoId: formato.id,
         etapa: dados.etapa,
         dataPublicacao: dados.dataPublicacao,
+        legenda: dados.legenda ?? null,
         criadoPorId: ator.id,
         responsavelId: ator.id,
         ...(dados.etapa === "aprovado" ? { aprovadoPorId: ator.id, aprovadoEm: new Date() } : {}),

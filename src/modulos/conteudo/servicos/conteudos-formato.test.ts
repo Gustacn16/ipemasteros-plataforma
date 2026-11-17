@@ -64,4 +64,11 @@ describe("criar conteúdo com formato do canal", () => {
     await criarConteudo(colaborador, { ...novo, etapa: "a_gravar" });
     expect(banco.estado.criado).toMatchObject({ etapa: "a_gravar" });
   });
+
+  it("grava a legenda na criação; sem legenda, fica vazia", async () => {
+    await criarConteudo(colaborador, { ...novo, legenda: "Legenda pronta" });
+    expect(banco.estado.criado).toMatchObject({ legenda: "Legenda pronta" });
+    await criarConteudo(colaborador, novo);
+    expect(banco.estado.criado).toMatchObject({ legenda: null });
+  });
 });

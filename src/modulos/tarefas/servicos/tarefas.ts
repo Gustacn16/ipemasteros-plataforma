@@ -119,11 +119,22 @@ export async function obterTarefa(ator: UsuarioAtual, tarefaId: string) {
 
 export async function criarTarefa(
   ator: UsuarioAtual,
-  dados: { listaId: string; titulo: string; tarefaPaiId?: string; subtarefas?: string[] },
+  dados: {
+    listaId: string;
+    titulo: string;
+    tarefaPaiId?: string;
+    subtarefas?: string[];
+    descricao?: string | null;
+    prioridade?: Prioridade;
+    dataEntrega?: Date | null;
+    responsaveis?: string[];
+  },
 ) {
   exigirPermissaoTarefas(ator, "tarefas:usar");
   if (!podeEditarTarefa(ator)) throw new ErroPermissao("tarefas:criar");
-  await exigirLista(ator, dados.listaId);
+  const lista = await exigirLista(ator, dados.listaId);
+  const responsaveis = [...new Set(dados.responsaveis ?? [])];
+  await exigirAtribuiveis(lista.espacoId, responsaveis);
 
   const subtarefas = dados.subtarefas ?? [];
   if (dados.tarefaPaiId && subtarefas.length) throw new ErroNegocio("Subtarefa não pode ter subtarefas.");
@@ -150,11 +161,17 @@ export async function criarTarefa(
         listaId: dados.listaId,
         tarefaPaiId: dados.tarefaPaiId ?? null,
         titulo: dados.titulo,
+        descricao: dados.descricao ?? null,
+        ...(dados.prioridade ? { prioridade: dados.prioridade } : {}),
+        dataEntrega: dados.dataEntrega ?? null,
         statusId: statusInicial.id,
         ordem,
         criadoPorId: ator.id,
       },
     });
+    if (responsaveis.length) {
+      await tx.tarefaResponsavel.createMany({ data: responsaveis.map((usuarioId) => ({ tarefaId: tarefa.id, usuarioId })) });
+    }
     // Subtarefas digitadas junto: mesma lista e status, na ordem em que vieram.
     if (subtarefas.length) {
       await tx.tarefa.createMany({
@@ -170,6 +187,13 @@ export async function criarTarefa(
     }
     return tarefa;
   });
+}
+
+/** Só membros do espaço (ou admin/gestor) podem ser atribuídos; vale para criar e para atualizar. */
+async function exigirAtribuiveis(espacoId: string, ids: string[]) {
+  if (!ids.length) return;
+  const permitidos = new Set((await usuariosAtribuiveis(espacoId)).map((u) => u.id));
+  if (ids.some((id) => !permitidos.has(id))) throw new ErroNegocio("Só é possível atribuir a membros do espaço.");
 }
 
 type CamposTarefa = {
@@ -191,12 +215,7 @@ export async function atualizarTarefa(ator: UsuarioAtual, tarefaId: string, camp
   const idsAtuais = atuais.map((r) => r.usuarioId);
   // Quem já era responsável pode continuar mesmo se saiu do espaço (regra 7); novos precisam poder ser atribuídos.
   const novos = ids.filter((id) => !idsAtuais.includes(id));
-  if (novos.length) {
-    const permitidos = new Set((await usuariosAtribuiveis(tarefa.lista.espacoId)).map((u) => u.id));
-    if (novos.some((id) => !permitidos.has(id))) {
-      throw new ErroNegocio("Só é possível atribuir a membros do espaço.");
-    }
-  }
+  await exigirAtribuiveis(tarefa.lista.espacoId, novos);
 
   const nomes = new Map(
     (await prisma.usuario.findMany({ where: { id: { in: [...new Set([...ids, ...idsAtuais])] } }, select: { id: true, nome: true } })).map(
