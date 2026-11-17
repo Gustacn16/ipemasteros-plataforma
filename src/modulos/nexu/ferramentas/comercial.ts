@@ -1,8 +1,7 @@
 import { z } from "zod";
-import { ErroPermissao, temPermissao } from "@/lib/permissoes";
 import { mesSeguinte } from "@/modulos/comercial/regras/meta";
 import { obterVisaoMetas } from "@/modulos/comercial/servicos/metas";
-import { listarProdutosAtivos } from "@/modulos/comercial/servicos/produtos";
+import { listarProdutos } from "@/modulos/comercial/servicos/produtos";
 import { listarVendas } from "@/modulos/comercial/servicos/vendas";
 import { somarDias } from "@/modulos/tarefas/regras/prazo";
 import { limitarLista } from "./lista";
@@ -53,7 +52,6 @@ export const ferramentaVendasEMetas: FerramentaNexu<typeof entradaVendas> = {
         vendas.map((v) => ({
           id: v.id,
           dataVenda: v.dataVenda,
-          cliente: v.nomeCliente,
           produto: v.produtoNome,
           oferta: v.ofertaNome,
           vendedor: v.vendedorNome,
@@ -83,13 +81,13 @@ const entradaProdutos = z.object({});
 
 export const ferramentaProdutos: FerramentaNexu<typeof entradaProdutos> = {
   nome: "produtos",
-  descricao: "Catálogo de produtos ativos (nome e tipo).",
+  descricao: "Catálogo de produtos ativos com tipo, área e preço da oferta padrão (preço cheio, parcelas e valor da parcela).",
   entrada: entradaProdutos,
   permissao: "comercial:ver",
   rotulo: "Consultando produtos…",
   tipo: "consulta",
   async executar(ator) {
-    if (!temPermissao(ator.papel, "comercial:ver")) throw new ErroPermissao("comercial:ver");
-    return limitarLista((await listarProdutosAtivos()).map((p) => ({ id: p.id, nome: p.nome, tipo: p.tipo })));
+    const produtos = await listarProdutos(ator, { situacao: "ativos", busca: undefined });
+    return limitarLista(produtos.map((p) => ({ id: p.id, nome: p.nome, tipo: p.tipo, area: p.area, ofertaPadrao: p.ofertaPadrao })));
   },
 };
