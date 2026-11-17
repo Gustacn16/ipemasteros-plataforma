@@ -8,6 +8,17 @@ const banco = vi.hoisted(() => {
     conversas: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
     mensagens: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
   };
+  // Filtro de mensagem: id, conversaId, enviadaEm e a relação conversa (monitorada/tipo).
+  const combina = (m: Linha, where: Linha) => {
+    if (where.id?.in && !where.id.in.includes(m.id)) return false;
+    if (where.conversaId?.in && !where.conversaId.in.includes(m.conversaId)) return false;
+    if (where.enviadaEm?.lt && !(m.enviadaEm < where.enviadaEm.lt)) return false;
+    if (where.conversa) {
+      const c = estado.conversas.find((x) => x.id === m.conversaId);
+      if (!c || Object.entries(where.conversa).some(([k, v]) => c[k] !== v)) return false;
+    }
+    return true;
+  };
   const prisma = {
     conversaWhatsapp: {
       findMany: async ({ where }: { where: Linha }) =>
@@ -20,8 +31,10 @@ const banco = vi.hoisted(() => {
               c.provisoriaAte < where.provisoriaAte.lt,
           )
           .map((c) => ({ id: c.id })),
-      updateMany: async ({ where, data }: { where: { id: { in: string[] } }; data: Linha }) => {
-        const alvo = estado.conversas.filter((c) => where.id.in.includes(c.id));
+      updateMany: async ({ where, data }: { where: { id: { in: string[] }; monitorada?: boolean }; data: Linha }) => {
+        const alvo = estado.conversas.filter(
+          (c) => where.id.in.includes(c.id) && (where.monitorada === undefined || c.monitorada === where.monitorada),
+        );
         alvo.forEach((c) => Object.assign(c, data));
         return { count: alvo.length };
       },
@@ -29,16 +42,12 @@ const banco = vi.hoisted(() => {
     mensagemWhatsapp: {
       findMany: async ({ where, take }: { where: Linha; take: number }) =>
         estado.mensagens
-          .filter((m) =>
-            where.conversaId?.in
-              ? where.conversaId.in.includes(m.conversaId)
-              : m.enviadaEm < where.enviadaEm.lt,
-          )
+          .filter((m) => combina(m, where))
           .slice(0, take)
           .map((m) => ({ id: m.id })),
-      deleteMany: async ({ where }: { where: { id: { in: string[] } } }) => {
+      deleteMany: async ({ where }: { where: Linha }) => {
         const antes = estado.mensagens.length;
-        estado.mensagens = estado.mensagens.filter((m) => !where.id.in.includes(m.id));
+        estado.mensagens = estado.mensagens.filter((m) => !combina(m, where));
         return { count: antes - estado.mensagens.length };
       },
     },
@@ -85,6 +94,22 @@ describe("limparWhatsapp", () => {
     const r = await limparWhatsapp(AGORA);
     expect(r).toEqual({ provisorias: 0, antigas: 0 });
     expect(banco.estado.mensagens).toHaveLength(2);
+  });
+
+  it("grupo marcado como monitorado durante a limpeza não perde mensagens nem o prazo", async () => {
+    conversa("g1", { provisoriaAte: horas(-1) });
+    mensagem("m1", "g1", dias(-3));
+    const original = banco.prisma.conversaWhatsapp.findMany;
+    const busca = vi.spyOn(banco.prisma.conversaWhatsapp, "findMany").mockImplementationOnce(async (args) => {
+      const r = await original(args);
+      banco.estado.conversas[0].monitorada = true; // alguém marcou o grupo logo depois da busca
+      return r;
+    });
+    const r = await limparWhatsapp(AGORA);
+    expect(r).toEqual({ provisorias: 0, antigas: 0 });
+    expect(banco.estado.mensagens).toHaveLength(1);
+    expect(banco.estado.conversas[0].provisoriaAte).toEqual(horas(-1));
+    busca.mockRestore();
   });
 
   it("apaga mensagem de 91 dias e mantém a de 89", async () => {
