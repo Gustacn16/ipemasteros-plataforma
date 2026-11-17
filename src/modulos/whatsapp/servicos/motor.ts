@@ -2,7 +2,7 @@ import "server-only";
 import type { TipoComandoWhatsapp } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { EventoMotor } from "../esquemas/motor";
-import { aplicarConversas, aplicarMensagens } from "./captura";
+import { aplicarConversas, aplicarMensagens, type ContextoCaptura } from "./captura";
 
 const REENTREGA_MS = 2 * 60_000;
 const MAX_TENTATIVAS = 3;
@@ -17,63 +17,80 @@ export async function aplicarEventos(
 ): Promise<{ aplicados: number; ignorados: number }> {
   let aplicados = 0;
   let ignorados = 0;
+  const contexto: ContextoCaptura = { contatos: new Map() };
   for (const ev of eventos) {
-    if (ev.tipo === "sinal") {
-      await prisma.numeroWhatsapp.updateMany({ where: { excluidoEm: null }, data: { ultimoSinalEm: agora } });
-      // O motor está vivo, mas a vaga "conectada" não está na lista dele (ex.: derrubada por outra
-      // sessão ou motor reiniciado sem ela): a tela não pode continuar dizendo "Conectado".
-      // Vagas conectadas há menos de 2 min ficam de fora, porque o motor pode ainda não tê-las contado.
-      await prisma.numeroWhatsapp.updateMany({
-        where: {
-          excluidoEm: null,
-          situacao: "conectado",
-          id: { notIn: ev.conectados },
-          conectadoEm: { lt: new Date(agora.getTime() - CONEXAO_RECENTE_MS) },
-        },
-        data: { situacao: "erro", erro: "O motor não está com este número conectado." },
-      });
-      aplicados++;
-      continue;
-    }
-    const numero = await prisma.numeroWhatsapp.findUnique({ where: { id: ev.numeroId }, select: { id: true, excluidoEm: true } });
-    if (!numero || numero.excluidoEm) {
+    try {
+      if (await aplicarEvento(ev, agora, contexto)) aplicados++;
+      else ignorados++;
+    } catch (e) {
+      // Um evento ruim não derruba o lote (o motor reenviaria para sempre). Só o tipo e o código:
+      // a mensagem do erro do MySQL pode trazer telefone ("Duplicate entry '...'").
+      console.error(`[whatsapp/motor] falha ao aplicar evento ${ev.tipo} (código ${codigoDoErro(e)})`);
       ignorados++;
-      continue;
     }
-    if (ev.tipo === "conversas") {
-      await aplicarConversas(numero.id, ev.conversas, agora);
-    } else if (ev.tipo === "mensagens") {
-      await aplicarMensagens(numero.id, ev.origem, ev.mensagens, agora);
-    } else if (ev.tipo === "qr") {
-      await prisma.numeroWhatsapp.update({
-        where: { id: numero.id },
-        data: { qrAtual: ev.qr, qrEm: agora, situacao: "aguardando_qr" },
-      });
-    } else if (ev.tipo === "conectado") {
-      await prisma.numeroWhatsapp.update({
-        where: { id: numero.id },
-        data: { situacao: "conectado", telefone: ev.telefone, conectadoEm: agora, qrAtual: null, qrEm: null, erro: null },
-      });
-    } else if (ev.motivo === "erro") {
-      // Erro do motor (acesso recusado, sessão em outro lugar, conexão que não abriu): a tela mostra o detalhe.
-      await prisma.numeroWhatsapp.update({
-        where: { id: numero.id },
-        data: { situacao: "erro", qrAtual: null, qrEm: null, erro: (ev.detalhe || "Erro informado pelo motor.").slice(0, 255) },
-      });
-    } else {
-      await prisma.numeroWhatsapp.update({
-        where: { id: numero.id },
-        data: {
-          situacao: "desconectado",
-          qrAtual: null,
-          qrEm: null,
-          erro: ev.motivo === "removido_no_celular" ? "removido_no_celular" : null,
-        },
-      });
-    }
-    aplicados++;
   }
   return { aplicados, ignorados };
+}
+
+function codigoDoErro(e: unknown): string {
+  const codigo = typeof e === "object" && e !== null ? (e as { code?: unknown }).code : undefined;
+  return typeof codigo === "string" ? codigo : "desconhecido";
+}
+
+/** Aplica um evento; false quando é de vaga inexistente ou excluída (ignorado). */
+async function aplicarEvento(ev: EventoMotor, agora: Date, contexto: ContextoCaptura): Promise<boolean> {
+  if (ev.tipo === "sinal") {
+    await prisma.numeroWhatsapp.updateMany({ where: { excluidoEm: null }, data: { ultimoSinalEm: agora } });
+    // O motor está vivo, mas a vaga "conectada" não está na lista dele (ex.: derrubada por outra
+    // sessão ou motor reiniciado sem ela): a tela não pode continuar dizendo "Conectado".
+    // Vagas conectadas há menos de 2 min ficam de fora, porque o motor pode ainda não tê-las contado.
+    await prisma.numeroWhatsapp.updateMany({
+      where: {
+        excluidoEm: null,
+        situacao: "conectado",
+        id: { notIn: ev.conectados },
+        conectadoEm: { lt: new Date(agora.getTime() - CONEXAO_RECENTE_MS) },
+      },
+      data: { situacao: "erro", erro: "O motor não está com este número conectado." },
+    });
+    return true;
+  }
+  const numero = await prisma.numeroWhatsapp.findUnique({ where: { id: ev.numeroId }, select: { id: true, excluidoEm: true } });
+  if (!numero || numero.excluidoEm) return false;
+  if (ev.tipo === "conversas") {
+    await aplicarConversas(numero.id, ev.conversas, agora);
+  } else if (ev.tipo === "mensagens") {
+    await aplicarMensagens(numero.id, ev.origem, ev.mensagens, agora, contexto);
+  } else if (ev.tipo === "qr") {
+    await prisma.numeroWhatsapp.update({
+      where: { id: numero.id },
+      data: { qrAtual: ev.qr, qrEm: agora, situacao: "aguardando_qr" },
+    });
+  } else if (ev.tipo === "conectado") {
+    await prisma.numeroWhatsapp.update({
+      where: { id: numero.id },
+      data: { situacao: "conectado", telefone: ev.telefone, conectadoEm: agora, qrAtual: null, qrEm: null, erro: null },
+    });
+    // Telefone novo da empresa: as próximas mensagens do lote recalculam quem é "deMim".
+    contexto.empresa = undefined;
+  } else if (ev.motivo === "erro") {
+    // Erro do motor (acesso recusado, sessão em outro lugar, conexão que não abriu): a tela mostra o detalhe.
+    await prisma.numeroWhatsapp.update({
+      where: { id: numero.id },
+      data: { situacao: "erro", qrAtual: null, qrEm: null, erro: (ev.detalhe || "Erro informado pelo motor.").slice(0, 255) },
+    });
+  } else {
+    await prisma.numeroWhatsapp.update({
+      where: { id: numero.id },
+      data: {
+        situacao: "desconectado",
+        qrAtual: null,
+        qrEm: null,
+        erro: ev.motivo === "removido_no_celular" ? "removido_no_celular" : null,
+      },
+    });
+  }
+  return true;
 }
 
 /**

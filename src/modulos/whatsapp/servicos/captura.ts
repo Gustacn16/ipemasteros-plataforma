@@ -156,7 +156,8 @@ async function obterConversa(
   if (tipo === "grupo") {
     conversa = await criarGrupo(jid, nome);
   } else {
-    const contato = await contatoDe({ jid, nome });
+    // Nome de chat (lista do histórico) só preenche contato sem nome; quem troca o nome é a mensagem ao vivo.
+    const contato = await contatoDe({ jid, nome }, false);
     // INSERT IGNORE pelo único (numeroId, jid): se outro lote criou antes, fica a dele.
     await prisma.conversaWhatsapp.createMany({
       data: [{
@@ -210,6 +211,12 @@ function dadosDoAutor(m: MensagemMotor, conversa: Conversa): DadosContato | null
   return null;
 }
 
+/**
+ * Cache que vale para uma chamada inteira do motor (vários eventos de mensagens): contatos já
+ * resolvidos e telefones da empresa. Quem aplica um `conectado` no meio do lote apaga `empresa`.
+ */
+export type ContextoCaptura = { contatos: Map<string, Contato | null>; empresa?: Set<string> };
+
 type LinhaMensagem = {
   conversaId: string;
   idExterno: string;
@@ -232,14 +239,15 @@ export async function aplicarMensagens(
   origem: "historico" | "ao_vivo",
   mensagens: EventoMensagens["mensagens"],
   agora: Date,
+  contexto: ContextoCaptura = { contatos: new Map() },
 ): Promise<{ salvas: number; descartadas: number }> {
   const validas = origem === "historico" ? mensagens.filter((m) => dentroDoHistorico(new Date(m.enviadaEm), agora)) : mensagens;
   let descartadas = mensagens.length - validas.length;
   if (validas.length === 0) return { salvas: 0, descartadas };
 
   const cache = await carregarConversas(numeroId, validas.map((m) => m.jid));
-  const empresa = await chavesDaEmpresa();
-  const contatos = new Map<string, Contato | null>();
+  const empresa = (contexto.empresa ??= await chavesDaEmpresa());
+  const contatos = contexto.contatos;
   const linhas: LinhaMensagem[] = [];
   const tocadas = new Map<string, { conversa: Conversa; provisoria: boolean; ultima: Date }>();
 
@@ -253,7 +261,8 @@ export async function aplicarMensagens(
     const dados = dadosDoAutor(m, conversa);
     let autor: Contato | null = null;
     if (dados) {
-      const chaveCache = `${dados.jid ?? ""}|${dados.telefone ?? ""}|${dados.nome ?? ""}`;
+      // A origem entra na chave: ao vivo troca o nome, histórico não.
+      const chaveCache = `${origem}|${dados.jid ?? ""}|${dados.telefone ?? ""}|${dados.nome ?? ""}`;
       if (!contatos.has(chaveCache)) contatos.set(chaveCache, await contatoDe(dados, origem === "ao_vivo"));
       autor = contatos.get(chaveCache)!;
     }

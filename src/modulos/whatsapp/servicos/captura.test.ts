@@ -268,6 +268,30 @@ describe("contato e ligação com aluno", () => {
     expect(banco.estado.contatos[0]!.nomeExibido).toBe("Ana Nova");
   });
 
+  it("nome do chat do histórico não troca o nome do contato; só preenche quem está sem nome", async () => {
+    await grupoMonitorado();
+    await aplicarMensagens("n1", "ao_vivo", [msg("m1", { autorNome: "Ana Atual" })], AGORA);
+    await aplicarConversas("n1", [{ jid: "5562988887777@s.whatsapp.net", tipo: "individual", nome: "Ana Antiga" }], AGORA);
+    expect(banco.estado.contatos[0]!.nomeExibido).toBe("Ana Atual");
+
+    await aplicarMensagens("n1", "ao_vivo", [msg("m2", { autorJid: "5562977776666@s.whatsapp.net", autorTelefone: "5562977776666" })], AGORA);
+    await aplicarConversas("n1", [{ jid: "5562977776666@s.whatsapp.net", tipo: "individual", nome: "Bia" }], AGORA);
+    expect(banco.estado.contatos[1]!.nomeExibido).toBe("Bia");
+  });
+
+  it("contexto compartilhado: números da empresa lidos uma vez e ao vivo ainda troca o nome depois do histórico", async () => {
+    await grupoMonitorado();
+    const busca = vi.spyOn(banco.prisma.numeroWhatsapp, "findMany");
+    const contexto = { contatos: new Map() };
+    await aplicarMensagens("n1", "ao_vivo", [msg("m1", { autorNome: "Ana" })], AGORA, contexto);
+    await aplicarMensagens("n1", "historico", [msg("m0", { autorNome: "Ana Velha", enviadaEm: horasAtras(48).toISOString() })], AGORA, contexto);
+    await aplicarMensagens("n1", "ao_vivo", [msg("m2", { autorNome: "Ana Velha" })], AGORA, contexto);
+    expect(busca).toHaveBeenCalledTimes(1);
+    expect(banco.estado.contatos).toHaveLength(1);
+    expect(banco.estado.contatos[0]!.nomeExibido).toBe("Ana Velha");
+    busca.mockRestore();
+  });
+
   it("histórico dá nome a contato que ainda não tem", async () => {
     await grupoMonitorado();
     await aplicarMensagens("n1", "historico", [msg("m0", { autorNome: "Bia" })], AGORA);

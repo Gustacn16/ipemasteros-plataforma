@@ -161,7 +161,37 @@ describe("aplicarEventos", () => {
     );
     expect(r).toEqual({ aplicados: 2, ignorados: 0 });
     expect(captura.aplicarConversas).toHaveBeenCalledWith("n1", conversas, AGORA);
-    expect(captura.aplicarMensagens).toHaveBeenCalledWith("n2", "historico", mensagens, AGORA);
+    expect(captura.aplicarMensagens).toHaveBeenCalledWith("n2", "historico", mensagens, AGORA, expect.any(Object));
+  });
+
+  it("os eventos de mensagens do mesmo lote compartilham o contexto (cache de contatos e números da empresa)", async () => {
+    const ev = { tipo: "mensagens" as const, numeroId: "n1", origem: "ao_vivo" as const, mensagens: [] };
+    await aplicarEventos([ev, { ...ev, numeroId: "n2" }], AGORA);
+    const [primeira, segunda] = captura.aplicarMensagens.mock.calls as unknown as unknown[][];
+    expect(primeira![4]).toBeDefined();
+    expect(segunda![4]).toBe(primeira![4]);
+    // Outra chamada, outro contexto.
+    await aplicarEventos([ev], AGORA);
+    expect((captura.aplicarMensagens.mock.calls as unknown as unknown[][])[2]![4]).not.toBe(primeira![4]);
+  });
+
+  it("evento que falha conta como ignorado, registra só o tipo e o código, e o resto do lote segue", async () => {
+    const erro = Object.assign(new Error("Duplicate entry '5562999999999' for key 'telefone'"), { code: "P2002" });
+    captura.aplicarMensagens.mockRejectedValueOnce(erro);
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const r = await aplicarEventos(
+      [
+        { tipo: "mensagens", numeroId: "n1", origem: "ao_vivo", mensagens: [] },
+        { tipo: "qr", numeroId: "n1", qr: "QR1" },
+      ],
+      AGORA,
+    );
+    expect(r).toEqual({ aplicados: 1, ignorados: 1 });
+    expect(banco.estado.numeros[0]!.qrAtual).toBe("QR1");
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(log).toHaveBeenCalledWith("[whatsapp/motor] falha ao aplicar evento mensagens (código P2002)");
+    expect(JSON.stringify(log.mock.calls)).not.toContain("5562999999999");
+    log.mockRestore();
   });
 
   it("conversas e mensagens de vaga excluída ou inexistente são ignoradas", async () => {
