@@ -10,6 +10,9 @@ const MAX_POR_CHAMADA = 20;
 /** Vaga conectada há menos que isso não é conferida pelo sinal. */
 const CONEXAO_RECENTE_MS = 2 * 60_000;
 
+/** Códigos do Prisma de falha passageira (conexão, tempo esgotado, deadlock): não descartam o lote. */
+const ERROS_PASSAGEIROS = new Set(["P1001", "P1002", "P1008", "P1017", "P2024", "P2034"]);
+
 /** Aplica um lote de eventos do motor. Evento de vaga inexistente ou excluída é ignorado. */
 export async function aplicarEventos(
   eventos: EventoMotor[],
@@ -23,6 +26,8 @@ export async function aplicarEventos(
       if (await aplicarEvento(ev, agora, contexto)) aplicados++;
       else ignorados++;
     } catch (e) {
+      // Erro passageiro do banco: o lote falha (500) e o motor reenvia; o que já foi aplicado não duplica.
+      if (ERROS_PASSAGEIROS.has(codigoDoErro(e))) throw e;
       // Um evento ruim não derruba o lote (o motor reenviaria para sempre). Só o tipo e o código:
       // a mensagem do erro do MySQL pode trazer telefone ("Duplicate entry '...'").
       console.error(`[whatsapp/motor] falha ao aplicar evento ${ev.tipo} (código ${codigoDoErro(e)})`);

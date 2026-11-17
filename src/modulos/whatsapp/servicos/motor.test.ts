@@ -175,6 +175,13 @@ describe("aplicarEventos", () => {
     expect((captura.aplicarMensagens.mock.calls as unknown as unknown[][])[2]![4]).not.toBe(primeira![4]);
   });
 
+  it("erro passageiro do banco (P2034) faz o lote falhar, para o motor reenviar", async () => {
+    captura.aplicarMensagens.mockRejectedValueOnce(Object.assign(new Error("deadlock"), { code: "P2034" }));
+    await expect(
+      aplicarEventos([{ tipo: "mensagens", numeroId: "n1", origem: "ao_vivo", mensagens: [] }], AGORA),
+    ).rejects.toMatchObject({ code: "P2034" });
+  });
+
   it("evento que falha conta como ignorado, registra só o tipo e o código, e o resto do lote segue", async () => {
     const erro = Object.assign(new Error("Duplicate entry '5562999999999' for key 'telefone'"), { code: "P2002" });
     captura.aplicarMensagens.mockRejectedValueOnce(erro);
