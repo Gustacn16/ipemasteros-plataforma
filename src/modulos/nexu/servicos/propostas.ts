@@ -12,7 +12,7 @@ import { criarEvento } from "@/modulos/agenda/servicos/eventos";
 import { valorTotal, vendedorPermitido } from "@/modulos/comercial/regras/venda";
 import { criarVenda } from "@/modulos/comercial/servicos/vendas";
 import { criarConteudo } from "@/modulos/conteudo/servicos/conteudos";
-import { exigirLista, exigirTarefa, podeEditarTarefa, usuariosAtribuiveis } from "@/modulos/tarefas/servicos/acesso";
+import { exigirLista, exigirTarefa, filtroEspacosVisiveis, podeEditarTarefa, usuariosAtribuiveis } from "@/modulos/tarefas/servicos/acesso";
 import { adicionarItemChecklist } from "@/modulos/tarefas/servicos/detalhes";
 import { criarTarefa, mudarStatus } from "@/modulos/tarefas/servicos/tarefas";
 import {
@@ -80,6 +80,16 @@ function opcoes(itens: { id: string; nome: string }[]): string {
   return `opções: ${lista.join("; ")}${itens.length > MAX_OPCOES ? `; e mais ${itens.length - MAX_OPCOES}` : ""}`;
 }
 
+/** Listas que a pessoa pode ver, como "Espaço · Lista", para o modelo escolher o id certo. */
+async function listasVisiveis(ator: UsuarioAtual): Promise<{ id: string; nome: string }[]> {
+  const listas = await prisma.lista.findMany({
+    where: { excluidoEm: null, espaco: filtroEspacosVisiveis(ator) },
+    orderBy: [{ espaco: { nome: "asc" } }, { ordem: "asc" }],
+    select: { id: true, nome: true, espaco: { select: { nome: true } } },
+  });
+  return listas.map((l) => ({ id: l.id, nome: `${l.espaco.nome} · ${l.nome}` }));
+}
+
 function exigirPermissaoDoTipo(ator: UsuarioAtual, permissao: Permissao) {
   if (!temPermissao(ator.papel, permissao)) throw new ErroPermissao(permissao);
 }
@@ -99,7 +109,10 @@ async function resumir(ator: UsuarioAtual, d: DadosProposta): Promise<string> {
   switch (d.tipo) {
     case "criar_tarefa": {
       if (!podeEditarTarefa(ator)) throw new ErroPermissao("tarefas:criar");
-      const lista = await ouErro(exigirLista(ator, d.listaId), "Lista não encontrada ou sem acesso. Peça à pessoa o nome da lista.");
+      const lista = await exigirLista(ator, d.listaId).catch(async (erro: unknown) => {
+        if (!(erro instanceof ErroNegocio)) throw erro;
+        throw new ErroNegocio(`Lista não encontrada ou sem acesso; ${opcoes(await listasVisiveis(ator))}.`);
+      });
       const ids = [...new Set(d.responsaveis ?? [])];
       const nomes: string[] = [];
       if (ids.length) {

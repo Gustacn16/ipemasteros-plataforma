@@ -65,7 +65,7 @@ Convenções do projeto: ids `cuid`, `criadoEm`/`atualizadoEm`, tabelas `snake_c
 
 ## 5. Regras de negócio
 1. **Acesso:** toda chamada (Route Handler e Server Actions) faz `exigirPermissao("nexu:usar")` no servidor. As configurações exigem `nexu:configurar`. A conversa e a proposta só podem ser lidas ou alteradas pelo dono (`usuarioId === ator.id`). Isso vale também para o admin.
-2. **Limite do dia:** antes de chamar a API, o servidor conta as linhas de `UsoIa` da pessoa com `inicioPergunta = true` no dia (São Paulo) e recusa a partir de `perguntasPorDia`. Como `UsoIa` só é gravado quando a API responde, pergunta com falha não conta, e apagar conversas não devolve perguntas.
+2. **Limite do dia:** antes de chamar a API, o servidor conta as linhas de `UsoIa` da pessoa com `inicioPergunta = true` no dia (São Paulo) e recusa a partir de `perguntasPorDia`. Como `UsoIa` só é gravado quando a API começa a responder (`message_start`), pergunta que falha antes disso não conta; a cortada no meio conta (a Anthropic cobra o que já foi gerado). Apagar conversas não devolve perguntas.
 3. **Limite do mês:** antes de cada pergunta, o servidor soma `UsoIa.custoMicroUsd` do mês (São Paulo) de **todas as origens** e recusa se já passou do limite. Se a soma passar do limite durante a pergunta, ela termina e as próximas são recusadas.
 4. **Montagem do pedido:** a ordem é prompt de sistema fixo (com cache) → ferramentas permitidas, em ordem fixa (com cache) → histórico da conversa → bloco de contexto (data e hora em São Paulo, nome e papel da pessoa, tela atual: rota e ids da URL) → pergunta.
 5. **Prompt de sistema:** o Nexu responde em português, de forma curta. Ele:
@@ -89,7 +89,7 @@ Convenções do projeto: ids `cuid`, `criadoEm`/`atualizadoEm`, tabelas `snake_c
 14. **Título:** a 1ª pergunta, cortada em 120 caracteres. Não gasta uma chamada à IA para gerar o título.
 
 ## 6. Ferramentas
-Cada ferramenta tem nome, descrição em português, esquema de entrada (JSON Schema gerado do Zod, `strict: true`) e permissão exigida. A saída é um JSON enxuto, com campos escolhidos e listas limitadas a 50 itens com o total ("mostrando 50 de 132"), para controlar tokens.
+Cada ferramenta tem nome, descrição em português, esquema de entrada (JSON Schema gerado do Zod, **sem** `strict`: o modo estrito não aceita `minLength`/`minimum` etc., então essas restrições saem do schema e o Zod valida a entrada em cada chamada) e permissão exigida. A saída é um JSON enxuto, com campos escolhidos e listas limitadas a 50 itens com o total ("mostrando 50 de 132"), para controlar tokens.
 
 **Consultas**
 
@@ -121,7 +121,7 @@ Apoio: `buscar_pessoas` (nome → id de usuário ativo, para responsável e vend
 ## 7. Telas
 - **Botão flutuante** (layout de `(app)`, para quem tem `nexu:usar`): canto inferior direito, abre um painel lateral (`Sheet`); no celular, em tela cheia. O painel tem a conversa atual, "Nova conversa", "Abrir no Nexu" e um campo de texto. Durante uma consulta aparece "Consultando turmas…" (rótulo por ferramenta). O painel manda a rota atual como contexto.
 - **Página `/nexu`** (item no menu lateral): lista de conversas (mais recentes primeiro, com botão de apagar) e a conversa em tela cheia. Mostra "38 de 50 perguntas hoje". `/nexu/[conversaId]` abre uma conversa.
-- **Cartão de proposta:** resumo legível, **Confirmar** e **Recusar**. Depois mostra "✓ Criada · abrir" (link `resultadoUrl`), "Recusada" ou o erro.
+- **Cartão de proposta:** resumo legível, **Confirmar** e **Recusar**. Depois mostra "✓ Criada · abrir" (ou "✓ Feito" para mudar status e checklist; link `resultadoUrl`), "Recusada" ou o erro. Os botões ficam desativados enquanto o Nexu ainda está respondendo.
 - **Configurações → Nexu** (`/admin/nexu`, `nexu:configurar`):
   - modelo (Haiku 5.5 / Sonnet 5.5 / Opus 5.5), limite mensal em US$ e perguntas por pessoa por dia;
   - painel de uso: gasto do mês contra o limite (barra), gasto por pessoa e por dia, total de perguntas;
@@ -153,7 +153,8 @@ Regras puras (limites, cálculo de custo, filtro de ferramentas por papel, minim
 - Erros da API pelas classes tipadas do SDK. `RateLimitError` e `5xx` passam pelos retries do SDK (2). Se ainda falhar, aparece a mensagem de indisponível e a pergunta não conta.
 - `max_tokens` de 4.000 por resposta. Se `stop_reason === "max_tokens"`, a resposta mostra o que veio e uma nota "resposta cortada".
 - Tempo máximo por pergunta: 60 s. Passou disso, a pergunta é encerrada com uma mensagem.
-- Cada chamada à API grava `UsoIa`, mesmo que a pergunta termine em erro depois.
+- Cada chamada à API grava `UsoIa` uma vez, mesmo que a pergunta termine em erro depois ou seja cortada no meio (tempo, aba fechada, "Nova conversa"): os tokens vêm dos eventos do stream e o registro fica num `finally`.
+- **Thinking preservado (revisão final):** os modelos 5.5 pensam por padrão e prendem cada bloco de thinking ao histórico que o gerou; reenviar um bloco depois de mudar `system`, `tools` ou mensagens anteriores dá 400 em contas novas. O pedido usa o beta `thinking-binding-controls-2026-08-01` com `thinking: { type: "adaptive", block_binding: { prefix_mismatch_behavior: "drop_block" } }`, e a API descarta os blocos afetados em vez de falhar. Isso substitui a restrição original "sem parâmetro thinking".
 - **Proxy da Hostinger:** confirmar no início da implementação que o SSE chega aos poucos (headers `Content-Type: text/event-stream`, `Cache-Control: no-cache`, `X-Accel-Buffering: no`). Se o proxy segurar a resposta, ela aparece inteira no fim. O resto continua funcionando, e o problema é registrado como pendência.
 - **Zod 4 e SDK:** confirmar se o helper de ferramentas do SDK aceita Zod 4. Se não aceitar, gerar o JSON Schema com `z.toJSONSchema` e validar a entrada com Zod antes de executar.
 

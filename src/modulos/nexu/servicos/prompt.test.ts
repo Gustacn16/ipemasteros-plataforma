@@ -28,13 +28,17 @@ describe("montarPedido", () => {
     expect(ferramentas[1].cache_control).toBeUndefined();
   });
 
-  it("usa effort low, max_tokens 4000 e não manda temperature nem thinking", () => {
+  it("usa effort low, max_tokens 4000 e não manda temperature nem top_p", () => {
     expect(pedido.output_config).toEqual({ effort: "low" });
     expect(pedido.max_tokens).toBe(4000);
     expect(pedido.model).toBe("claude-haiku-5-5");
     expect("temperature" in pedido).toBe(false);
-    expect("thinking" in pedido).toBe(false);
     expect("top_p" in pedido).toBe(false);
+  });
+
+  it("thinking adaptativo com drop_block e o beta de vínculo (histórico divergente não vira 400)", () => {
+    expect(pedido.thinking).toEqual({ type: "adaptive", block_binding: { prefix_mismatch_behavior: "drop_block" } });
+    expect(pedido.betas).toEqual(["thinking-binding-controls-2026-08-01"]);
   });
 
   it("o contexto vai na mensagem da pergunta, antes do texto dela", () => {

@@ -5,7 +5,7 @@ import type { PropostaVisivel } from "../tipos";
 import type { FerramentaNexu } from "./tipos";
 
 // Ferramentas de ação: só gravam uma proposta pendente. Nada roda até a pessoa clicar em Confirmar.
-// As entradas são JSON simples (sem transformações) para virar JSON Schema estrito; a validação de verdade
+// As entradas são JSON simples (sem transformações) para virar JSON Schema; a validação de verdade
 // é o esquema da proposta, em criarProposta.
 
 const DIA = "no formato AAAA-MM-DD";
@@ -16,7 +16,9 @@ const ROTULO = "Preparando a proposta…";
 export type ResultadoProposta = { proposta: PropostaVisivel };
 
 const entradaCriarTarefa = z.object({
-  listaId: z.string().describe("id da lista onde a tarefa será criada"),
+  listaId: z
+    .string()
+    .describe("id da lista onde a tarefa será criada (buscar_tarefas devolve listaId; se não souber, um id inválido devolve as listas)"),
   titulo: z.string().describe("título da tarefa"),
   descricao: z.string().optional().describe("descrição"),
   dataEntrega: z.string().optional().describe(`prazo, ${DIA}`),

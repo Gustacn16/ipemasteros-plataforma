@@ -16,7 +16,8 @@ const proposta = (extra: Partial<PropostaVisivel> = {}): PropostaVisivel => ({
   resultadoUrl: null,
   ...extra,
 });
-const html = (p: PropostaVisivel) => renderToStaticMarkup(createElement(CartaoProposta, { proposta: p }));
+const html = (p: PropostaVisivel, bloqueado?: boolean) => renderToStaticMarkup(createElement(CartaoProposta, { proposta: p, bloqueado }));
+const botoesDesativados = (h: string) => (h.match(/<button[^>]*disabled=""/g) ?? []).length;
 
 describe("CartaoProposta", () => {
   it("pendente mostra o resumo e os botões", () => {
@@ -35,6 +36,15 @@ describe("CartaoProposta", () => {
     expect(h).toContain("✓ Criada");
     expect(h).toContain('href="/tarefas/t1"');
     expect(h).not.toContain("Confirmar");
+  });
+  it("mudar status e checklist confirmados mostram Feito", () => {
+    expect(html(proposta({ tipo: "mudar_status_tarefa", status: "confirmada" }))).toContain("✓ Feito");
+    expect(html(proposta({ tipo: "adicionar_checklist", status: "confirmada" }))).toContain("✓ Feito");
+    expect(html(proposta({ tipo: "adicionar_checklist", status: "confirmada" }))).not.toContain("Criada");
+  });
+  it("enquanto a conversa responde, Confirmar e Recusar ficam desativados", () => {
+    expect(botoesDesativados(html(proposta(), true))).toBe(2);
+    expect(botoesDesativados(html(proposta(), false))).toBe(0);
   });
   it("recusada mostra Recusada", () => {
     expect(html(proposta({ status: "recusada" }))).toContain("Recusada");

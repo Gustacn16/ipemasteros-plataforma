@@ -26,6 +26,8 @@ describe("buscar_tarefas", () => {
         titulo: "Gravar aula",
         dataEntrega: new Date("2020-01-02T00:00:00.000Z"),
         concluidaEm: null,
+        listaId: "l1",
+        statusId: "s2",
         status: { nome: "Fazendo" },
         lista: { nome: "Aulas", espaco: { nome: "Conteúdo" } },
         responsaveis: [{ usuario: { nome: "Ana" } }],
@@ -45,13 +47,25 @@ describe("buscar_tarefas", () => {
     expect(r.itens[0]).toEqual({
       id: "t1",
       titulo: "Gravar aula",
+      listaId: "l1",
       lista: "Aulas",
       espaco: "Conteúdo",
+      statusId: "s2",
       status: "Fazendo",
       responsaveis: ["Ana"],
       dataEntrega: "2020-01-02",
       atrasada: true,
     });
+  });
+
+  it("entregaDe/entregaAte inválidos: erro legível sem consultar o banco", async () => {
+    await expect(ferramentaBuscarTarefas.executar(ator, { escopo: "minhas", entregaDe: "2026-02-30" }, ctx)).rejects.toThrow(
+      "Data inválida. Use AAAA-MM-DD.",
+    );
+    await expect(ferramentaBuscarTarefas.executar(ator, { escopo: "minhas", entregaAte: "amanhã" }, ctx)).rejects.toBeInstanceOf(
+      ErroNegocio,
+    );
+    expect(banco.findMany).not.toHaveBeenCalled();
   });
 });
 

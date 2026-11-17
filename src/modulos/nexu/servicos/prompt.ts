@@ -6,6 +6,21 @@ import { ROTULO_PAPEL, type Papel } from "@/lib/permissoes";
 
 export const MAX_TOKENS_RESPOSTA = 4000;
 
+/**
+ * Beta que permite escolher o que acontece quando um bloco de thinking reenviado não bate mais com o histórico
+ * (verificação de edição do histórico do preserved thinking, ativa por padrão em contas novas nos modelos 5.5).
+ */
+export const BETA_VINCULO_THINKING = "thinking-binding-controls-2026-08-01";
+
+/**
+ * Thinking adaptativo (padrão dos modelos 5.5; Opus 5.5 nem aceita desligar) com `drop_block`: se o prompt ou as
+ * ferramentas mudaram num deploy, o papel da pessoa mudou, ou o histórico gravado divergiu, a API descarta os
+ * blocos de thinking afetados em vez de devolver 400 e a conversa segue sem aquele raciocínio.
+ */
+export const THINKING_PEDIDO = { type: "adaptive", block_binding: { prefix_mismatch_behavior: "drop_block" } } as const;
+
+export type PedidoNexu = Anthropic.Beta.Messages.MessageCreateParamsNonStreaming;
+
 export const PROMPT_SISTEMA = `Você é o Nexu, o assistente do IPEMaster OS, o sistema interno da IPEMaster (educação médica: pós-graduações e cursos livres).
 
 Regras:
@@ -62,7 +77,7 @@ export function montarPedido(e: {
   historico: Anthropic.MessageParam[];
   contexto: ContextoPergunta;
   pergunta: string;
-}): Anthropic.MessageCreateParamsNonStreaming {
+}): PedidoNexu {
   const ferramentas = e.ferramentas.map((f, i) =>
     i === e.ferramentas.length - 1 ? { ...f, cache_control: { type: "ephemeral" as const } } : f,
   );
@@ -70,6 +85,8 @@ export function montarPedido(e: {
     model: e.modelo,
     max_tokens: MAX_TOKENS_RESPOSTA,
     output_config: { effort: "low" },
+    thinking: THINKING_PEDIDO,
+    betas: [BETA_VINCULO_THINKING],
     system: [{ type: "text", text: PROMPT_SISTEMA, cache_control: { type: "ephemeral" } }],
     ...(ferramentas.length > 0 ? { tools: ferramentas } : {}),
     messages: [...e.historico, { role: "user", content: conteudoDaPergunta(e.contexto, e.pergunta) }],

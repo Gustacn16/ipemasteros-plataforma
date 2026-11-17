@@ -42,6 +42,8 @@ export async function buscarTarefasParaNexu(ator: UsuarioAtual, filtro: FiltroBu
       titulo: true,
       dataEntrega: true,
       concluidaEm: true,
+      statusId: true,
+      listaId: true,
       status: { select: { nome: true } },
       lista: { select: { nome: true, espaco: { select: { nome: true } } } },
       responsaveis: { select: { usuario: { select: { nome: true } } } },
@@ -50,8 +52,11 @@ export async function buscarTarefasParaNexu(ator: UsuarioAtual, filtro: FiltroBu
   return linhas.map((t) => ({
     id: t.id,
     titulo: t.titulo,
+    // Os ids vão junto para o modelo poder propor criar tarefa na mesma lista ou mudar o status.
+    listaId: t.listaId,
     lista: t.lista.nome,
     espaco: t.lista.espaco.nome,
+    statusId: t.statusId,
     status: t.status.nome,
     responsaveis: t.responsaveis.map((r) => r.usuario.nome),
     dataEntrega: t.dataEntrega ? diaDaDataEntrega(t.dataEntrega) : null,

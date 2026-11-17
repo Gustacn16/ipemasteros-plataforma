@@ -10,6 +10,8 @@ const m = vi.hoisted(() => {
       findUniqueOrThrow: vi.fn(),
     },
     tarefa: { findUnique: vi.fn() },
+    lista: { findMany: vi.fn() },
+    statusLista: { findMany: vi.fn() },
     $transaction: vi.fn(),
   };
   prisma.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma));
@@ -39,6 +41,7 @@ vi.mock("@/modulos/tarefas/servicos/acesso", () => ({
   exigirLista: m.exigirLista,
   usuariosAtribuiveis: m.usuariosAtribuiveis,
   exigirTarefa: m.exigirTarefa,
+  filtroEspacosVisiveis: () => ({ visivel: true }),
   podeEditarTarefa: () => true,
 }));
 vi.mock("@/modulos/agenda/servicos/eventos", () => ({ criarEvento: m.criarEvento }));
@@ -295,10 +298,40 @@ describe("propor_criar_tarefa", () => {
     expect(r.proposta.resumo).toBe("Criar tarefa: Revisar post de sexta · Responsável: Bia · Prazo: 21/11 · Lista: Conteúdo");
   });
 
-  it("lista invisível: erro de ferramenta, nada gravado", async () => {
+  it("lista invisível: erro com as listas visíveis (id e nome), nada gravado", async () => {
     const { ErroNegocio } = await import("@/lib/erros");
     m.exigirLista.mockRejectedValue(new ErroNegocio("Não encontrado."));
-    await expect(ferramentaProporCriarTarefa.executar(criador, { listaId: "lx", titulo: "X" }, ctx)).rejects.toThrow();
+    m.prisma.lista.findMany.mockResolvedValue([
+      { id: "l1", nome: "Aulas", espaco: { nome: "Conteúdo" } },
+      { id: "l2", nome: "Leads", espaco: { nome: "Comercial" } },
+    ]);
+    await expect(ferramentaProporCriarTarefa.executar(criador, { listaId: "lx", titulo: "X" }, ctx)).rejects.toThrow(
+      "Lista não encontrada ou sem acesso; opções: l1 (Conteúdo · Aulas); l2 (Comercial · Leads).",
+    );
+    expect(m.prisma.lista.findMany.mock.calls[0][0].where).toEqual({ excluidoEm: null, espaco: { visivel: true } });
     expect(m.prisma.propostaNexu.create).not.toHaveBeenCalled();
+  });
+
+  it("muitas listas: mostra até 30 e conta o resto", async () => {
+    const { ErroNegocio } = await import("@/lib/erros");
+    m.exigirLista.mockRejectedValue(new ErroNegocio("Não encontrado."));
+    m.prisma.lista.findMany.mockResolvedValue(
+      Array.from({ length: 35 }, (_, i) => ({ id: `l${i}`, nome: `L${i}`, espaco: { nome: "E" } })),
+    );
+    await expect(ferramentaProporCriarTarefa.executar(criador, { listaId: "lx", titulo: "X" }, ctx)).rejects.toThrow(/; e mais 5\.$/);
+  });
+});
+
+describe("propor_mudar_status_tarefa", () => {
+  it("status inválido: devolve os status da lista da tarefa", async () => {
+    const { ferramentaProporMudarStatusTarefa } = await import("../ferramentas/acoes");
+    m.exigirTarefa.mockResolvedValue({ id: "t1", titulo: "Gravar", listaId: "l1", statusId: "s1" });
+    m.prisma.statusLista.findMany.mockResolvedValue([
+      { id: "s1", nome: "A fazer" },
+      { id: "s2", nome: "Feito" },
+    ]);
+    await expect(
+      ferramentaProporMudarStatusTarefa.executar(criador, { tarefaId: "t1", statusId: "sx" }, { conversaId: "c1", toolUseId: "t9" }),
+    ).rejects.toThrow("Status inválido para esta tarefa; opções: s1 (A fazer); s2 (Feito).");
   });
 });

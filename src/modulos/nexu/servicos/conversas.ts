@@ -16,7 +16,10 @@ export function tituloDaPergunta(pergunta: string): string {
   return (limpo || "Nova conversa").slice(0, TAMANHO_TITULO);
 }
 
-export type MensagemParaGravar = { papel: PapelMensagemNexu; conteudo: Anthropic.MessageParam["content"] | Anthropic.ContentBlock[] };
+export type MensagemParaGravar = {
+  papel: PapelMensagemNexu;
+  conteudo: Anthropic.MessageParam["content"] | Anthropic.ContentBlock[] | Anthropic.Beta.Messages.BetaContentBlock[];
+};
 
 export async function listarConversas(ator: UsuarioAtual) {
   return prisma.conversaNexu.findMany({
@@ -44,6 +47,10 @@ export async function criarConversa(ator: UsuarioAtual, titulo: string) {
 export async function anexarMensagens(conversaId: string, msgs: MensagemParaGravar[]): Promise<void> {
   if (msgs.length === 0) return;
   await prisma.$transaction(async (tx) => {
+    // Atualiza a conversa primeiro: o UPDATE trava a linha dela até o commit, então duas gravações simultâneas
+    // na mesma conversa (duas abas, Confirmar durante a resposta) entram uma depois da outra e a `ordem` não repete.
+    // A leitura do máximo vem depois do lock, já enxergando o que a outra transação gravou.
+    await tx.conversaNexu.update({ where: { id: conversaId }, data: { atualizadoEm: new Date() } });
     const { _max } = await tx.mensagemNexu.aggregate({ where: { conversaId }, _max: { ordem: true } });
     const base = _max.ordem ?? 0;
     await tx.mensagemNexu.createMany({
@@ -54,7 +61,6 @@ export async function anexarMensagens(conversaId: string, msgs: MensagemParaGrav
         ordem: base + i + 1,
       })),
     });
-    await tx.conversaNexu.update({ where: { id: conversaId }, data: { atualizadoEm: new Date() } });
   });
 }
 

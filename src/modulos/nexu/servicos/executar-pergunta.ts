@@ -12,6 +12,12 @@ import type { EventoNexu, PropostaVisivel } from "../tipos";
 import { anexarMensagens, contarPerguntasNasMensagens, criarConversa, obterConversa, type MensagemParaGravar } from "./conversas";
 import { montarPedido, semMensagensVazias, tiraTurnoIncompleto } from "./prompt";
 
+type Uso = Parameters<typeof registrarUsoIa>[0]["usage"];
+type EventoStream = Anthropic.Beta.Messages.BetaRawMessageStreamEvent;
+
+/** Separa o texto de rodadas diferentes da API (e os avisos fixos) para não colarem um no outro. */
+const SEPARADOR = "\n\n";
+
 export type { EventoNexu } from "../tipos";
 
 export const LIMITE_CHAMADAS_FERRAMENTA = 8;
@@ -49,7 +55,7 @@ function mensagemDeErroDaFerramenta(erro: unknown): string {
 
 async function rodarFerramenta(
   ferramenta: FerramentaNexu | undefined,
-  uso: Anthropic.ToolUseBlock,
+  uso: Anthropic.Beta.Messages.BetaToolUseBlock,
   ator: UsuarioAtual,
   conversaId: string,
 ): Promise<ResultadoFerramenta> {
@@ -81,6 +87,26 @@ async function rodarFerramenta(
   }
 }
 
+/** Registra o uso sem deixar uma falha do banco esconder o erro original (roda num finally). */
+async function registrarUsoSemFalhar(dados: Parameters<typeof registrarUsoIa>[0]): Promise<void> {
+  try {
+    await registrarUsoIa(dados);
+  } catch (erro) {
+    console.error("[nexu] falha ao registrar uso", { usuarioId: dados.usuarioId, erro: nomeDoErro(erro) });
+  }
+}
+
+/** Só a contagem e os motivos (enum da API) dos blocos de thinking descartados; nunca o conteúdo. */
+function avisarBlocosDescartados(
+  transformacoes: Anthropic.Beta.Messages.BetaInputTransformation[] | null | undefined,
+  conversaId: string | null,
+) {
+  const descartados = (transformacoes ?? []).filter((t) => t.type === "thinking_dropped");
+  if (descartados.length === 0) return;
+  const motivos = [...new Set(descartados.map((t) => t.reason))];
+  console.warn("[nexu] blocos de thinking descartados", { conversaId, quantidade: descartados.length, motivos });
+}
+
 function nomeDoErro(erro: unknown): string {
   return erro instanceof Error ? erro.name : typeof erro;
 }
@@ -96,6 +122,8 @@ export async function* executarPergunta(e: {
   tela: string | null;
   cliente?: Anthropic;
   agora?: Date;
+  /** Sinal da requisição HTTP: a pessoa saiu da página/fechou a aba. Corta a chamada à API. */
+  sinal?: AbortSignal;
 }): AsyncGenerator<EventoNexu> {
   const { ator, pergunta } = e;
   const cliente = e.cliente ?? obterClienteAnthropic();
@@ -155,43 +183,75 @@ export async function* executarPergunta(e: {
 
   const controle = new AbortController();
   const relogio = setTimeout(() => controle.abort(), TEMPO_MAXIMO_MS);
+  const cortar = () => controle.abort();
+  if (e.sinal?.aborted) controle.abort();
+  else e.sinal?.addEventListener("abort", cortar, { once: true });
   let primeira = true;
   let chamadas = 0;
   let encerrando = false;
+  let houveTexto = false;
+  const comSeparador = (texto: string) => (houveTexto ? SEPARADOR + texto : texto);
 
   try {
     for (;;) {
-      const stream = cliente.messages.stream({ ...pedido, messages: mensagens }, { signal: controle.signal });
-      for await (const evento of stream) {
-        if (evento.type === "content_block_delta" && evento.delta.type === "text_delta") {
-          yield { tipo: "texto", texto: evento.delta.text };
+      // Uso desta chamada, somado pelos eventos do stream: vale também se ela for cortada no meio
+      // (timeout, "Nova conversa", aba fechada, erro). A Anthropic cobra o que já foi gerado.
+      const inicioPergunta = primeira;
+      let usoChamada: Uso | null = null;
+      let resposta: Anthropic.Beta.Messages.BetaMessage;
+      try {
+        const stream = cliente.beta.messages.stream({ ...pedido, messages: mensagens }, { signal: controle.signal });
+        let textoNaRodada = false;
+        for await (const evento of stream as AsyncIterable<EventoStream>) {
+          if (evento.type === "message_start") {
+            usoChamada = { ...evento.message.usage };
+            avisarBlocosDescartados(evento.message.input_transformations, conversaId);
+          } else if (evento.type === "message_delta" && usoChamada) {
+            // Os números do message_delta são acumulados; input/cache podem vir null.
+            usoChamada = {
+              input_tokens: evento.usage.input_tokens ?? usoChamada.input_tokens,
+              output_tokens: evento.usage.output_tokens ?? usoChamada.output_tokens,
+              cache_creation_input_tokens: evento.usage.cache_creation_input_tokens ?? usoChamada.cache_creation_input_tokens,
+              cache_read_input_tokens: evento.usage.cache_read_input_tokens ?? usoChamada.cache_read_input_tokens,
+            };
+          } else if (evento.type === "content_block_delta" && evento.delta.type === "text_delta") {
+            const texto = textoNaRodada ? evento.delta.text : comSeparador(evento.delta.text);
+            textoNaRodada = true;
+            houveTexto = true;
+            yield { tipo: "texto", texto };
+          }
         }
+        resposta = await stream.finalMessage();
+        usoChamada = resposta.usage;
+      } finally {
+        // Exatamente um UsoIa por chamada à API que chegou a começar (recebeu message_start).
+        if (usoChamada) await registrarUsoSemFalhar({ origem: "nexu", usuarioId: ator.id, modelo, inicioPergunta, usage: usoChamada });
       }
-      const resposta = await stream.finalMessage();
 
-      await registrarUsoIa({ origem: "nexu", usuarioId: ator.id, modelo, inicioPergunta: primeira, usage: resposta.usage });
       if (!conversaId) {
         conversaId = (await criarConversa(ator, pergunta)).id;
         yield { tipo: "conversa", conversaId };
       }
       // A pergunta só é gravada depois que a 1ª resposta chega, junto com ela. O assistente vai sem alterações;
       // um assistente com tool_use só é gravado junto com os seus tool_result (nunca fica turno pendente no banco).
-      const lote: MensagemParaGravar[] = primeira ? [{ papel: "usuario", conteudo: mensagemPergunta.content }] : [];
+      const lote: MensagemParaGravar[] = primeira
+        ? [{ papel: "usuario", conteudo: mensagemPergunta.content as Anthropic.TextBlockParam[] }]
+        : [];
       primeira = false;
       // Conteúdo vazio (ex.: refusal sem texto) não é gravado nem reenviado: a API recusa assistente vazio no meio do histórico.
       if (resposta.content.length > 0) {
         lote.push({ papel: "assistente", conteudo: resposta.content });
-        mensagens.push({ role: "assistant", content: resposta.content as unknown as Anthropic.ContentBlockParam[] });
+        mensagens.push({ role: "assistant", content: resposta.content as unknown as Anthropic.Beta.Messages.BetaContentBlockParam[] });
       }
 
       if (resposta.stop_reason !== "tool_use") {
         await anexarMensagens(conversaId, lote);
-        if (resposta.stop_reason === "refusal") yield { tipo: "texto", texto: TEXTOS.recusa };
+        if (resposta.stop_reason === "refusal") yield { tipo: "texto", texto: comSeparador(TEXTOS.recusa) };
         if (resposta.stop_reason === "max_tokens") yield { tipo: "texto", texto: TEXTOS.respostaCortada };
         break;
       }
 
-      const usos = resposta.content.filter((b): b is Anthropic.ToolUseBlock => b.type === "tool_use");
+      const usos = resposta.content.filter((b): b is Anthropic.Beta.Messages.BetaToolUseBlock => b.type === "tool_use");
       const restantes = encerrando ? 0 : Math.max(0, LIMITE_CHAMADAS_FERRAMENTA - chamadas);
       const aExecutar = usos.slice(0, restantes);
       const excedentes = usos.slice(restantes);
@@ -212,7 +272,7 @@ export async function* executarPergunta(e: {
 
       // Passou do limite: uma última chamada para a resposta final. Se ela ainda pedir ferramenta, para aqui com um aviso.
       if (encerrando) {
-        yield { tipo: "texto", texto: TEXTOS.consultaInacabada };
+        yield { tipo: "texto", texto: comSeparador(TEXTOS.consultaInacabada) };
         break;
       }
       if (excedentes.length > 0) encerrando = true;
@@ -229,6 +289,7 @@ export async function* executarPergunta(e: {
   } finally {
     // Também cobre a tela que desistiu no meio (o gerador é encerrado): corta a chamada em andamento.
     clearTimeout(relogio);
+    e.sinal?.removeEventListener("abort", cortar);
     controle.abort();
   }
 

@@ -24,7 +24,14 @@ export async function POST(request: Request) {
   const dados = esquemaPergunta.safeParse(corpo);
   if (!dados.success) return NextResponse.json({ erro: "Pergunta inválida." }, { status: 400 });
 
-  const geracao = executarPergunta({ ator, conversaId: dados.data.conversaId, pergunta: dados.data.pergunta, tela: dados.data.tela });
+  // request.signal dispara quando a pessoa sai da página ou fecha a aba: corta a chamada à API (o uso já gasto é registrado).
+  const geracao = executarPergunta({
+    ator,
+    conversaId: dados.data.conversaId,
+    pergunta: dados.data.pergunta,
+    tela: dados.data.tela,
+    sinal: request.signal,
+  });
   const codificador = new TextEncoder();
   const linha = (evento: EventoNexu) => codificador.encode(`data: ${JSON.stringify(evento)}\n\n`);
 

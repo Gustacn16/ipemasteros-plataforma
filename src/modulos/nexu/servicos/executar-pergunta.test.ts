@@ -80,7 +80,7 @@ const { ErroPermissao } = await import("@/lib/permissoes");
 const ator = { id: "u1", nome: "Ana", papel: "colaborador" } as UsuarioAtual;
 const usage = { input_tokens: 10, output_tokens: 5, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 };
 
-type Resposta = { content: unknown[]; stop_reason: string } | Error;
+type Resposta = { content: unknown[]; stop_reason: string; cortarDepoisDoInicio?: boolean; transformacoes?: unknown[] } | Error;
 
 function resposta(content: unknown[], stop_reason = "end_turn"): Resposta {
   return { content, stop_reason };
@@ -88,36 +88,58 @@ function resposta(content: unknown[], stop_reason = "end_turn"): Resposta {
 const texto = (t: string) => ({ type: "text", text: t, citations: null });
 const usoDe = (id: string, name = "ferramenta_a", input: unknown = { n: 1 }) => ({ type: "tool_use", id, name, input });
 
-/** Cliente falso: cada chamada a messages.stream consome a próxima resposta do roteiro. */
+/**
+ * Cliente falso: cada chamada a beta.messages.stream consome a próxima resposta do roteiro. Emite message_start
+ * (uso de entrada), os textos e message_delta (uso de saída). Respeita o sinal: se ele disparar, lança APIUserAbortError.
+ */
 function clienteFalso(roteiro: Resposta[]) {
-  const pedidos: Anthropic.MessageCreateParamsNonStreaming[] = [];
+  const pedidos: (Anthropic.Beta.Messages.MessageCreateParamsNonStreaming & { messages: Anthropic.MessageParam[] })[] = [];
   const cliente = {
-    messages: {
-      stream: (params: Anthropic.MessageCreateParamsNonStreaming, opcoes?: { signal?: AbortSignal }) => {
-        pedidos.push(structuredClone(params));
-        expect(opcoes?.signal).toBeInstanceOf(AbortSignal);
-        const r = roteiro.shift();
-        if (!r) throw new Error("roteiro acabou");
-        const textos = r instanceof Error ? [] : r.content.filter((b) => (b as { type: string }).type === "text");
-        return {
-          async *[Symbol.asyncIterator]() {
-            if (r instanceof Error) throw r;
-            for (const b of textos)
-              yield { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: (b as { text: string }).text } };
-          },
-          finalMessage: async () => {
-            if (r instanceof Error) throw r;
-            return {
-              id: "msg",
-              type: "message",
-              role: "assistant",
-              model: "claude-haiku-5-5",
-              content: r.content,
-              stop_reason: r.stop_reason,
-              usage,
-            };
-          },
-        };
+    beta: {
+      messages: {
+        stream: (params: Anthropic.Beta.Messages.MessageCreateParamsNonStreaming, opcoes?: { signal?: AbortSignal }) => {
+          pedidos.push(structuredClone(params) as (typeof pedidos)[number]);
+          expect(opcoes?.signal).toBeInstanceOf(AbortSignal);
+          const sinal = opcoes!.signal!;
+          const r = roteiro.shift();
+          if (!r) throw new Error("roteiro acabou");
+          const textos = r instanceof Error ? [] : r.content.filter((b) => (b as { type: string }).type === "text");
+          const conferir = () => {
+            if (sinal.aborted) throw new Anthropic.APIUserAbortError();
+          };
+          return {
+            async *[Symbol.asyncIterator]() {
+              if (r instanceof Error) throw r;
+              yield {
+                type: "message_start",
+                message: {
+                  usage: { input_tokens: 10, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+                  input_transformations: r.transformacoes ?? [],
+                },
+              };
+              if (r.cortarDepoisDoInicio) throw new Anthropic.APIUserAbortError();
+              for (const b of textos) {
+                conferir();
+                yield { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: (b as { text: string }).text } };
+              }
+              conferir();
+              yield { type: "message_delta", delta: { stop_reason: r.stop_reason }, usage: { output_tokens: 5, input_tokens: null } };
+            },
+            finalMessage: async () => {
+              if (r instanceof Error) throw r;
+              conferir();
+              return {
+                id: "msg",
+                type: "message",
+                role: "assistant",
+                model: "claude-haiku-5-5",
+                content: r.content,
+                stop_reason: r.stop_reason,
+                usage,
+              };
+            },
+          };
+        },
       },
     },
   };
@@ -304,14 +326,14 @@ describe("executarPergunta", () => {
   it("(g) limite do dia: texto fixo, sem chamar o cliente", async () => {
     ia.situacaoLimites.mockResolvedValue({ ok: false, motivo: "dia" });
     const stream = vi.fn();
-    const eventos = await rodar({ messages: { stream } } as unknown as Anthropic);
+    const eventos = await rodar({ beta: { messages: { stream } } } as unknown as Anthropic);
     expect(stream).not.toHaveBeenCalled();
     expect(eventos[0]).toEqual({ tipo: "texto", texto: "O limite de perguntas de hoje acabou. Volta amanhã." });
   });
 
   it("limite do mês: texto fixo do mês", async () => {
     ia.situacaoLimites.mockResolvedValue({ ok: false, motivo: "mes" });
-    const eventos = await rodar({ messages: { stream: vi.fn() } } as unknown as Anthropic);
+    const eventos = await rodar({ beta: { messages: { stream: vi.fn() } } } as unknown as Anthropic);
     expect(eventos[0]).toEqual({ tipo: "texto", texto: "O limite do mês foi atingido. Fale com o admin." });
   });
 
@@ -335,7 +357,7 @@ describe("executarPergunta", () => {
       banco.estado.mensagens.push({ id: `r${i}`, conversaId: "cx", papel: "assistente", conteudo: [texto("r")], ordem: i * 2 + 2 });
     }
     const stream = vi.fn();
-    const eventos = await rodar({ messages: { stream } } as unknown as Anthropic, { conversaId: "cx" });
+    const eventos = await rodar({ beta: { messages: { stream } } } as unknown as Anthropic, { conversaId: "cx" });
     expect(stream).not.toHaveBeenCalled();
     expect(eventos[0]).toEqual({ tipo: "texto", texto: "Esta conversa ficou longa. Comece uma nova conversa para continuar." });
   });
@@ -414,5 +436,89 @@ describe("executarPergunta", () => {
     await rodar(cliente, { conversaId: "cz" });
     expect(pedidos[0].messages.slice(0, 3).map((m) => m.content)).toEqual([q1, q2, [texto("r2")]]);
     expect(pedidos[0].messages).toHaveLength(4);
+  });
+
+  describe("uso registrado mesmo quando a chamada é cortada", () => {
+    it("corte depois do message_start na 1ª chamada: 1 UsoIa (inicioPergunta) e nada gravado", async () => {
+      const { cliente } = clienteFalso([{ content: [texto("x")], stop_reason: "end_turn", cortarDepoisDoInicio: true }]);
+      const eventos = await rodar(cliente);
+      expect(eventos).toEqual([{ tipo: "erro", mensagem: "O Nexu está indisponível agora, tente de novo em instantes." }]);
+      expect(ia.registrarUsoIa).toHaveBeenCalledTimes(1);
+      expect(ia.registrarUsoIa.mock.calls[0][0]).toMatchObject({ inicioPergunta: true, usage: { input_tokens: 10, output_tokens: 1 } });
+      expect(banco.estado.mensagens).toEqual([]);
+    });
+
+    it("a tela desiste no meio do texto (gerador encerrado): o uso parcial é registrado uma vez", async () => {
+      const { cliente } = clienteFalso([resposta([texto("a"), texto("b")])]);
+      const gerador = executarPergunta({ ator, conversaId: null, pergunta: "Quais tarefas?", tela: null, cliente });
+      const primeiro = await gerador.next();
+      expect(primeiro.value).toEqual({ tipo: "texto", texto: "a" });
+      await gerador.return(undefined);
+      expect(ia.registrarUsoIa).toHaveBeenCalledTimes(1);
+      expect(ia.registrarUsoIa.mock.calls[0][0]).toMatchObject({ inicioPergunta: true });
+    });
+
+    it("o sinal da requisição dispara no meio: corta a chamada, registra o uso e não chama de novo", async () => {
+      const sinal = new AbortController();
+      const { cliente, pedidos } = clienteFalso([resposta([texto("a"), texto("b")]), resposta([texto("nunca")])]);
+      const gerador = executarPergunta({ ator, conversaId: null, pergunta: "Quais tarefas?", tela: null, cliente, sinal: sinal.signal });
+      await gerador.next();
+      sinal.abort();
+      const resto: unknown[] = [];
+      for await (const ev of gerador) resto.push(ev);
+      expect(resto).toEqual([{ tipo: "erro", mensagem: "O Nexu está indisponível agora, tente de novo em instantes." }]);
+      expect(pedidos).toHaveLength(1);
+      expect(ia.registrarUsoIa).toHaveBeenCalledTimes(1);
+    });
+
+    it("caminho normal com ferramenta: um UsoIa por chamada, com o usage final", async () => {
+      const { cliente } = clienteFalso([resposta([usoDe("t1")], "tool_use"), resposta([texto("ok")])]);
+      await rodar(cliente);
+      expect(ia.registrarUsoIa).toHaveBeenCalledTimes(2);
+      expect(ia.registrarUsoIa.mock.calls.map((c) => c[0].usage)).toEqual([usage, usage]);
+    });
+
+    it("falha ao gravar o uso não esconde a resposta", async () => {
+      ia.registrarUsoIa.mockRejectedValueOnce(new Error("banco fora"));
+      const { cliente } = clienteFalso([resposta([texto("ok")])]);
+      const eventos = await rodar(cliente);
+      expect(eventos.map((e) => e.tipo)).toEqual(["texto", "conversa", "fim"]);
+    });
+  });
+
+  it("texto de rodadas diferentes e avisos vêm separados por linha em branco", async () => {
+    const { cliente } = clienteFalso([resposta([texto("Vou ver."), usoDe("t1")], "tool_use"), resposta([texto("Achei 2.")])]);
+    const eventos = await rodar(cliente);
+    expect(eventos.filter((e) => e.tipo === "texto").map((e) => e.texto)).toEqual(["Vou ver.", "\n\nAchei 2."]);
+
+    const recusa = clienteFalso([resposta([texto("Olhei."), usoDe("t2")], "tool_use"), resposta([], "refusal")]);
+    const eventos2 = await rodar(recusa.cliente);
+    expect(eventos2.filter((e) => e.tipo === "texto").map((e) => e.texto)).toEqual([
+      "Olhei.",
+      "\n\nNão consegui responder a isso. Tente reformular.",
+    ]);
+  });
+
+  it("pedido vai pelo beta com thinking adaptativo e drop_block", async () => {
+    const { cliente, pedidos } = clienteFalso([resposta([texto("ok")])]);
+    await rodar(cliente);
+    expect(pedidos[0].thinking).toEqual({ type: "adaptive", block_binding: { prefix_mismatch_behavior: "drop_block" } });
+    expect(pedidos[0].betas).toEqual(["thinking-binding-controls-2026-08-01"]);
+  });
+
+  it("blocos de thinking descartados: loga só a contagem e os motivos", async () => {
+    const aviso = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const transformacoes = [
+      { type: "thinking_dropped", path: "messages.1.content.0", reason: "prefix_binding_mismatch" },
+      { type: "thinking_dropped", path: "messages.3.content.0", reason: "prefix_binding_mismatch" },
+    ];
+    const { cliente } = clienteFalso([{ ...(resposta([texto("ok")]) as object), transformacoes } as Resposta]);
+    await rodar(cliente);
+    expect(aviso).toHaveBeenCalledWith("[nexu] blocos de thinking descartados", {
+      conversaId: null,
+      quantidade: 2,
+      motivos: ["prefix_binding_mismatch"],
+    });
+    aviso.mockRestore();
   });
 });

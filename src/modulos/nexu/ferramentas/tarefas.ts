@@ -3,6 +3,7 @@ import { obterRelatorio } from "@/modulos/tarefas/servicos/relatorio";
 import { buscarTarefasParaNexu } from "../servicos/consultas-tarefas";
 import { limitarLista } from "./lista";
 import type { FerramentaNexu } from "./tipos";
+import { validarDia } from "./validacao";
 
 const DIA = "no formato AAAA-MM-DD";
 
@@ -19,12 +20,14 @@ const entradaBuscarTarefas = z.object({
 export const ferramentaBuscarTarefas: FerramentaNexu<typeof entradaBuscarTarefas> = {
   nome: "buscar_tarefas",
   descricao:
-    "Busca tarefas que a pessoa pode ver. Devolve id, título, lista, espaço, status, responsáveis, data de entrega e se está atrasada. Máximo de 50 por resposta, com o total.",
+    "Busca tarefas que a pessoa pode ver. Devolve id, título, listaId e nome da lista, espaço, statusId e nome do status, responsáveis, data de entrega e se está atrasada. Máximo de 50 por resposta, com o total.",
   entrada: entradaBuscarTarefas,
   permissao: "tarefas:usar",
   rotulo: "Consultando tarefas…",
   tipo: "consulta",
   async executar(ator, entrada) {
+    if (entrada.entregaDe) validarDia(entrada.entregaDe);
+    if (entrada.entregaAte) validarDia(entrada.entregaAte);
     return limitarLista(await buscarTarefasParaNexu(ator, entrada));
   },
 };

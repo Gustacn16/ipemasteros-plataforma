@@ -40,15 +40,46 @@ describe("ferramentasDoPapel", () => {
 });
 
 describe("paraFerramentaApi", () => {
-  it("gera schema estrito, sem $schema e sem propriedades extras", () => {
+  it("gera schema sem strict, sem $schema e sem propriedades extras", () => {
     for (const f of TODAS_FERRAMENTAS) {
       const api = paraFerramentaApi(f);
-      expect(api.strict).toBe(true);
+      expect(api).not.toHaveProperty("strict");
       expect(api.name).toBe(f.nome);
       expect(api.input_schema.type).toBe("object");
       expect((api.input_schema as Record<string, unknown>).additionalProperties).toBe(false);
       expect(api.input_schema).not.toHaveProperty("$schema");
     }
+  });
+});
+
+describe("schemas das ferramentas (todas, como admin)", () => {
+  // Restrições que o strict tool use não aceita; o Zod já valida tudo isso no laço.
+  const PROIBIDAS = ["minLength", "maxLength", "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf", "pattern"];
+
+  function chavesProibidas(no: unknown, caminho: string): string[] {
+    if (Array.isArray(no)) return no.flatMap((v, i) => chavesProibidas(v, `${caminho}[${i}]`));
+    if (!no || typeof no !== "object") return [];
+    return Object.entries(no as Record<string, unknown>).flatMap(([k, v]) => {
+      // Dentro de "properties" as chaves são nomes de campos, não palavras do schema.
+      if (k === "properties" && v && typeof v === "object") {
+        return Object.entries(v as Record<string, unknown>).flatMap(([campo, sub]) =>
+          chavesProibidas(sub, `${caminho}.properties.${campo}`),
+        );
+      }
+      return [...(PROIBIDAS.includes(k) ? [`${caminho}.${k}`] : []), ...chavesProibidas(v, `${caminho}.${k}`)];
+    });
+  }
+
+  it("nenhum input_schema tem palavra-chave de restrição", () => {
+    const todas = ferramentasDoPapel("admin");
+    expect(todas.length).toBe(TODAS_FERRAMENTAS.length);
+    const achadas = todas.flatMap((f) => chavesProibidas(paraFerramentaApi(f).input_schema, f.nome));
+    expect(achadas).toEqual([]);
+  });
+
+  it("a restrição continua valendo no Zod (buscar_pessoas exige 2 letras)", () => {
+    const f = TODAS_FERRAMENTAS.find((x) => x.nome === "buscar_pessoas")!;
+    expect(f.entrada.safeParse({ nome: "a" }).success).toBe(false);
   });
 });
 

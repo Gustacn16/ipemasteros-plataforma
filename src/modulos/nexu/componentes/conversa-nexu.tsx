@@ -41,7 +41,7 @@ export function ConversaNexuView({ conversa, vazio }: { conversa: ConversaNexu; 
           <div key={m.id} className="flex flex-col gap-2">
             <MensagemNexu papel={m.papel} texto={m.texto} carregando={enviando && i === mensagens.length - 1 && !consultando} />
             {m.propostas?.map((p) => (
-              <CartaoProposta key={p.id} proposta={p} aoAtualizar={atualizarProposta} />
+              <CartaoProposta key={p.id} proposta={p} aoAtualizar={atualizarProposta} bloqueado={enviando} />
             ))}
           </div>
         ))}

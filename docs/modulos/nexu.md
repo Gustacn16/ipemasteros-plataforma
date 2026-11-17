@@ -27,16 +27,19 @@ Conversa, mensagem e proposta usam exclusão **física** (LGPD), não `excluidoE
 
 ## Regras de negócio
 1. **Acesso:** `nexu:usar` no servidor, em todo Route Handler e Server Action. Conversa e proposta só podem ser lidas ou alteradas pelo dono, inclusive para o admin. Configuração exige `nexu:configurar`.
-2. **Limite do dia:** 50 perguntas por pessoa (editável). Conta as linhas de `UsoIa` com `inicioPergunta` no dia de São Paulo. Pergunta que falha antes da API responder não conta, e apagar conversa não devolve perguntas.
+2. **Limite do dia:** 50 perguntas por pessoa (editável). Conta as linhas de `UsoIa` com `inicioPergunta` no dia de São Paulo. Pergunta que falha antes da API começar a responder não conta; a que é cortada no meio (tempo, "Nova conversa", aba fechada, erro) conta, porque a Anthropic cobra o que já foi gerado. Apagar conversa não devolve perguntas.
 3. **Limite do mês:** US$ 20 (editável), somando `UsoIa.custoMicroUsd` de **todas as origens** no mês de São Paulo. O futuro agente do WhatsApp divide o mesmo limite. Checado antes de cada pergunta; se estourar no meio, a pergunta termina e as próximas são recusadas.
 4. **Tamanho da conversa:** no máximo 30 perguntas. Depois, o Nexu pede para começar uma nova ("Esta conversa ficou longa. Comece uma nova conversa para continuar.").
 5. **Loop de ferramentas:** até 8 chamadas de ferramenta por pergunta e 60 s por pergunta. Ferramentas pedidas juntas rodam em paralelo. Erro de ferramenta vira `tool_result` com `is_error` e mensagem curta.
-6. **Pedido à API:** prompt de sistema fixo (cache) → ferramentas do papel em ordem fixa (cache) → histórico → bloco de contexto (data/hora em São Paulo, nome, papel e tela atual) → pergunta. Modelo padrão `claude-haiku-5-5`, `max_tokens` 4000, `effort: "low"`.
+6. **Pedido à API:** prompt de sistema fixo (cache) → ferramentas do papel em ordem fixa (cache) → histórico → bloco de contexto (data/hora em São Paulo, nome, papel e tela atual) → pergunta. Modelo padrão `claude-haiku-5-5`, `max_tokens` 4000, `effort: "low"`. Vai por `client.beta.messages.stream` com o beta `thinking-binding-controls-2026-08-01` e `thinking: { type: "adaptive", block_binding: { prefix_mismatch_behavior: "drop_block" } }`: os blocos de thinking são gravados e reenviados como vieram, e se o histórico não bater mais com o que os gerou (deploy que muda o prompt ou as ferramentas, troca de papel, decisão de proposta gravada no meio de uma resposta, duas perguntas ao mesmo tempo) a API descarta esses blocos em vez de responder 400. O servidor loga só a quantidade e o motivo dos descartes (`input_transformations`), nunca o conteúdo.
+   - **Ferramentas sem `strict`:** o modo estrito não aceita `minLength`, `minimum` etc. e limita a complexidade do schema. O JSON Schema vai sem essas restrições, e o Zod valida tudo em cada chamada (erro legível ao modelo).
+   - **Uso registrado por chamada:** os tokens vêm dos eventos do stream (`message_start` e `message_delta`) e o `UsoIa` é gravado uma vez por chamada à API num `finally`, também quando ela é cortada. O sinal da requisição (`request.signal`) corta a chamada quando a pessoa sai da página.
+   - **Ordem das mensagens:** `anexarMensagens` trava a linha da conversa antes de ler a maior `ordem`, então gravações simultâneas na mesma conversa não repetem a ordem.
 7. **Proposta:** a ferramenta valida os dados com Zod e grava a `PropostaNexu` `pendente`. Não executa nada. A tela recebe o evento `proposta` e mostra o cartão.
 8. **Confirmar:** a Server Action faz a transição **atômica** `pendente → executando`, conferindo o dono. Quem perde a corrida recebe "Esta proposta já foi decidida.". Depois revalida os dados, chama o serviço do módulo **como a pessoa que confirmou** (o serviço refaz a checagem de permissão) e marca `confirmada` (com `resultadoUrl`) ou `falhou` (com mensagem amigável). Grava a auditoria `nexu.proposta_confirmada`. A decisão entra na conversa como mensagem do usuário, para o modelo saber o que aconteceu.
 9. **Recusar:** marca `recusada`. Proposta pendente de conversa antiga continua confirmável enquanto a conversa existir.
 10. **Recusa do modelo** (`stop_reason: "refusal"`): "Não consegui responder a isso. Tente reformular.".
-11. **Limpeza:** apaga conversas com `atualizadoEm` de mais de 90 dias (mensagens e propostas vão em cascata). Roda no cron diário `importar-meta-ads`, dentro de `try/catch`, e é idempotente.
+11. **Limpeza:** apaga conversas com `atualizadoEm` de mais de 90 dias (mensagens e propostas vão em cascata). Roda no cron diário `importar-meta-ads`, num `finally` com `try/catch` (roda mesmo se a importação falhar), e é idempotente.
 12. **Markdown:** a resposta é exibida como markdown simples, sem HTML. **Imagens são bloqueadas** e links só valem para `http`, `https`, `mailto` e caminhos relativos (evita exfiltração de dados por imagem ou link).
 13. **Dados de aluno:** nenhuma ferramenta devolve e-mail, telefone, CRM, UF do CRM nem observações.
 
@@ -46,7 +49,7 @@ A lista enviada à API é montada no servidor a partir das permissões do papel;
 **Consultas**
 | Ferramenta | Permissão | Observações |
 |---|---|---|
-| `buscar_tarefas` | `tarefas:usar` | Respeita os espaços em que a pessoa é membro |
+| `buscar_tarefas` | `tarefas:usar` | Respeita os espaços em que a pessoa é membro. Devolve `listaId` e `statusId` (com os nomes da lista, do espaço e do status), para as propostas de tarefa |
 | `relatorio_tarefas_equipe` | `tarefas:ver_relatorio_equipe` | Abertas, atrasadas e concluídas por pessoa |
 | `ver_agenda` | `agenda:ver_institucional` | Mesma regra de visibilidade do filtro da agenda. Período de até 62 dias |
 | `turmas_e_formaturas` | `academico:ver` | Turmas, datas de formatura e alunos ativos |
@@ -80,7 +83,7 @@ A fonte da verdade é `src/lib/permissoes.ts`; a matriz acima acompanha a permis
 ## Telas
 - **Botão flutuante** em todas as telas de `(app)` (quem tem `nexu:usar`): painel lateral com a conversa atual, "Nova conversa" e "Abrir no Nexu". Mostra "Consultando …" durante cada ferramenta. Envia a rota atual como contexto.
 - **`/nexu` e `/nexu/[conversaId]`:** lista de conversas (com apagar) e conversa em tela cheia, com o contador de perguntas do dia.
-- **Cartão de proposta:** resumo, **Confirmar** e **Recusar**; depois mostra o resultado com link, "Recusada" ou o erro.
+- **Cartão de proposta:** resumo, **Confirmar** e **Recusar** (desativados enquanto o Nexu ainda está respondendo); depois mostra "✓ Criada" (ou "✓ Feito" para mudar status e checklist) com link, "Recusada" ou o erro.
 - **`/admin/nexu`** (`nexu:configurar`): modelo, limite mensal e perguntas por dia; painel de uso (gasto do mês contra o limite, por pessoa e por dia). **Sem acesso ao conteúdo das conversas.** Salvar gera auditoria `nexu.configuracao_alterada`.
 
 ## Resposta aos poucos (SSE)
@@ -98,7 +101,8 @@ O Nexu só **consome** serviços de Tarefas, Agenda, Acadêmico, Conteúdo e Com
 **Passos do Gustavo antes de testar em `teste`:** conta no console.anthropic.com com limite de gasto e `ANTHROPIC_API_KEY` no hPanel do app de teste (salvar reinicia o app; não precisa de build).
 
 ## Pendências conhecidas
-- As ferramentas de consulta não devolvem `listaId`, `statusId`, `tipoId` nem `formatoId`. Quando o modelo erra o id numa proposta, o erro lista as opções válidas para ele corrigir.
+- As ferramentas de consulta não devolvem `tipoId` nem `formatoId` (`buscar_tarefas` já devolve `listaId` e `statusId`). Quando o modelo erra o id numa proposta, o erro lista as opções válidas para ele corrigir (listas visíveis, status da lista, tipos de evento, formatos).
+- **Thinking e MySQL:** conferir em `teste` (log `[nexu] blocos de thinking descartados`) que não aparece `prefix_binding_mismatch` em conversas normais. Se aparecer, a causa provável é o MySQL reordenar as chaves de `tool_use.input` na coluna JSON: trocar `conteudo` para texto (`LONGTEXT` com `JSON.stringify`) numa migration.
 - Proposta presa em `executando` (queda do servidor no meio da confirmação) não tem recuperação automática.
 - No proxy da Hostinger, confirmar depois do deploy que a resposta chega aos poucos (SSE).
 - Conferir o preço de cache do Haiku 5.5 na página oficial da Anthropic.

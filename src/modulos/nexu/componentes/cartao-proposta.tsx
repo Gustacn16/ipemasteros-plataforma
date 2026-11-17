@@ -5,8 +5,23 @@ import { Button } from "@/componentes/ui/button";
 import { confirmarPropostaAcao, recusarPropostaAcao } from "../acoes/propostas";
 import type { PropostaVisivel } from "../tipos";
 
-/** Cartão de uma proposta do Nexu: resumo + Confirmar/Recusar; depois mostra o resultado. Nada é criado sem o clique. */
-export function CartaoProposta({ proposta, aoAtualizar }: { proposta: PropostaVisivel; aoAtualizar?: (p: PropostaVisivel) => void }) {
+/** Propostas que mudam algo que já existe: o cartão diz "Feito", não "Criada". */
+const TIPOS_DE_MUDANCA: PropostaVisivel["tipo"][] = ["mudar_status_tarefa", "adicionar_checklist"];
+
+/**
+ * Cartão de uma proposta do Nexu: resumo + Confirmar/Recusar; depois mostra o resultado. Nada é criado sem o clique.
+ * `bloqueado` (a conversa ainda está respondendo) desativa os botões: decidir no meio da resposta gravaria a decisão
+ * no meio do turno do Nexu.
+ */
+export function CartaoProposta({
+  proposta,
+  aoAtualizar,
+  bloqueado = false,
+}: {
+  proposta: PropostaVisivel;
+  aoAtualizar?: (p: PropostaVisivel) => void;
+  bloqueado?: boolean;
+}) {
   const [pendente, iniciar] = useTransition();
   const [aviso, setAviso] = useState<string | null>(null);
 
@@ -25,10 +40,10 @@ export function CartaoProposta({ proposta, aoAtualizar }: { proposta: PropostaVi
       <div className="mt-2 flex flex-wrap items-center gap-2">
         {proposta.status === "pendente" && (
           <>
-            <Button size="sm" disabled={pendente} onClick={() => decidir(confirmarPropostaAcao)}>
+            <Button size="sm" disabled={pendente || bloqueado} onClick={() => decidir(confirmarPropostaAcao)}>
               Confirmar
             </Button>
-            <Button size="sm" variant="outline" disabled={pendente} onClick={() => decidir(recusarPropostaAcao)}>
+            <Button size="sm" variant="outline" disabled={pendente || bloqueado} onClick={() => decidir(recusarPropostaAcao)}>
               Recusar
             </Button>
           </>
@@ -36,7 +51,7 @@ export function CartaoProposta({ proposta, aoAtualizar }: { proposta: PropostaVi
         {proposta.status === "executando" && <span className="text-muted-foreground">Em andamento…</span>}
         {proposta.status === "confirmada" && (
           <span className="text-foreground font-medium">
-            ✓ Criada
+            {TIPOS_DE_MUDANCA.includes(proposta.tipo) ? "✓ Feito" : "✓ Criada"}
             {proposta.resultadoUrl && (
               <>
                 {" · "}
