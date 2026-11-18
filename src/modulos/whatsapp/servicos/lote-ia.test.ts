@@ -623,7 +623,33 @@ describe("coletarLotes", () => {
     expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain("segredo");
   });
 
-  it("erro inesperado em um item: loga o nome do erro, item falhou e segue para o próximo", async () => {
+  it("erro inesperado ao gravar um item: loga o nome do erro, item falhou e segue para o próximo", async () => {
+    lote();
+    resumo("r1");
+    resumo("r2");
+    const updateMany = banco.prisma.resumoGrupo.updateMany;
+    let chamadas = 0;
+    banco.prisma.resumoGrupo.updateMany = async (args: { where: Linha; data: Linha }) => {
+      if (++chamadas === 1) throw new Error("banco caiu");
+      return updateMany(args);
+    };
+    try {
+      const cliente = clienteColeta("ended", [
+        sucesso("resumo:r1", JSON.stringify(JSON_OK)),
+        sucesso("resumo:r2", JSON.stringify(JSON_OK)),
+      ]);
+      expect(await coletarLotes(COLETA, cliente)).toEqual({ lotes: 1, prontos: 1, falhos: 1 });
+    } finally {
+      banco.prisma.resumoGrupo.updateMany = updateMany;
+    }
+    expect(banco.estado.resumos[0]).toMatchObject({ situacao: "falhou", erro: "Não foi possível salvar o resumo." });
+    expect(banco.estado.resumos[1]).toMatchObject({ situacao: "pronto" });
+    // Só o item gravado como pronto foi cobrado (o que falhou na gravação não passou pela reserva).
+    expect(banco.estado.usos).toHaveLength(1);
+    expect(console.error).toHaveBeenCalledWith(expect.any(String), "Error");
+  });
+
+  it("falha ao registrar o uso: o resumo fica pronto, loga só o nome do erro e segue", async () => {
     lote();
     resumo("r1");
     resumo("r2");
@@ -638,13 +664,65 @@ describe("coletarLotes", () => {
         sucesso("resumo:r1", JSON.stringify(JSON_OK)),
         sucesso("resumo:r2", JSON.stringify(JSON_OK)),
       ]);
-      expect(await coletarLotes(COLETA, cliente)).toEqual({ lotes: 1, prontos: 1, falhos: 1 });
+      expect(await coletarLotes(COLETA, cliente)).toEqual({ lotes: 1, prontos: 2, falhos: 0 });
     } finally {
       banco.prisma.usoIa.create = create;
     }
-    expect(banco.estado.resumos[0]).toMatchObject({ situacao: "falhou", erro: "Não foi possível salvar o resumo." });
-    expect(banco.estado.resumos[1]).toMatchObject({ situacao: "pronto" });
+    expect(banco.estado.resumos.map((r) => r.situacao)).toEqual(["pronto", "pronto"]);
+    expect(banco.estado.usos).toHaveLength(1);
     expect(console.error).toHaveBeenCalledWith(expect.any(String), "Error");
+  });
+
+  it("duas coletas simultâneas do mesmo item registram o uso uma vez só", async () => {
+    lote();
+    resumo("r1");
+    const itens = [sucesso("resumo:r1", JSON.stringify(JSON_OK))];
+    const findUnique = banco.prisma.resumoGrupo.findUnique;
+    let leiturasPendentes = 0;
+    banco.prisma.resumoGrupo.findUnique = async (args: { where: Linha }) => {
+      const r = await findUnique(args);
+      if (r?.situacao === "pendente") leiturasPendentes++;
+      return r ? { ...r } : r;
+    };
+    const [a, b] = await Promise.all([
+      coletarLotes(COLETA, clienteColeta("ended", itens)),
+      coletarLotes(COLETA, clienteColeta("ended", itens)),
+    ]);
+    banco.prisma.resumoGrupo.findUnique = findUnique;
+    // As duas leram o resumo ainda pendente; a gravação condicional decidiu quem cobra.
+    expect(leiturasPendentes).toBe(2);
+    expect(a.prontos + b.prontos).toBe(1);
+    expect(banco.estado.usos).toHaveLength(1);
+    expect(banco.estado.resumos[0]).toMatchObject({ situacao: "pronto" });
+  });
+
+  it("bloco de thinking antes do texto: usa o primeiro bloco de texto e fica pronto", async () => {
+    lote();
+    resumo("r1");
+    const cliente = clienteColeta("ended", [
+      sucesso("resumo:r1", "", {
+        content: [
+          { type: "thinking", thinking: "pensando", signature: "sig" },
+          { type: "text", text: JSON.stringify(JSON_OK), citations: null },
+        ],
+      }),
+    ]);
+    expect(await coletarLotes(COLETA, cliente)).toEqual({ lotes: 1, prontos: 1, falhos: 0 });
+    expect(banco.estado.resumos[0]).toMatchObject({ situacao: "pronto", resumo: "Dia tranquilo." });
+  });
+
+  it("stop_reason max_tokens com JSON cortado: falhou 'Resposta fora do formato.' e uso registrado uma vez", async () => {
+    lote();
+    resumo("r1");
+    const cortado = JSON.stringify(JSON_OK).slice(0, 30);
+    const cliente = clienteColeta("ended", [sucesso("resumo:r1", cortado, { stop_reason: "max_tokens" })]);
+    expect(await coletarLotes(COLETA, cliente)).toEqual({ lotes: 1, prontos: 0, falhos: 1 });
+    expect(banco.estado.resumos[0]).toMatchObject({ situacao: "falhou", erro: "Resposta fora do formato." });
+    expect(banco.estado.usos).toHaveLength(1);
+    // Coleta repetida não cobra de novo.
+    banco.estado.lotes[0].situacao = "aberto";
+    await coletarLotes(COLETA, cliente);
+    expect(banco.estado.usos).toHaveLength(1);
   });
 
   it("no fim, LoteIa concluido com concluidoEm", async () => {
@@ -712,5 +790,21 @@ describe("coletarLotes", () => {
     ]);
     expect(await coletarLotes(COLETA, cliente)).toEqual({ lotes: 1, prontos: 1, falhos: 0 });
     expect(banco.estado.usos).toHaveLength(2);
+  });
+  it("lote encerrado cujo resultado não se lê há mais de 7 dias: lote e pendentes falham", async () => {
+    lote({ criadoEm: new Date(COLETA.getTime() - 8 * 24 * 3_600_000) });
+    resumo("r1");
+    resumo("r2", { situacao: "pronto", resumo: "ok" });
+    const quebrado: ClienteLotes = {
+      ...clienteColeta("ended"),
+      async *resultados() {
+        throw new Error("rede");
+      },
+    };
+    expect(await coletarLotes(COLETA, quebrado)).toEqual({ lotes: 1, prontos: 0, falhos: 1 });
+    const texto = "Não foi possível ler o resultado do lote.";
+    expect(banco.estado.lotes[0]).toMatchObject({ situacao: "falhou", erro: texto, concluidoEm: COLETA });
+    expect(banco.estado.resumos[0]).toMatchObject({ situacao: "falhou", erro: texto });
+    expect(banco.estado.resumos[1]).toMatchObject({ situacao: "pronto", resumo: "ok" });
   });
 });

@@ -1,5 +1,6 @@
 import "server-only";
 import type Anthropic from "@anthropic-ai/sdk";
+import type { z } from "zod";
 import { obterClienteAnthropic } from "@/lib/ia/cliente";
 import { calcularCustoMicroUsd, MODELOS_IA, type ModeloIa } from "@/lib/ia/precos";
 import { gastoMesMicroUsd, registrarUsoIa } from "@/lib/ia/uso";
@@ -255,10 +256,13 @@ export const ERRO_EXPIROU = "O pedido expirou.";
 export const ERRO_CANCELADO = "O pedido foi cancelado.";
 export const ERRO_SEM_RESULTADO = "A IA não devolveu este resumo.";
 export const ERRO_GRAVACAO = "Não foi possível salvar o resumo.";
+export const ERRO_LEITURA = "Não foi possível ler o resultado do lote.";
 
 const UMA_HORA_MS = 3_600_000;
 /** A Anthropic encerra um lote em até 24 h; com 25 h sem "ended", desistimos. */
 const PRAZO_LOTE_MS = 25 * UMA_HORA_MS;
+/** Lote encerrado cujo resultado não se consegue ler: depois de 7 dias, desistimos. */
+const PRAZO_LEITURA_MS = 7 * 24 * UMA_HORA_MS;
 const PREFIXO_CUSTOM_ID = "resumo:";
 const MODELO_RESERVA: ModeloIa = "claude-opus-5-5";
 
@@ -283,29 +287,17 @@ async function encerrarLoteComFalha(loteId: string, erro: string, agora: Date): 
 }
 
 type Desfecho =
-  | { situacao: "pronto"; dados: ReturnType<typeof esquemaZodResumo.parse>; modelo: string }
+  | { situacao: "pronto"; dados: z.infer<typeof esquemaZodResumo> }
   | { situacao: "falhou"; erro: string };
 
-/** Interpreta um item do lote; registra o uso de todo "succeeded" (inclusive recusas e respostas fora do formato). */
-async function desfechoDoItem(item: ResultadoLote, modeloResumo: string): Promise<Desfecho> {
+/** Interpreta um item do lote, sem efeito colateral (o uso é registrado depois de reservar o resumo). */
+function desfechoDoItem(item: ResultadoLote): Desfecho {
   const r = item.result;
   if (r.type !== "succeeded") {
     const erro = r.type === "expired" ? ERRO_EXPIROU : r.type === "canceled" ? ERRO_CANCELADO : ERRO_IA;
     return { situacao: "falhou", erro };
   }
-
   const mensagem = r.message;
-  // O preço segue o modelo pedido (ResumoGrupo.modelo); a resposta pode trazer um nome com sufixo de versão.
-  const modelo = ehModeloIa(modeloResumo) ? modeloResumo : ehModeloIa(mensagem.model) ? mensagem.model : MODELO_RESERVA;
-  await registrarUsoIa({
-    origem: ORIGEM_IA_WHATSAPP,
-    usuarioId: null,
-    modelo,
-    inicioPergunta: false,
-    usage: mensagem.usage,
-    lote: true,
-  });
-
   if (mensagem.stop_reason === "refusal") return { situacao: "falhou", erro: ERRO_RECUSA };
   const bloco = mensagem.content.find((b) => b.type === "text");
   if (!bloco || bloco.type !== "text") return { situacao: "falhou", erro: ERRO_FORMATO };
@@ -317,12 +309,12 @@ async function desfechoDoItem(item: ResultadoLote, modeloResumo: string): Promis
   }
   const validado = esquemaZodResumo.safeParse(json);
   if (!validado.success) return { situacao: "falhou", erro: ERRO_FORMATO };
-  return { situacao: "pronto", dados: validado.data, modelo };
+  return { situacao: "pronto", dados: validado.data };
 }
 
 /**
  * Coleta os lotes de resumo abertos: grava cada resumo pronto (ou falhou), registra o uso a preço de lote
- * e encerra o lote. Só mexe em resumos ainda pendentes, então pode rodar de novo sem regravar nada.
+ * e encerra o lote. Só mexe em resumos ainda pendentes, então pode rodar de novo sem regravar nem cobrar de novo.
  */
 export async function coletarLotes(agora: Date = new Date(), cliente?: ClienteLotes | null): Promise<ResultadoColeta> {
   const total: ResultadoColeta = { lotes: 0, prontos: 0, falhos: 0 };
@@ -362,10 +354,19 @@ export async function coletarLotes(agora: Date = new Date(), cliente?: ClienteLo
         continue;
       }
 
-      for await (const item of lotes.resultados(lote.idExterno)) {
-        const r = await gravarItem(item, lote.id);
-        if (r === "pronto") total.prontos++;
-        else if (r === "falhou") total.falhos++;
+      try {
+        for await (const item of lotes.resultados(lote.idExterno)) {
+          const r = await gravarItem(item, lote.id);
+          if (r === "pronto") total.prontos++;
+          else if (r === "falhou") total.falhos++;
+        }
+      } catch (e) {
+        if (idade <= PRAZO_LEITURA_MS) throw e; // a próxima coleta tenta de novo
+        // Resultado ilegível há dias: desiste para o lote não ficar aberto para sempre.
+        console.error("[whatsapp] falha ao ler o resultado do lote de resumos:", descreverErro(e));
+        total.falhos += await encerrarLoteComFalha(lote.id, ERRO_LEITURA, agora);
+        total.lotes++;
+        continue;
       }
       // Pedido sem resultado (não deveria acontecer): não fica pendente para sempre.
       total.falhos += await falharPendentes(lote.id, ERRO_SEM_RESULTADO);
@@ -386,6 +387,8 @@ async function gravarItem(item: ResultadoLote, loteId: string): Promise<"pronto"
     console.error("[whatsapp] item do lote com custom_id desconhecido: ignorado");
     return null;
   }
+  let situacao: "pronto" | "falhou";
+  let modeloResumo: string;
   try {
     const resumo = await prisma.resumoGrupo.findUnique({
       where: { id },
@@ -393,8 +396,9 @@ async function gravarItem(item: ResultadoLote, loteId: string): Promise<"pronto"
     });
     // Coleta repetida (ou item de outro lote): nada a fazer, e o uso já foi registrado.
     if (!resumo || resumo.situacao !== "pendente" || resumo.loteId !== loteId) return null;
+    modeloResumo = resumo.modelo;
 
-    const d = await desfechoDoItem(item, resumo.modelo);
+    const d = desfechoDoItem(item);
     const data =
       d.situacao === "pronto"
         ? {
@@ -404,11 +408,13 @@ async function gravarItem(item: ResultadoLote, loteId: string): Promise<"pronto"
             temas: d.dados.temas,
             pendencias: d.dados.pendencias,
             destaques: d.dados.destaques,
-            modelo: d.modelo,
+            modelo: modeloResumo,
           }
         : { situacao: "falhou" as const, erro: d.erro };
+    // A gravação condicional é a reserva: só quem tirou o resumo de "pendente" registra o uso.
     const r = await prisma.resumoGrupo.updateMany({ where: { id, situacao: "pendente" }, data });
-    return r.count > 0 ? d.situacao : null;
+    if (r.count === 0) return null;
+    situacao = d.situacao;
   } catch (e) {
     console.error("[whatsapp] falha ao gravar um resumo do lote:", descreverErro(e));
     try {
@@ -422,4 +428,25 @@ async function gravarItem(item: ResultadoLote, loteId: string): Promise<"pronto"
       return null;
     }
   }
+
+  // Todo "succeeded" é cobrado, inclusive recusas e respostas fora do formato.
+  if (item.result.type === "succeeded") {
+    const mensagem = item.result.message;
+    // O preço segue o modelo pedido (ResumoGrupo.modelo); a resposta pode trazer um nome com sufixo de versão.
+    const modelo = ehModeloIa(modeloResumo) ? modeloResumo : ehModeloIa(mensagem.model) ? mensagem.model : MODELO_RESERVA;
+    try {
+      await registrarUsoIa({
+        origem: ORIGEM_IA_WHATSAPP,
+        usuarioId: null,
+        modelo,
+        inicioPergunta: false,
+        usage: mensagem.usage,
+        lote: true,
+      });
+    } catch (e) {
+      // O resumo fica como foi gravado; só o registro do uso se perde.
+      console.error("[whatsapp] falha ao registrar o uso de IA do lote:", descreverErro(e));
+    }
+  }
+  return situacao;
 }
