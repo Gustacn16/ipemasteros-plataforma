@@ -51,10 +51,10 @@ Base comum a todos os módulos: identidade, acesso, papéis, auditoria e conform
 - Papéis com checagem no servidor.
 - Telas `/admin/usuarios` e `/admin/auditoria`.
 - Auditoria de login, logout, convites, papel e ativação.
-- Limite de tentativas: 5 logins por minuto por IP.
+- Limite de tentativas no banco (`limites_tentativas`, só com chave em hash, sem IP nem e-mail): 5 senhas erradas para o mesmo e-mail e IP bloqueiam por 15 min. Há limites também por e-mail, por IP, no "esqueci a senha", na redefinição e no convite (`src/modulos/core/regras/limite-tentativas.ts`).
+- Revisão de segurança de 05/11/2026 (`docs/revisoes/2026-11-05-seguranca-e-limpeza.md`) aplicada no teste em 17/11/2026.
 
 **Pendente:**
-- Bloqueio **por conta** após 5 tentativas falhas. Hoje o limite é só por IP.
 - 2FA para admin e gestor.
 - Verificação contra senhas vazadas.
 - Telas `/perfil`, `/admin/lgpd`, `/admin/integracoes` e `/admin/saude`.

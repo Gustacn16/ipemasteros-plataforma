@@ -17,7 +17,7 @@ Visão geral das entidades e de como os módulos se relacionam. Os campos detalh
 ## Mapa de entidades por módulo
 | Módulo | Entidades |
 |---|---|
-| Core | `Usuario`, `FotoUsuario`, `Sessao`, `Conta`, `Verificacao`, `Convite`, `LogAuditoria`, `SolicitacaoTitular` |
+| Core | `Usuario`, `FotoUsuario`, `Sessao`, `Conta`, `Verificacao`, `Convite`, `LogAuditoria`, `SolicitacaoTitular`, `LimiteTentativa` |
 | Tarefas | `Espaco`, `Pasta`, `Lista`, `StatusLista`, `Tarefa`, `TarefaResponsavel`, `ItemChecklist`, `Etiqueta`, `TarefaEtiqueta`, `Comentario`, `Anexo` |
 | Agenda | `TipoEvento`, `EventoInstitucional`, `AgendaExterna`, `AssinaturaAgenda` |
 | Acadêmico | `Curso`, `Turma`, `Disciplina`, `Aula`, `Professor`, `Aluno`, `Matricula`, `Presenca`, `Fornecedor`, `TurmaFornecedor`, `ModeloAvaliacao`, `PerguntaAvaliacao`, `RespostaAvaliacao` |
