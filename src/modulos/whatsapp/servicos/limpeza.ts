@@ -45,11 +45,14 @@ async function religarContatos(): Promise<number> {
       if (!chave) continue;
       const ligado = await ligacoesDoTelefone(chave);
       if (!ligado.alunoId && !ligado.usuarioId) continue;
-      await prisma.contatoWhatsapp.update({ where: { id: c.id }, data: ligado });
-      await prisma.conversaWhatsapp.updateMany({
-        where: { contatoId: c.id, tipo: "individual", categoria: "lead" },
-        data: { categoria: categoriaInicial(ligado) },
-      });
+      // Juntos: falhar no meio não deixa o contato ligado com a conversa parada em "lead".
+      await prisma.$transaction([
+        prisma.contatoWhatsapp.update({ where: { id: c.id }, data: ligado }),
+        prisma.conversaWhatsapp.updateMany({
+          where: { contatoId: c.id, tipo: "individual", categoria: "lead" },
+          data: { categoria: categoriaInicial(ligado) },
+        }),
+      ]);
       religados++;
     }
     if (lote.length < LOTE_CONTATOS) break;
@@ -90,8 +93,10 @@ export async function limparWhatsapp(
       OR: [{ ultimaMensagemEm: { lt: limite } }, { ultimaMensagemEm: null, criadoEm: { lt: limite } }],
     },
   });
+  // Contato criado há menos de 1 dia fica: a captura cria o contato antes de gravar suas mensagens e conversa.
+  const umDiaAtras = new Date(agora.getTime() - 24 * 60 * 60 * 1000);
   const { count: contatosVazios } = await prisma.contatoWhatsapp.deleteMany({
-    where: { mensagens: { none: {} }, conversas: { none: {} }, alunoId: null, usuarioId: null },
+    where: { mensagens: { none: {} }, conversas: { none: {} }, alunoId: null, usuarioId: null, criadoEm: { lt: umDiaAtras } },
   });
   return { provisorias, antigas, religados, conversasVazias, contatosVazios };
 }

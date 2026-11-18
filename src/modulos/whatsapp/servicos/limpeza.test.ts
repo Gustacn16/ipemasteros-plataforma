@@ -41,6 +41,7 @@ const banco = vi.hoisted(() => {
     if (where.alunoId === null && c.alunoId) return false;
     if (where.usuarioId === null && c.usuarioId) return false;
     if (where.id?.gt && !(c.id > where.id.gt)) return false;
+    if (where.criadoEm?.lt && !(c.criadoEm < where.criadoEm.lt)) return false;
     if (where.mensagens?.none && estado.mensagens.some((m) => m.contatoId === c.id)) return false;
     if (where.conversas?.none && estado.conversas.some((x) => x.contatoId === c.id)) return false;
     return true;
@@ -57,6 +58,7 @@ const banco = vi.hoisted(() => {
     return true;
   };
   const prisma = {
+    $transaction: async (ops: Promise<unknown>[]) => Promise.all(ops),
     aluno: { findMany: async () => estado.alunos },
     usuario: { findMany: async () => estado.usuarios },
     contatoWhatsapp: {
@@ -134,7 +136,7 @@ function individual(id: string, dados: Linha) {
   banco.estado.conversas.push({ id, tipo: "individual", categoria: "lead", contatoId: null, monitorada: false, provisoriaAte: null, ultimaMensagemEm: null, criadoEm: dias(-1), ...dados });
 }
 function contato(id: string, dados: Linha) {
-  banco.estado.contatos.push({ id, telefone: null, alunoId: null, usuarioId: null, ...dados });
+  banco.estado.contatos.push({ id, telefone: null, alunoId: null, usuarioId: null, criadoEm: dias(-10), ...dados });
 }
 function mensagem(id: string, conversaId: string, enviadaEm: Date) {
   banco.estado.mensagens.push({ id, conversaId, enviadaEm });
@@ -258,6 +260,14 @@ describe("limparWhatsapp", () => {
     const r = await limparWhatsapp(AGORA);
     expect(r.contatosVazios).toBe(1);
     expect(banco.estado.contatos.map((c) => c.id).sort()).toEqual(["com-aluno", "com-conversa"]);
+  });
+
+  it("contato vazio criado há menos de 1 dia continua", async () => {
+    contato("novo", { telefone: "5511911112222", criadoEm: horas(-2) });
+    contato("velho", { telefone: "5511933334444", criadoEm: horas(-30) });
+    const r = await limparWhatsapp(AGORA);
+    expect(r.contatosVazios).toBe(1);
+    expect(banco.estado.contatos.map((c) => c.id)).toEqual(["novo"]);
   });
 
   it("a resposta traz religados, conversasVazias e contatosVazios", async () => {
