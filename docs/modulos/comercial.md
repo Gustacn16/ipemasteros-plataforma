@@ -31,6 +31,7 @@ O catálogo é **único no sistema**: o Acadêmico vai usar os mesmos produtos (
 - `/comercial/metas/cadastro` (só quem gerencia metas): total do mês e "Copiar do mês anterior". Um cartão por produto, nas prateleiras da estante, com uma linha por vendedor (valor em R$ e quantidade), total do produto e "Salvar". No fim, o total por vendedor. Deixar valor e quantidade vazios apaga a meta.
 - `/comercial/integracao-meta` (só admin): situação da conexão com a Meta, contas de anúncio (liga/desliga na importação; moeda diferente de BRL fica fora dos totais), últimas 10 importações e "Atualizar agora". Configuração em `docs/runbooks/meta-ads.md`.
 - `/comercial/canais`: lista de canais de venda (adicionar, renomear e ativar/desativar).
+- `/comercial/vendas/importar` (só admin, link na tela de Vendas): importa o histórico da plataforma antiga (Lovable). Ver "Histórico da plataforma antiga" abaixo.
 
 ## Regras de negócio
 1. A primeira oferta de um produto vira a padrão. Marcar outra como padrão desmarca as demais. Excluir a padrão passa a marca para a primeira oferta restante.
@@ -50,6 +51,29 @@ Ver `docs/04-seguranca-permissoes.md` (papel `comercial` e permissões `comercia
 
 ## Importação do catálogo
 Os 12 produtos de 02/11/2026 ficam em `src/modulos/comercial/dados/catalogo-produtos.ts`. A migration `20261103030000_comercial_catalogo` foi gerada por `npx tsx scripts/gerar-sql-catalogo.ts` e usa `INSERT IGNORE` com ids fixos, então não duplica dados nem desfaz edições feitas na tela.
+
+## Histórico da plataforma antiga (Lovable)
+A exportação de 18/11/2026 (pacote `dados-comerciais-ipemaster-2026-11-18.zip`, com guia próprio) tem 80 vendas de 10/06 a 15/11/2026 (R$ 2.158.268,92) e 43 metas por vendedor. O arquivo **não vai para o Git** (tem dados de clientes): o admin envia o `dados-comerciais.json` em `/comercial/vendas/importar`, confere a prévia (só contagens, valores por mês e nomes de vendedores) e grava. A tela recorta do arquivo, no navegador, só as tabelas usadas. Código em `src/modulos/comercial/importacao-lovable/` (regras puras e testes) e `servicos/importacao-lovable.ts`. Auditoria `vendas.importadas`, só com contagens.
+
+| Plataforma antiga | Sistema novo |
+|---|---|
+| `sales.id` | `Venda.id` = `lovable-<id antigo>` (é isso que impede duplicar) |
+| `sale_date`, `lead_entry_date`, `delivery_date`, `first_due_date` | `dataVenda`, `dataEntradaLead`, `dataEntrega`, `primeiroVencimento` |
+| `product_id` | `produtoId`, pelo nome do produto antigo no catálogo (os 12 são os mesmos). As vendas "Pós-Graduação em Psiquiatria" apontam para a EAD |
+| `seller_id` / `created_by` (= `profiles.user_id`) | `vendedorId` / `criadoPorId`, pelo nome ou apelido do usuário (nome inteiro ou todas as palavras dele; empate não casa). Sem usuário: cria um vendedor **inativo**, sem senha, id `lovable-<user_id>`, e-mail `…@historico.invalid`, cargo "Vendedor (plataforma antiga)" |
+| `customer_name`, `whatsapp` | `nomeCliente`, `whatsappCliente` (só dígitos, sem o 55; fora de 10–11 dígitos fica vazio) |
+| `channel` | `canalId`, pelo nome sem acento e maiúscula; o que falta é criado (Meta Ads, Orgânico, Indicação, ChatGPT Ads) |
+| `payment_method` | Pix → `pix`, Boleto → `boleto`, Cartão de Crédito → `cartao`. Vazio (4 vendas) → `pix` com a observação "Forma de pagamento não informada na plataforma antiga." |
+| `down_payment`, `installments_count`, `installment_value` | `entrada`, `numeroParcelas`, `valorParcela`; `valorTotal` recalculado (regra 6). Bateu com `value` nas 80 |
+| `notes`, `next_actions` | `observacoes`, `proximosPassos` |
+| `status` = cancelada | não entra (nenhuma na exportação) |
+| `sales_seller_product_targets` | `MetaVenda` (id `lovable-<id>`): `quantidadeAlvo` = `sales_count`; `valorAlvo` = quantidade × `ticket_override` ou, sem ele, × o preço da oferta padrão (igual às metas do sistema). Meta zerada não entra; meta que já existe no mês, produto e vendedor fica como está |
+
+Regras: venda já importada (mesmo id, inclusive excluída depois) é pulada; venda registrada direto no sistema com o mesmo produto, dia e nome do cliente também é pulada, para não contar duas vezes. Duas vendas têm a data do lead depois da data da venda e foram mantidas como vieram.
+
+**Não importado** (sem lugar no Comercial hoje): `sales_installments` (805 parcelas, todas pendentes: ficam para a entrega de parcelas e MRR), `product_monthly_targets` e `sales_team_targets` (metas sem vendedor ou só em R$; a meta do produto é a soma das metas por vendedor), `media_metrics` e `funnel_metrics` (lançamentos manuais; a mídia vem da Meta), remuneração (`compensation_*`), `students` (Acadêmico), indicadores (`indicator_*`, `kpi_*`) e diagramas de funil.
+
+Os filtros de vendedor do dashboard e da lista de vendas mostram também quem já vendeu e está inativo (`listarVendedoresDoFiltro`).
 
 ## Situação da implementação
 **Entrega 1 (feito):** papel `comercial`, catálogo de produtos com ofertas e links (estante de cartões), canais de venda e importação dos 12 produtos.

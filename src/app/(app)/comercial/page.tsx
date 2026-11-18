@@ -6,7 +6,7 @@ import { esquemaFiltrosDashboard } from "@/modulos/comercial/esquemas/dashboard"
 import { obterDashboard } from "@/modulos/comercial/servicos/dashboard";
 import { obterMidia } from "@/modulos/comercial/servicos/dashboard-midia";
 import { listarProdutosParaVenda } from "@/modulos/comercial/servicos/produtos";
-import { listarVendedores } from "@/modulos/comercial/servicos/vendas";
+import { listarVendedoresDoFiltro } from "@/modulos/comercial/servicos/vendas";
 
 export const metadata: Metadata = { title: "Dashboard comercial — IPEMaster OS" };
 
@@ -31,7 +31,7 @@ export default async function PaginaDashboard({ searchParams }: PageProps<"/come
   const [dados, produtos, vendedores, midia] = await Promise.all([
     obterDashboard(usuario, filtros),
     listarProdutosParaVenda(),
-    listarVendedores(),
+    listarVendedoresDoFiltro(),
     naMidia ? obterMidia(usuario, filtros) : Promise.resolve(null),
   ]);
   const comMes = (extra: Record<string, string>) => `/comercial?${new URLSearchParams({ mes: filtros.mes, ...extra })}`;

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { temPermissao } from "@/lib/permissoes";
 import { exigirPermissaoPagina } from "@/lib/sessao";
 import { FiltrosVendas } from "@/modulos/comercial/componentes/filtros-vendas";
@@ -6,7 +7,7 @@ import { TabelaVendas } from "@/modulos/comercial/componentes/tabela-vendas";
 import { esquemaFiltrosVendas } from "@/modulos/comercial/esquemas/venda";
 import { listarCanais } from "@/modulos/comercial/servicos/canais";
 import { listarProdutosParaVenda } from "@/modulos/comercial/servicos/produtos";
-import { listarVendas, listarVendedores } from "@/modulos/comercial/servicos/vendas";
+import { listarVendas, listarVendedores, listarVendedoresDoFiltro } from "@/modulos/comercial/servicos/vendas";
 import { diaEmSaoPaulo } from "@/modulos/tarefas/regras/prazo";
 
 export const metadata: Metadata = { title: "Vendas — IPEMaster OS" };
@@ -27,10 +28,11 @@ export default async function PaginaVendas({ searchParams }: PageProps<"/comerci
     canal: texto(busca.canal),
   });
 
-  const [{ vendas, total, intervalo, equipe }, produtos, vendedores, canais] = await Promise.all([
+  const [{ vendas, total, intervalo, equipe }, produtos, vendedores, vendedoresDoFiltro, canais] = await Promise.all([
     listarVendas(usuario, filtros),
     listarProdutosParaVenda(),
     listarVendedores(),
+    listarVendedoresDoFiltro(),
     listarCanais(),
   ]);
   const canaisAtivos = canais.filter((c) => c.ativo);
@@ -41,6 +43,14 @@ export default async function PaginaVendas({ searchParams }: PageProps<"/comerci
         <p className="text-muted-foreground text-sm">
           Vendas de {dataDoDia(intervalo.primeiroDia)} a {dataDoDia(intervalo.ultimoDia)}
           {equipe ? "" : " (só as suas)"}.
+          {temPermissao(usuario.papel, "comercial:importar_historico") && (
+            <>
+              {" "}
+              <Link href="/comercial/vendas/importar" className="underline underline-offset-4">
+                Importar histórico da plataforma antiga
+              </Link>
+            </>
+          )}
         </p>
         <FiltrosVendas
           periodo={intervalo.periodo}
@@ -48,7 +58,7 @@ export default async function PaginaVendas({ searchParams }: PageProps<"/comerci
           ultimoDia={intervalo.ultimoDia}
           produtos={produtos}
           canais={canais}
-          vendedores={equipe ? vendedores : null}
+          vendedores={equipe ? vendedoresDoFiltro : null}
         />
       </div>
       {temPermissao(usuario.papel, "comercial:registrar_venda") && (

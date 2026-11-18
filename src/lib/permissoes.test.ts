@@ -179,6 +179,15 @@ describe("permissões do Comercial", () => {
   });
 });
 
+describe("importar histórico comercial", () => {
+  it("só o admin importa o histórico da plataforma antiga", () => {
+    expect(temPermissao("admin", "comercial:importar_historico")).toBe(true);
+    for (const papel of ["gestor", "comercial", "colaborador", "professor", "aluno"] as const) {
+      expect(temPermissao(papel, "comercial:importar_historico")).toBe(false);
+    }
+  });
+});
+
 describe("apagar produtos", () => {
   it("só o admin apaga produtos", () => {
     expect(temPermissao("admin", "comercial:excluir_produtos")).toBe(true);

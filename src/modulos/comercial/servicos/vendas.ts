@@ -29,6 +29,15 @@ export async function listarVendedores() {
   });
 }
 
+/** Vendedores para os filtros: os ativos e quem já vendeu (mesmo inativo, como os do histórico importado). */
+export async function listarVendedoresDoFiltro() {
+  return prisma.usuario.findMany({
+    where: { OR: [{ ativo: true, papel: { in: [...PAPEIS_VENDEDOR] } }, { vendasDoVendedor: { some: { excluidoEm: null } } }] },
+    orderBy: { nome: "asc" },
+    select: { id: true, nome: true },
+  });
+}
+
 const selecaoVenda = {
   id: true,
   produtoId: true,

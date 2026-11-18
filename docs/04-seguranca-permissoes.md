@@ -71,6 +71,7 @@ O papel `comercial` tem, nos outros módulos, as mesmas permissões do colaborad
 | `comercial:ver_marketing` (investimento, leads, CPL, CAC e ROAS) | ✅ | ✅ | — |
 | `comercial:atribuir_campanhas` (ligar campanha da Meta a produto) | ✅ | ✅ | — |
 | `comercial:gerenciar_integracao_meta` (tela da integração e "Atualizar agora") | ✅ | — | — |
+| `comercial:importar_historico` (importar vendas e metas da plataforma antiga) | ✅ | — | — |
 
 Admin e gestor convidam usuários com o papel `comercial`.
 

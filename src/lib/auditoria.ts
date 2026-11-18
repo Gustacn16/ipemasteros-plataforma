@@ -28,6 +28,7 @@ export type AcaoAuditoria =
   | "venda.criada"
   | "venda.editada"
   | "venda.excluida"
+  | "vendas.importadas"
   | "aluno.criado"
   | "aluno.editado"
   | "matricula.criada"
