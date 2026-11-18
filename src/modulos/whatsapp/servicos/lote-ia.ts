@@ -1,11 +1,12 @@
 import "server-only";
 import type Anthropic from "@anthropic-ai/sdk";
 import { obterClienteAnthropic } from "@/lib/ia/cliente";
-import { calcularCustoMicroUsd } from "@/lib/ia/precos";
-import { gastoMesMicroUsd } from "@/lib/ia/uso";
+import { calcularCustoMicroUsd, MODELOS_IA, type ModeloIa } from "@/lib/ia/precos";
+import { gastoMesMicroUsd, registrarUsoIa } from "@/lib/ia/uso";
 import { prisma } from "@/lib/prisma";
 import { descreverErro } from "@/modulos/nexu/servicos/descrever-erro";
 import {
+  esquemaZodResumo,
   INSTRUCOES_RESUMO,
   montarEntradaResumo,
   participacaoDoDia,
@@ -243,5 +244,182 @@ async function gravarResumo(c: Candidato, dia: Date, d: DadosResumo): Promise<st
   } catch (e) {
     if (codigoErro(e) === "P2002") return null; // já existe e está pronto
     throw e;
+  }
+}
+
+export const ERRO_NAO_ENVIADO = "O lote não foi enviado.";
+export const ERRO_RECUSA = "A IA recusou este resumo.";
+export const ERRO_FORMATO = "Resposta fora do formato.";
+export const ERRO_IA = "Erro da IA.";
+export const ERRO_EXPIROU = "O pedido expirou.";
+export const ERRO_CANCELADO = "O pedido foi cancelado.";
+export const ERRO_SEM_RESULTADO = "A IA não devolveu este resumo.";
+export const ERRO_GRAVACAO = "Não foi possível salvar o resumo.";
+
+const UMA_HORA_MS = 3_600_000;
+/** A Anthropic encerra um lote em até 24 h; com 25 h sem "ended", desistimos. */
+const PRAZO_LOTE_MS = 25 * UMA_HORA_MS;
+const PREFIXO_CUSTOM_ID = "resumo:";
+const MODELO_RESERVA: ModeloIa = "claude-opus-5-5";
+
+const ehModeloIa = (m: unknown): m is ModeloIa => typeof m === "string" && (MODELOS_IA as readonly string[]).includes(m);
+
+type ResultadoColeta = { lotes: number; prontos: number; falhos: number };
+
+/** Marca falhou os resumos ainda pendentes do lote. Devolve quantos mudaram. */
+async function falharPendentes(loteId: string, erro: string): Promise<number> {
+  const r = await prisma.resumoGrupo.updateMany({
+    where: { loteId, situacao: "pendente" },
+    data: { situacao: "falhou", erro },
+  });
+  return r.count;
+}
+
+/** Encerra o lote como falhou e leva junto os resumos pendentes. Devolve quantos resumos falharam. */
+async function encerrarLoteComFalha(loteId: string, erro: string, agora: Date): Promise<number> {
+  const falhos = await falharPendentes(loteId, erro);
+  await prisma.loteIa.update({ where: { id: loteId }, data: { situacao: "falhou", erro, concluidoEm: agora } });
+  return falhos;
+}
+
+type Desfecho =
+  | { situacao: "pronto"; dados: ReturnType<typeof esquemaZodResumo.parse>; modelo: string }
+  | { situacao: "falhou"; erro: string };
+
+/** Interpreta um item do lote; registra o uso de todo "succeeded" (inclusive recusas e respostas fora do formato). */
+async function desfechoDoItem(item: ResultadoLote, modeloResumo: string): Promise<Desfecho> {
+  const r = item.result;
+  if (r.type !== "succeeded") {
+    const erro = r.type === "expired" ? ERRO_EXPIROU : r.type === "canceled" ? ERRO_CANCELADO : ERRO_IA;
+    return { situacao: "falhou", erro };
+  }
+
+  const mensagem = r.message;
+  // O preço segue o modelo pedido (ResumoGrupo.modelo); a resposta pode trazer um nome com sufixo de versão.
+  const modelo = ehModeloIa(modeloResumo) ? modeloResumo : ehModeloIa(mensagem.model) ? mensagem.model : MODELO_RESERVA;
+  await registrarUsoIa({
+    origem: ORIGEM_IA_WHATSAPP,
+    usuarioId: null,
+    modelo,
+    inicioPergunta: false,
+    usage: mensagem.usage,
+    lote: true,
+  });
+
+  if (mensagem.stop_reason === "refusal") return { situacao: "falhou", erro: ERRO_RECUSA };
+  const bloco = mensagem.content.find((b) => b.type === "text");
+  if (!bloco || bloco.type !== "text") return { situacao: "falhou", erro: ERRO_FORMATO };
+  let json: unknown;
+  try {
+    json = JSON.parse(bloco.text);
+  } catch {
+    return { situacao: "falhou", erro: ERRO_FORMATO };
+  }
+  const validado = esquemaZodResumo.safeParse(json);
+  if (!validado.success) return { situacao: "falhou", erro: ERRO_FORMATO };
+  return { situacao: "pronto", dados: validado.data, modelo };
+}
+
+/**
+ * Coleta os lotes de resumo abertos: grava cada resumo pronto (ou falhou), registra o uso a preço de lote
+ * e encerra o lote. Só mexe em resumos ainda pendentes, então pode rodar de novo sem regravar nada.
+ */
+export async function coletarLotes(agora: Date = new Date(), cliente?: ClienteLotes | null): Promise<ResultadoColeta> {
+  const total: ResultadoColeta = { lotes: 0, prontos: 0, falhos: 0 };
+  const lotes =
+    cliente === undefined ? ((c) => (c ? clienteLotesAnthropic(c) : null))(obterClienteAnthropic()) : cliente;
+  if (!lotes) return total;
+
+  const abertos = await prisma.loteIa.findMany({
+    where: { tipo: "resumo_grupo", situacao: "aberto" },
+    orderBy: { criadoEm: "asc" },
+    select: { id: true, idExterno: true, criadoEm: true },
+  });
+
+  for (const lote of abertos) {
+    const idade = agora.getTime() - lote.criadoEm.getTime();
+    try {
+      if (lote.idExterno === null) {
+        if (idade < UMA_HORA_MS) continue; // ainda enviando
+        // Não apaga a reserva: o envio pode ter dado certo na Anthropic, e reenviar pagaria duas vezes.
+        total.falhos += await encerrarLoteComFalha(lote.id, ERRO_NAO_ENVIADO, agora);
+        total.lotes++;
+        continue;
+      }
+
+      let situacao: string;
+      try {
+        situacao = (await lotes.buscar(lote.idExterno)).processing_status;
+      } catch (e) {
+        if (idade <= PRAZO_LOTE_MS) throw e;
+        console.error("[whatsapp] falha ao consultar o lote de resumos:", descreverErro(e));
+        situacao = "desconhecido";
+      }
+      if (situacao !== "ended") {
+        if (idade <= PRAZO_LOTE_MS) continue; // ainda processando
+        total.falhos += await encerrarLoteComFalha(lote.id, ERRO_EXPIROU, agora);
+        total.lotes++;
+        continue;
+      }
+
+      for await (const item of lotes.resultados(lote.idExterno)) {
+        const r = await gravarItem(item, lote.id);
+        if (r === "pronto") total.prontos++;
+        else if (r === "falhou") total.falhos++;
+      }
+      // Pedido sem resultado (não deveria acontecer): não fica pendente para sempre.
+      total.falhos += await falharPendentes(lote.id, ERRO_SEM_RESULTADO);
+      await prisma.loteIa.update({ where: { id: lote.id }, data: { situacao: "concluido", concluidoEm: agora } });
+      total.lotes++;
+    } catch (e) {
+      // O lote fica aberto: a próxima coleta tenta de novo (só os pendentes mudam).
+      console.error("[whatsapp] falha ao coletar o lote de resumos:", descreverErro(e));
+    }
+  }
+  return total;
+}
+
+/** Grava um item do lote. Devolve o que aconteceu com o resumo, ou null se nada mudou. */
+async function gravarItem(item: ResultadoLote, loteId: string): Promise<"pronto" | "falhou" | null> {
+  const id = item.custom_id.startsWith(PREFIXO_CUSTOM_ID) ? item.custom_id.slice(PREFIXO_CUSTOM_ID.length) : "";
+  if (!id) {
+    console.error("[whatsapp] item do lote com custom_id desconhecido: ignorado");
+    return null;
+  }
+  try {
+    const resumo = await prisma.resumoGrupo.findUnique({
+      where: { id },
+      select: { situacao: true, modelo: true, loteId: true },
+    });
+    // Coleta repetida (ou item de outro lote): nada a fazer, e o uso já foi registrado.
+    if (!resumo || resumo.situacao !== "pendente" || resumo.loteId !== loteId) return null;
+
+    const d = await desfechoDoItem(item, resumo.modelo);
+    const data =
+      d.situacao === "pronto"
+        ? {
+            situacao: "pronto" as const,
+            erro: null,
+            resumo: d.dados.resumo,
+            temas: d.dados.temas,
+            pendencias: d.dados.pendencias,
+            destaques: d.dados.destaques,
+            modelo: d.modelo,
+          }
+        : { situacao: "falhou" as const, erro: d.erro };
+    const r = await prisma.resumoGrupo.updateMany({ where: { id, situacao: "pendente" }, data });
+    return r.count > 0 ? d.situacao : null;
+  } catch (e) {
+    console.error("[whatsapp] falha ao gravar um resumo do lote:", descreverErro(e));
+    try {
+      const r = await prisma.resumoGrupo.updateMany({
+        where: { id, situacao: "pendente" },
+        data: { situacao: "falhou", erro: ERRO_GRAVACAO },
+      });
+      return r.count > 0 ? "falhou" : null;
+    } catch (e2) {
+      console.error("[whatsapp] falha ao marcar o resumo como falhou:", descreverErro(e2));
+      return null;
+    }
   }
 }

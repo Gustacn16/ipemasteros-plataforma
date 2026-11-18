@@ -12,6 +12,7 @@ const banco = vi.hoisted(() => {
     resumos: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
     lotes: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
     config: null as Record<string, any> | null, // eslint-disable-line @typescript-eslint/no-explicit-any
+    usos: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
     gastoMes: 0,
     seq: 0,
     falharUpdateLote: false,
@@ -25,6 +26,9 @@ const banco = vi.hoisted(() => {
   const resumoCombina = (r: Linha, where: Linha) => {
     if (where.id?.in && !where.id.in.includes(r.id)) return false;
     if (where.situacao?.not && r.situacao === where.situacao.not) return false;
+    if (typeof where.situacao === "string" && r.situacao !== where.situacao) return false;
+    if (where.id !== undefined && typeof where.id === "string" && r.id !== where.id) return false;
+    if (where.loteId !== undefined && r.loteId !== where.loteId) return false;
     if (where.conversaId !== undefined && r.conversaId !== where.conversaId) return false;
     if (where.dia !== undefined && !mesmoDia(r.dia, where.dia)) return false;
     return true;
@@ -38,8 +42,18 @@ const banco = vi.hoisted(() => {
         if (where.origem !== "whatsapp") throw new Error("origem errada");
         return { _sum: { custoMicroUsd: estado.gastoMes } };
       },
+      create: async ({ data }: { data: Linha }) => {
+        estado.usos.push(data);
+        return data;
+      },
     },
     loteIa: {
+      findMany: async ({ where }: { where: Linha }) => {
+        semLike(where);
+        return estado.lotes
+          .filter((l) => l.tipo === where.tipo && l.situacao === where.situacao)
+          .map((l) => ({ id: l.id, idExterno: l.idExterno, criadoEm: l.criadoEm }));
+      },
       findFirst: async ({ where }: { where: Linha }) => {
         semLike(where);
         return estado.lotes.find((l) => l.tipo === where.tipo && mesmoDia(l.dia, where.dia)) ?? null;
@@ -48,7 +62,7 @@ const banco = vi.hoisted(() => {
       create: async ({ data }: { data: Linha }) => {
         await Promise.resolve();
         if (estado.lotes.some((l) => l.tipo === data.tipo && mesmoDia(l.dia, data.dia))) throw p2002();
-        const l = { id: `lote${++estado.seq}`, situacao: "aberto", idExterno: null, ...data };
+        const l = { id: `lote${++estado.seq}`, situacao: "aberto", idExterno: null, criadoEm: new Date(), ...data };
         estado.lotes.push(l);
         return { id: l.id };
       },
@@ -88,7 +102,8 @@ const banco = vi.hoisted(() => {
       },
     },
     resumoGrupo: {
-      findUnique: async ({ where }: { where: Linha }) => porChave(where) ?? null,
+      findUnique: async ({ where }: { where: Linha }) =>
+        (where.id !== undefined ? estado.resumos.find((r) => r.id === where.id) : porChave(where)) ?? null,
       create: async ({ data }: { data: Linha }) => {
         if (porChave({ conversaId_dia: { conversaId: data.conversaId, dia: data.dia } })) throw p2002();
         const r = { id: `res${++estado.seq}`, ...data };
@@ -111,7 +126,7 @@ vi.mock("@/lib/ia/cliente", () => ({ obterClienteAnthropic: () => null }));
 
 import { calcularCustoMicroUsd } from "@/lib/ia/precos";
 import { INSTRUCOES_RESUMO } from "../ia/resumo-grupo";
-import { criarLoteDoDia, type ClienteLotes, type ResultadoLote } from "./lote-ia";
+import { coletarLotes, criarLoteDoDia, type ClienteLotes, type ResultadoLote } from "./lote-ia";
 
 // 18/11 às 07:30 UTC (04:30 em São Paulo): "ontem" é 17/11 de 03:00Z até 18/11 03:00Z.
 const AGORA = new Date("2026-11-18T07:30:00Z");
@@ -163,6 +178,7 @@ beforeEach(() => {
     resumos: [],
     lotes: [],
     config: null,
+    usos: [],
     gastoMes: 0,
     seq: 0,
     falharUpdateLote: false,
@@ -389,5 +405,312 @@ describe("criarLoteDoDia", () => {
     }
     expect(pedidosDe(enviados).map((p) => p.custom_id)).not.toContain("resumo:r0");
     expect(banco.estado.resumos.find((r) => r.id === "r0")).toMatchObject({ situacao: "pronto", resumo: "ok" });
+  });
+});
+
+describe("coletarLotes", () => {
+  // Coleta às 10:00 UTC do dia 18; o lote foi criado às 07:30.
+  const COLETA = new Date("2026-11-18T10:00:00Z");
+  const USAGE = { input_tokens: 1000, output_tokens: 500, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 };
+  const JSON_OK = {
+    resumo: "Dia tranquilo.",
+    temas: ["prova", "horário"],
+    pendencias: [{ autor: "Ana", hora: "10:15", texto: "Quando sai a nota?" }],
+    destaques: ["Elogio à aula"],
+  };
+
+  function sucesso(customId: string, texto: string, extra: Linha = {}): ResultadoLote {
+    return {
+      custom_id: customId,
+      result: {
+        type: "succeeded",
+        message: {
+          id: "msg",
+          type: "message",
+          role: "assistant",
+          model: "claude-opus-5-5",
+          content: [{ type: "text", text: texto, citations: null }],
+          stop_reason: "end_turn",
+          stop_sequence: null,
+          usage: USAGE,
+          ...extra,
+        } as never,
+      },
+    };
+  }
+
+  function clienteColeta(status: string, itens: ResultadoLote[] = []) {
+    const cliente: ClienteLotes = {
+      async criar() {
+        throw new Error("não deve criar");
+      },
+      async buscar() {
+        return { processing_status: status };
+      },
+      async *resultados() {
+        for (const i of itens) yield i;
+      },
+    };
+    return cliente;
+  }
+
+  function lote(dados: Linha = {}) {
+    const l = {
+      id: "l1",
+      idExterno: "msgbatch_1",
+      tipo: "resumo_grupo",
+      dia: DIA,
+      situacao: "aberto",
+      erro: null,
+      criadoEm: AGORA,
+      concluidoEm: null,
+      ...dados,
+    };
+    banco.estado.lotes.push(l);
+    return l;
+  }
+  function resumo(id: string, dados: Linha = {}) {
+    const r = {
+      id,
+      conversaId: `g-${id}`,
+      dia: DIA,
+      loteId: "l1",
+      situacao: "pendente",
+      erro: null,
+      resumo: null,
+      modelo: "claude-opus-5-5",
+      participacao: [],
+      totalMensagens: 1,
+      ...dados,
+    };
+    banco.estado.resumos.push(r);
+    return r;
+  }
+
+  it("sem cliente (sem chave) não faz nada", async () => {
+    lote();
+    expect(await coletarLotes(COLETA, null)).toEqual({ lotes: 0, prontos: 0, falhos: 0 });
+    expect(await coletarLotes(COLETA)).toEqual({ lotes: 0, prontos: 0, falhos: 0 });
+  });
+
+  it("lote ainda processando: nada muda", async () => {
+    lote();
+    resumo("r1");
+    expect(await coletarLotes(COLETA, clienteColeta("in_progress"))).toEqual({ lotes: 0, prontos: 0, falhos: 0 });
+    expect(banco.estado.lotes[0]).toMatchObject({ situacao: "aberto", concluidoEm: null });
+    expect(banco.estado.resumos[0]).toMatchObject({ situacao: "pendente" });
+    expect(banco.estado.usos).toHaveLength(0);
+  });
+
+  it("succeeded com JSON válido: resumo pronto com temas, pendências e destaques; registra uso de lote", async () => {
+    lote();
+    resumo("r1");
+    const cliente = clienteColeta("ended", [sucesso("resumo:r1", JSON.stringify(JSON_OK))]);
+    expect(await coletarLotes(COLETA, cliente)).toEqual({ lotes: 1, prontos: 1, falhos: 0 });
+    expect(banco.estado.resumos[0]).toMatchObject({
+      situacao: "pronto",
+      erro: null,
+      resumo: "Dia tranquilo.",
+      temas: ["prova", "horário"],
+      pendencias: [{ autor: "Ana", hora: "10:15", texto: "Quando sai a nota?" }],
+      destaques: ["Elogio à aula"],
+      modelo: "claude-opus-5-5",
+    });
+    const custoLote = calcularCustoMicroUsd(
+      "claude-opus-5-5",
+      { entrada: 1000, cacheEscrita: 0, cacheLeitura: 0, saida: 500 },
+      { lote: true },
+    );
+    expect(banco.estado.usos).toEqual([
+      expect.objectContaining({
+        origem: "whatsapp",
+        usuarioId: null,
+        inicioPergunta: false,
+        modelo: "claude-opus-5-5",
+        tokensEntrada: 1000,
+        tokensSaida: 500,
+        custoMicroUsd: custoLote,
+      }),
+    ]);
+  });
+
+  it("JSON válido com listas longas e hora inválida: aparado e hora normalizada", async () => {
+    lote();
+    resumo("r1");
+    const longo = {
+      ...JSON_OK,
+      temas: ["1", "2", "3", "4", "5", "6", "7"],
+      pendencias: [{ autor: "Ana", hora: "25:99", texto: "x" }],
+    };
+    await coletarLotes(COLETA, clienteColeta("ended", [sucesso("resumo:r1", JSON.stringify(longo))]));
+    expect(banco.estado.resumos[0].temas).toHaveLength(6);
+    expect(banco.estado.resumos[0].pendencias).toEqual([{ autor: "Ana", hora: "", texto: "x" }]);
+  });
+
+  it("modelo da resposta desconhecido: o preço usa ResumoGrupo.modelo", async () => {
+    lote();
+    resumo("r1", { modelo: "claude-sonnet-5-5" });
+    await coletarLotes(
+      COLETA,
+      clienteColeta("ended", [sucesso("resumo:r1", JSON.stringify(JSON_OK), { model: "claude-sonnet-5-5-20261101" })]),
+    );
+    expect(banco.estado.usos[0].modelo).toBe("claude-sonnet-5-5");
+  });
+
+  it("stop_reason refusal: falhou com 'A IA recusou este resumo.'", async () => {
+    lote();
+    resumo("r1");
+    const cliente = clienteColeta("ended", [sucesso("resumo:r1", "", { stop_reason: "refusal" })]);
+    expect(await coletarLotes(COLETA, cliente)).toEqual({ lotes: 1, prontos: 0, falhos: 1 });
+    expect(banco.estado.resumos[0]).toMatchObject({ situacao: "falhou", erro: "A IA recusou este resumo." });
+    // O uso é registrado mesmo na recusa.
+    expect(banco.estado.usos).toHaveLength(1);
+  });
+
+  it("JSON fora do formato: falhou com 'Resposta fora do formato.'", async () => {
+    lote();
+    resumo("r1");
+    resumo("r2");
+    resumo("r3");
+    const cliente = clienteColeta("ended", [
+      sucesso("resumo:r1", "isto não é JSON"),
+      sucesso("resumo:r2", JSON.stringify({ resumo: "só isso" })),
+      sucesso("resumo:r3", "", { content: [] }),
+    ]);
+    expect(await coletarLotes(COLETA, cliente)).toEqual({ lotes: 1, prontos: 0, falhos: 3 });
+    for (const r of banco.estado.resumos) expect(r).toMatchObject({ situacao: "falhou", erro: "Resposta fora do formato." });
+    expect(banco.estado.usos).toHaveLength(3);
+  });
+
+  it("errored e expired: falhou com 'Erro da IA.' e 'O pedido expirou.'", async () => {
+    lote();
+    resumo("r1");
+    resumo("r2");
+    resumo("r3");
+    const cliente = clienteColeta("ended", [
+      { custom_id: "resumo:r1", result: { type: "errored" } },
+      { custom_id: "resumo:r2", result: { type: "expired" } },
+      { custom_id: "resumo:r3", result: { type: "canceled" } },
+    ]);
+    expect(await coletarLotes(COLETA, cliente)).toEqual({ lotes: 1, prontos: 0, falhos: 3 });
+    expect(banco.estado.resumos.map((r) => [r.situacao, r.erro])).toEqual([
+      ["falhou", "Erro da IA."],
+      ["falhou", "O pedido expirou."],
+      ["falhou", "O pedido foi cancelado."],
+    ]);
+    expect(banco.estado.usos).toHaveLength(0);
+  });
+
+  it("custom_id de resumo já pronto não é regravado (coleta repetida)", async () => {
+    lote();
+    resumo("r1", { situacao: "pronto", resumo: "antigo" });
+    const cliente = clienteColeta("ended", [sucesso("resumo:r1", JSON.stringify(JSON_OK))]);
+    expect(await coletarLotes(COLETA, cliente)).toEqual({ lotes: 1, prontos: 0, falhos: 0 });
+    expect(banco.estado.resumos[0]).toMatchObject({ situacao: "pronto", resumo: "antigo" });
+    expect(banco.estado.usos).toHaveLength(0);
+  });
+
+  it("custom_id desconhecido ou malformado: ignorado, sem conteúdo no log", async () => {
+    lote();
+    resumo("r1");
+    const cliente = clienteColeta("ended", [
+      sucesso("outro:r1", JSON.stringify({ ...JSON_OK, resumo: "segredo" })),
+      sucesso("resumo:nao-existe", JSON.stringify(JSON_OK)),
+      sucesso("resumo:r1", JSON.stringify(JSON_OK)),
+    ]);
+    expect(await coletarLotes(COLETA, cliente)).toEqual({ lotes: 1, prontos: 1, falhos: 0 });
+    expect(banco.estado.usos).toHaveLength(1);
+    expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain("segredo");
+  });
+
+  it("erro inesperado em um item: loga o nome do erro, item falhou e segue para o próximo", async () => {
+    lote();
+    resumo("r1");
+    resumo("r2");
+    const create = banco.prisma.usoIa.create;
+    let chamadas = 0;
+    banco.prisma.usoIa.create = async (args: { data: Linha }) => {
+      if (++chamadas === 1) throw new Error("banco caiu");
+      return create(args);
+    };
+    try {
+      const cliente = clienteColeta("ended", [
+        sucesso("resumo:r1", JSON.stringify(JSON_OK)),
+        sucesso("resumo:r2", JSON.stringify(JSON_OK)),
+      ]);
+      expect(await coletarLotes(COLETA, cliente)).toEqual({ lotes: 1, prontos: 1, falhos: 1 });
+    } finally {
+      banco.prisma.usoIa.create = create;
+    }
+    expect(banco.estado.resumos[0]).toMatchObject({ situacao: "falhou", erro: "Não foi possível salvar o resumo." });
+    expect(banco.estado.resumos[1]).toMatchObject({ situacao: "pronto" });
+    expect(console.error).toHaveBeenCalledWith(expect.any(String), "Error");
+  });
+
+  it("no fim, LoteIa concluido com concluidoEm", async () => {
+    lote();
+    resumo("r1");
+    resumo("r2"); // sem resultado no lote: não fica pendente para sempre
+    await coletarLotes(COLETA, clienteColeta("ended", [sucesso("resumo:r1", JSON.stringify(JSON_OK))]));
+    expect(banco.estado.lotes[0]).toMatchObject({ situacao: "concluido", concluidoEm: COLETA });
+    expect(banco.estado.resumos[1]).toMatchObject({ situacao: "falhou", erro: "A IA não devolveu este resumo." });
+    // Coleta seguinte: o lote já não está aberto.
+    expect(await coletarLotes(COLETA, clienteColeta("ended"))).toEqual({ lotes: 0, prontos: 0, falhos: 0 });
+  });
+
+  it("lote aberto há mais de 25 h vira falhou e seus resumos pendentes também", async () => {
+    lote({ criadoEm: new Date(COLETA.getTime() - 26 * 3_600_000) });
+    resumo("r1");
+    resumo("r2", { situacao: "pronto", resumo: "ok" });
+    expect(await coletarLotes(COLETA, clienteColeta("in_progress"))).toEqual({ lotes: 1, prontos: 0, falhos: 1 });
+    expect(banco.estado.lotes[0]).toMatchObject({ situacao: "falhou", erro: "O pedido expirou.", concluidoEm: COLETA });
+    expect(banco.estado.resumos[0]).toMatchObject({ situacao: "falhou", erro: "O pedido expirou." });
+    expect(banco.estado.resumos[1]).toMatchObject({ situacao: "pronto", resumo: "ok" });
+  });
+
+  it("reserva sem idExterno há menos de 1 h: ainda enviando, nada muda", async () => {
+    lote({ idExterno: null, criadoEm: new Date(COLETA.getTime() - 30 * 60_000) });
+    resumo("r1");
+    const cliente = clienteColeta("ended");
+    const buscar = vi.spyOn(cliente, "buscar");
+    expect(await coletarLotes(COLETA, cliente)).toEqual({ lotes: 0, prontos: 0, falhos: 0 });
+    expect(buscar).not.toHaveBeenCalled();
+    expect(banco.estado.lotes[0]).toMatchObject({ situacao: "aberto" });
+    expect(banco.estado.resumos[0]).toMatchObject({ situacao: "pendente" });
+  });
+
+  it("reserva sem idExterno há mais de 1 h: lote e pendentes falham com 'O lote não foi enviado.', sem apagar a reserva", async () => {
+    lote({ idExterno: null, criadoEm: new Date(COLETA.getTime() - 2 * 3_600_000) });
+    resumo("r1");
+    expect(await coletarLotes(COLETA, clienteColeta("ended"))).toEqual({ lotes: 1, prontos: 0, falhos: 1 });
+    expect(banco.estado.lotes).toEqual([expect.objectContaining({ situacao: "falhou", erro: "O lote não foi enviado." })]);
+    expect(banco.estado.resumos[0]).toMatchObject({ situacao: "falhou", erro: "O lote não foi enviado." });
+    // A reserva continua: o lote do dia não é reenviado.
+    const { cliente: novo, enviados } = clienteFalso();
+    grupo("g1");
+    mensagem("g1");
+    expect(await criarLoteDoDia(AGORA, novo)).toMatchObject({ motivo: "ja_existe" });
+    expect(enviados).toHaveLength(0);
+  });
+
+  it("falha ao ler os resultados: lote continua aberto e a próxima coleta termina", async () => {
+    lote();
+    resumo("r1");
+    resumo("r2");
+    const quebrado: ClienteLotes = {
+      ...clienteColeta("ended"),
+      async *resultados() {
+        yield sucesso("resumo:r1", JSON.stringify(JSON_OK));
+        throw new Error("rede");
+      },
+    };
+    expect(await coletarLotes(COLETA, quebrado)).toEqual({ lotes: 0, prontos: 1, falhos: 0 });
+    expect(banco.estado.lotes[0]).toMatchObject({ situacao: "aberto" });
+    const cliente = clienteColeta("ended", [
+      sucesso("resumo:r1", JSON.stringify(JSON_OK)),
+      sucesso("resumo:r2", JSON.stringify(JSON_OK)),
+    ]);
+    expect(await coletarLotes(COLETA, cliente)).toEqual({ lotes: 1, prontos: 1, falhos: 0 });
+    expect(banco.estado.usos).toHaveLength(2);
   });
 });
