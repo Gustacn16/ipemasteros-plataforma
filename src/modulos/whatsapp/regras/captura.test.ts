@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { categoriaInicial, chaveTelefone, decidirGuardar, dentroDoHistorico } from "./captura";
+import { categoriaInicial, chaveTelefone, decidirGuardar, dentroDoHistorico, variantesTelefone } from "./captura";
 
 describe("chaveTelefone", () => {
   it("casa telefones brasileiros com ou sem 55 e com ou sem o 9", () => {
@@ -54,5 +54,17 @@ describe("dentroDoHistorico", () => {
   it("29 dias dentro, 31 fora", () => {
     expect(dentroDoHistorico(diasAtras(29), agora)).toBe(true);
     expect(dentroDoHistorico(diasAtras(31), agora)).toBe(false);
+  });
+});
+
+describe("variantesTelefone", () => {
+  it("celular: com e sem 55, com e sem o 9", () => {
+    expect(variantesTelefone("62981707432").sort()).toEqual(["556281707432", "5562981707432", "6281707432", "62981707432"].sort());
+  });
+  it("fixo: com e sem 55", () => {
+    expect(variantesTelefone("6232107432").sort()).toEqual(["556232107432", "6232107432"].sort());
+  });
+  it("toda variante volta para a mesma chave", () => {
+    for (const v of variantesTelefone("11987654321")) expect(chaveTelefone(v)).toBe("11987654321");
   });
 });

@@ -30,7 +30,8 @@ const banco = vi.hoisted(() => {
           continue;
         }
         if ("in" in v && !v.in.includes(l[k])) return false;
-        if ("endsWith" in v && !(typeof l[k] === "string" && l[k].endsWith(v.endsWith))) return false;
+        // No MySQL da Hostinger o LIKE com parâmetro falha (1267, collation): a captura não pode usá-lo.
+        if ("endsWith" in v || "contains" in v || "startsWith" in v) throw new Error("LIKE não é permitido");
         if ("not" in v && igual(l[k], v.not)) return false;
         if ("lt" in v && !(l[k] != null && l[k] < v.lt)) return false;
         continue;
@@ -111,7 +112,7 @@ const banco = vi.hoisted(() => {
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/prisma", () => ({ prisma: banco.prisma }));
 
-const { aplicarConversas, aplicarMensagens, obterOuCriarContato } = await import("./captura");
+const { aplicarConversas, aplicarMensagens, obterOuCriarContato, esquecerTelefonesCadastrados } = await import("./captura");
 
 const AGORA = new Date("2026-11-17T12:00:00Z");
 const horasAtras = (h: number) => new Date(AGORA.getTime() - h * 3_600_000);
@@ -146,6 +147,7 @@ beforeEach(() => {
   banco.estado.mensagens = [];
   banco.estado.alunos = [];
   banco.estado.usuarios = [];
+  esquecerTelefonesCadastrados();
 });
 
 describe("aplicarConversas", () => {

@@ -25,6 +25,20 @@ export function chaveTelefone(digitos: string | null | undefined): string | null
   return digitos;
 }
 
+/**
+ * Formatos só de dígitos que dão esta chave (com e sem 55, com e sem o 9 do celular). Servem para
+ * buscar no banco com igualdade, sem LIKE (que no MySQL da Hostinger dá "Illegal mix of collations").
+ */
+export function variantesTelefone(chave: string): string[] {
+  const variantes = [chave];
+  if (chave.length === 10 || chave.length === 11) variantes.push("55" + chave);
+  if (chave.length === 11 && chave[2] === "9" && /[6-9]/.test(chave[3]!)) {
+    const sem9 = chave.slice(0, 2) + chave.slice(3);
+    variantes.push(sem9, "55" + sem9);
+  }
+  return variantes.filter((v) => chaveTelefone(v) === chave);
+}
+
 export function categoriaInicial(c: { alunoId: string | null; usuarioId: string | null }): "aluno" | "equipe" | "lead" {
   if (c.alunoId) return "aluno";
   if (c.usuarioId) return "equipe";

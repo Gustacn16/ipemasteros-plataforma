@@ -183,7 +183,10 @@ describe("aplicarEventos", () => {
   });
 
   it("evento que falha conta como ignorado, registra só o tipo e o código, e o resto do lote segue", async () => {
-    const erro = Object.assign(new Error("Duplicate entry '5562999999999' for key 'telefone'"), { code: "P2002" });
+    const erro = Object.assign(new Error("Duplicate entry '5562999999999' for key 'telefone'"), {
+      code: "P2002",
+      meta: { driverAdapterError: { cause: { kind: "mysql", originalCode: "1062" } } },
+    });
     captura.aplicarMensagens.mockRejectedValueOnce(erro);
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     const r = await aplicarEventos(
@@ -196,7 +199,7 @@ describe("aplicarEventos", () => {
     expect(r).toEqual({ aplicados: 1, ignorados: 1 });
     expect(banco.estado.numeros[0]!.qrAtual).toBe("QR1");
     expect(log).toHaveBeenCalledTimes(1);
-    expect(log).toHaveBeenCalledWith("[whatsapp/motor] falha ao aplicar evento mensagens (código P2002)");
+    expect(log).toHaveBeenCalledWith("[whatsapp/motor] falha ao aplicar evento mensagens (Error P2002 mysql:1062)");
     expect(JSON.stringify(log.mock.calls)).not.toContain("5562999999999");
     log.mockRestore();
   });

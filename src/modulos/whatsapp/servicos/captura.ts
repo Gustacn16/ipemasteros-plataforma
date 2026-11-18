@@ -2,7 +2,7 @@ import "server-only";
 import type { CategoriaConversaWhatsapp, TipoMensagemWhatsapp } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { EventoConversas, EventoMensagens, MensagemMotor } from "../esquemas/motor";
-import { categoriaInicial, chaveTelefone, decidirGuardar, dentroDoHistorico, HORAS_PROVISORIO } from "../regras/captura";
+import { categoriaInicial, chaveTelefone, decidirGuardar, dentroDoHistorico, HORAS_PROVISORIO, variantesTelefone } from "../regras/captura";
 
 const MAX_TEXTO = 4000;
 
@@ -40,28 +40,59 @@ const soDigitos = (v: string | null) => v?.replace(/\D/g, "") ?? null;
 
 const codigoErro = (e: unknown) => (typeof e === "object" && e !== null ? (e as { code?: unknown }).code : undefined);
 
-/**
- * Aluno e usuário com a mesma chave de telefone. O telefone deles é guardado em formatos variados,
- * então a busca no banco pega quem termina com os mesmos 8 últimos dígitos e a comparação de chave
- * é feita aqui. Só liga quando há exatamente um.
- */
-async function ligacoes(chave: string): Promise<{ alunoId: string | null; usuarioId: string | null }> {
-  const fim = chave.slice(-8);
+/** Índice chave do telefone → ids, montado no código (sem LIKE no banco) e reaproveitado por 60 s. */
+type IndiceTelefones = { alunos: Map<string, string[]>; usuarios: Map<string, string[]>; em: number };
+const VALIDADE_INDICE_MS = 60_000;
+let indiceTelefones: IndiceTelefones | null = null;
+
+/** Descarta o índice de telefones de alunos e usuários (testes e cadastros novos). */
+export function esquecerTelefonesCadastrados(): void {
+  indiceTelefones = null;
+}
+
+function indexar(linhas: { id: string; tel: string | null }[]): Map<string, string[]> {
+  const mapa = new Map<string, string[]>();
+  for (const l of linhas) {
+    const chave = chaveTelefone(soDigitos(l.tel));
+    if (!chave) continue;
+    const ids = mapa.get(chave);
+    if (ids) ids.push(l.id);
+    else mapa.set(chave, [l.id]);
+  }
+  return mapa;
+}
+
+async function telefonesCadastrados(): Promise<IndiceTelefones> {
+  if (indiceTelefones && Date.now() - indiceTelefones.em < VALIDADE_INDICE_MS) return indiceTelefones;
+  // No MySQL da Hostinger o LIKE (endsWith) com parâmetro dá "Illegal mix of collations" (1267).
+  // O telefone de aluno e usuário é guardado em formatos variados, então a comparação de chave é feita aqui.
   const [alunos, usuarios] = await Promise.all([
-    prisma.aluno.findMany({ where: { telefone: { endsWith: fim } }, select: { id: true, telefone: true } }),
-    prisma.usuario.findMany({ where: { whatsapp: { endsWith: fim } }, select: { id: true, whatsapp: true } }),
+    prisma.aluno.findMany({ where: { telefone: { not: null } }, select: { id: true, telefone: true } }),
+    prisma.usuario.findMany({ where: { whatsapp: { not: null } }, select: { id: true, whatsapp: true } }),
   ]);
-  const alunosIguais = alunos.filter((a) => chaveTelefone(soDigitos(a.telefone)) === chave);
-  const usuariosIguais = usuarios.filter((u) => chaveTelefone(soDigitos(u.whatsapp)) === chave);
+  indiceTelefones = {
+    alunos: indexar(alunos.map((a) => ({ id: a.id, tel: a.telefone }))),
+    usuarios: indexar(usuarios.map((u) => ({ id: u.id, tel: u.whatsapp }))),
+    em: Date.now(),
+  };
+  return indiceTelefones;
+}
+
+/** Aluno e usuário com a mesma chave de telefone. Só liga quando há exatamente um. */
+async function ligacoes(chave: string): Promise<{ alunoId: string | null; usuarioId: string | null }> {
+  const indice = await telefonesCadastrados();
+  const alunos = indice.alunos.get(chave) ?? [];
+  const usuarios = indice.usuarios.get(chave) ?? [];
   return {
-    alunoId: alunosIguais.length === 1 ? alunosIguais[0]!.id : null,
-    usuarioId: usuariosIguais.length === 1 ? usuariosIguais[0]!.id : null,
+    alunoId: alunos.length === 1 ? alunos[0]! : null,
+    usuarioId: usuarios.length === 1 ? usuarios[0]! : null,
   };
 }
 
+/** Contato pela chave: busca por igualdade nos formatos possíveis do telefone e confere a chave aqui. */
 async function contatoPorChave(chave: string): Promise<Contato | null> {
   const candidatos = await prisma.contatoWhatsapp.findMany({
-    where: { telefone: { endsWith: chave.slice(-8) } },
+    where: { telefone: { in: variantesTelefone(chave) } },
     select: CAMPOS_CONTATO,
   });
   return candidatos.find((c) => chaveTelefone(c.telefone) === chave) ?? null;

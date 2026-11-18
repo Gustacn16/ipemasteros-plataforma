@@ -2,6 +2,7 @@ import "server-only";
 import type { TipoComandoWhatsapp } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { EventoMotor } from "../esquemas/motor";
+import { descreverErro } from "@/modulos/nexu/servicos/descrever-erro";
 import { aplicarConversas, aplicarMensagens, type ContextoCaptura } from "./captura";
 
 const REENTREGA_MS = 2 * 60_000;
@@ -28,9 +29,10 @@ export async function aplicarEventos(
     } catch (e) {
       // Erro passageiro do banco: o lote falha (500) e o motor reenvia; o que já foi aplicado não duplica.
       if (ERROS_PASSAGEIROS.has(codigoDoErro(e))) throw e;
-      // Um evento ruim não derruba o lote (o motor reenviaria para sempre). Só o tipo e o código:
+      // Um evento ruim não derruba o lote (o motor reenviaria para sempre). Só o tipo e os códigos:
       // a mensagem do erro do MySQL pode trazer telefone ("Duplicate entry '...'").
-      console.error(`[whatsapp/motor] falha ao aplicar evento ${ev.tipo} (código ${codigoDoErro(e)})`);
+      // descreverErro traz também o código do banco (ex.: "mysql:1267"), sem a mensagem.
+      console.error(`[whatsapp/motor] falha ao aplicar evento ${ev.tipo} (${descreverErro(e)})`);
       ignorados++;
     }
   }
