@@ -8,6 +8,9 @@ import type { ComandoMotor } from "./tipos.ts";
 const INTERVALO_COMANDOS_MS = 3000;
 const INTERVALO_SINAL_MS = 60_000;
 
+/** Só o nome do erro vai para o log: a mensagem da Baileys ou da API pode trazer JID ou telefone. */
+const nomeDoErro = (erro: unknown): string => (erro instanceof Error ? erro.name : "erro desconhecido");
+
 // Só um motor por pasta de sessões: dois motores na mesma sessão derrubam o WhatsApp.
 let liberarTrava: () => void;
 try {
@@ -39,7 +42,7 @@ async function executar(comando: ComandoMotor): Promise<void> {
     resultado = { situacao: "concluido" };
   } catch (erro) {
     const texto = erro instanceof Error ? erro.message : "erro desconhecido";
-    console.error(`[comandos] ${comando.tipo} ${comando.numeroId} falhou: ${texto}`);
+    console.error(`[comandos] ${comando.tipo} ${comando.numeroId} falhou (${nomeDoErro(erro)})`);
     resultado = { situacao: "falhou", erro: texto.slice(0, 255) };
   }
   // Falha ao responder não muda o resultado: o sistema devolve o comando à fila em 2 min,
@@ -47,8 +50,7 @@ async function executar(comando: ComandoMotor): Promise<void> {
   try {
     await responderComando(comando.id, resultado);
   } catch (erro) {
-    const texto = erro instanceof Error ? erro.message : "erro desconhecido";
-    console.warn(`[comandos] não consegui responder o comando de ${comando.numeroId}: ${texto}`);
+    console.warn(`[comandos] não consegui responder o comando de ${comando.numeroId} (${nomeDoErro(erro)})`);
   }
 }
 
@@ -60,7 +62,7 @@ async function cicloDeComandos(): Promise<void> {
       await executar(comando);
     }
   } catch (erro) {
-    console.warn(`[comandos] falha ao buscar: ${erro instanceof Error ? erro.message : "erro"}`);
+    console.warn(`[comandos] falha ao buscar (${nomeDoErro(erro)})`);
   }
   if (!encerrando) proximaBusca = setTimeout(() => void cicloDeComandos(), INTERVALO_COMANDOS_MS);
 }
@@ -81,7 +83,7 @@ async function encerrar(sinal: string): Promise<void> {
 // conferir as pre-keys numa conexão instável). Sem isto o Node encerra o motor; a própria Baileys
 // derruba e reabre a conexão, então só registramos o nome do erro e seguimos.
 process.on("unhandledRejection", (erro: unknown) => {
-  console.error(`[motor] erro sem tratamento ignorado (${erro instanceof Error ? erro.message : typeof erro})`);
+  console.error(`[motor] erro sem tratamento ignorado (${erro instanceof Error ? erro.name : typeof erro})`);
 });
 
 console.info("[motor] iniciando");

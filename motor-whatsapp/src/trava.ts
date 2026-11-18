@@ -1,4 +1,5 @@
-import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 /** Pasta das sessões: vazio vira `<motor>/sessoes`; caminho relativo é resolvido a partir da pasta do motor. */
@@ -26,12 +27,26 @@ function lerPid(arquivo: string): number | null {
   }
 }
 
+/** Arquivo gravado antes do boot da máquina: o pid dele é de outra vida e pode coincidir com um processo qualquer. */
+function deAntesDoBoot(arquivo: string, bootEm: number): boolean {
+  try {
+    return statSync(arquivo).mtimeMs < bootEm;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Garante que só um motor use a pasta de sessões: grava `.motor.pid` com o pid atual.
- * Se o arquivo já existe e o processo dono está vivo, lança erro; se está morto, assume a trava.
+ * Se o arquivo já existe e o processo dono está vivo, lança erro; se está morto, ou o arquivo é
+ * de antes do boot da máquina (`bootEm`, em ms), assume a trava.
  * Devolve a função que libera a trava (só apaga o arquivo se ele ainda for deste processo).
  */
-export function adquirirTrava(pasta: string, pid: number = process.pid): () => void {
+export function adquirirTrava(
+  pasta: string,
+  pid: number = process.pid,
+  bootEm: number = Date.now() - os.uptime() * 1000,
+): () => void {
   mkdirSync(pasta, { recursive: true });
   const arquivo = path.join(pasta, ".motor.pid");
   for (let tentativa = 0; tentativa < 3; tentativa++) {
@@ -50,10 +65,10 @@ export function adquirirTrava(pasta: string, pid: number = process.pid): () => v
       if ((erro as NodeJS.ErrnoException).code !== "EEXIST") throw erro;
     }
     const dono = lerPid(arquivo);
-    if (dono !== null && dono !== pid && processoVivo(dono)) {
+    if (dono !== null && dono !== pid && !deAntesDoBoot(arquivo, bootEm) && processoVivo(dono)) {
       throw new Error(`Outro motor já está rodando (pid ${dono}).`);
     }
-    // Trava velha (dono morto ou arquivo ilegível): apaga e tenta de novo.
+    // Trava velha (dono morto, arquivo de antes do boot ou ilegível): apaga e tenta de novo.
     try {
       unlinkSync(arquivo);
     } catch {

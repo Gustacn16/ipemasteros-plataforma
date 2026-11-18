@@ -10,9 +10,6 @@ Group=motor
 WorkingDirectory=/opt/ipemaster-os/motor-whatsapp
 EnvironmentFile=/opt/ipemaster-os/motor-whatsapp/.env
 Environment=HOME=/var/lib/motor
-# O systemd já garante uma única instância. Apaga um .motor.pid velho de antes do reboot,
-# para o pid antigo não coincidir com um processo vivo qualquer e travar a partida.
-ExecStartPre=-/bin/rm -f /opt/ipemaster-os/motor-whatsapp/sessoes/.motor.pid
 ExecStart=/usr/bin/npm start
 Restart=always
 RestartSec=10
