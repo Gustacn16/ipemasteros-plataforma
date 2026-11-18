@@ -25,6 +25,20 @@ describe("ipPrivado", () => {
       expect(ipPrivado(ip), ip).toBe(true);
     for (const ip of ["93.184.216.34", "172.32.0.1", "8.8.8.8", "2606:4700::1111"]) expect(ipPrivado(ip), ip).toBe(false);
   });
+
+  it("reconhece IPv4 dentro de IPv6 na forma hexadecimal (como o URL normaliza) e faixas reservadas", () => {
+    for (const ip of ["::ffff:7f00:1", "::ffff:a9fe:a9fe", "::7f00:1", "::ffff:0a00:0001", "64:ff9b::a00:1", "2002:7f00:1::", "ff02::1", "192.0.0.8", "198.18.0.1", "224.0.0.1", "255.255.255.255"])
+      expect(ipPrivado(ip), ip).toBe(true);
+    expect(ipPrivado("::ffff:5db8:d822"), "mapeado público").toBe(false);
+  });
+
+  it("recusa as formas que o URL reescreve em hexadecimal", async () => {
+    const { fn, pedidos } = fetchFalso({});
+    for (const url of ["http://[::ffff:127.0.0.1]/", "http://[::ffff:169.254.169.254]/", "http://[::127.0.0.1]/"]) {
+      await expect(baixarPagina(url, { fetchFn: fn, resolver: async (h) => [h] }), url).rejects.toThrow("Endereço não permitido");
+    }
+    expect(pedidos).toHaveLength(0);
+  });
 });
 
 describe("baixarPagina", () => {

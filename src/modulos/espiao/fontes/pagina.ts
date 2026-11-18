@@ -18,8 +18,37 @@ const resolverPadrao = async (host: string) => (await lookup(host, { all: true }
 function ipv4Privado(ip: string): boolean {
   const [a, b] = ip.split(".").map(Number);
   return (
-    a === 0 || a === 10 || a === 127 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127)
+    a === 0 ||
+    a === 10 ||
+    a === 127 ||
+    a >= 224 || // multicast, reservado e broadcast
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) ||
+    (a === 192 && b === 0 && ip.split(".")[2] === "0") ||
+    (a === 198 && (b === 18 || b === 19)) ||
+    (a === 100 && b >= 64 && b <= 127)
   );
+}
+
+/** IPv6 em 16 bytes (aceita "::" e IPv4 pontuado no fim); null se inválido. */
+function bytesIpv6(ip: string): number[] | null {
+  let texto = ip.toLowerCase().split("%")[0];
+  const v4 = texto.match(/(\d+\.\d+\.\d+\.\d+)$/);
+  if (v4) {
+    const p = v4[1].split(".").map(Number);
+    texto = `${texto.slice(0, -v4[1].length)}${((p[0] << 8) | p[1]).toString(16)}:${((p[2] << 8) | p[3]).toString(16)}`;
+  }
+  const [esq, dir, ...resto] = texto.split("::");
+  if (resto.length) return null;
+  const a = esq ? esq.split(":") : [];
+  const b = dir !== undefined ? (dir ? dir.split(":") : []) : null;
+  const grupos = b === null ? a : [...a, ...Array(8 - a.length - b.length).fill("0"), ...b];
+  if (grupos.length !== 8) return null;
+  return grupos.flatMap((g) => {
+    const n = Number.parseInt(g || "0", 16);
+    return [(n >> 8) & 0xff, n & 0xff];
+  });
 }
 
 /** Endereço interno, local ou reservado: nunca é buscado. */
@@ -27,11 +56,20 @@ export function ipPrivado(ip: string): boolean {
   const versao = isIP(ip);
   if (versao === 4) return ipv4Privado(ip);
   if (versao !== 6) return true;
-  const baixo = ip.toLowerCase();
-  const mapeado = baixo.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-  if (mapeado) return ipv4Privado(mapeado[1]);
-  if (baixo === "::1" || baixo === "::") return true;
-  return /^f[cd]/.test(baixo) || /^fe[89ab]/.test(baixo);
+  const b = bytesIpv6(ip);
+  if (!b) return true;
+  const zerados = (ate: number) => b.slice(0, ate).every((x) => x === 0);
+  const v4Embutido = () => ipv4Privado(b.slice(12).join("."));
+  if (zerados(16)) return true; // ::
+  if (zerados(15) && b[15] === 1) return true; // ::1
+  if (zerados(10) && b[10] === 0xff && b[11] === 0xff) return v4Embutido(); // ::ffff:a.b.c.d
+  if (zerados(12)) return v4Embutido(); // ::a.b.c.d (compatível)
+  if (b[0] === 0x00 && b[1] === 0x64 && b[2] === 0xff && b[3] === 0x9b) return true; // 64:ff9b::/96 (NAT64)
+  if (b[0] === 0x20 && b[1] === 0x02) return true; // 2002::/16 (6to4)
+  if (b[0] === 0xff) return true; // multicast
+  if ((b[0] & 0xfe) === 0xfc) return true; // fc00::/7
+  if (b[0] === 0xfe && (b[1] & 0xc0) === 0x80) return true; // fe80::/10
+  return false;
 }
 
 async function validarDestino(url: URL, resolver: NonNullable<Deps["resolver"]>): Promise<void> {
