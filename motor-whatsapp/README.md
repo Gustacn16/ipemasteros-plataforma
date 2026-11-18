@@ -39,6 +39,9 @@ Se faltar `SISTEMA_URL` ou o segredo, o motor para na hora e diz o que falta.
 
 ## Cuidados
 - O `.env` e a pasta `sessoes/` nunca vão para o Git (já estão no `.gitignore`). Quem tem a pasta `sessoes/` tem acesso ao WhatsApp conectado.
+- Só um motor pode usar a pasta de sessões: ao ligar, ele cria o arquivo `.motor.pid` nela; se outro motor estiver rodando, o novo para na hora avisando o pid.
+- `PASTA_SESSOES` (opcional) muda a pasta das sessões; o padrão é `sessoes/` dentro do motor, qualquer que seja a pasta de onde você roda o comando.
+- `NIVEL_LOG_BAILEYS` (opcional) aceita `silent` (padrão), `warn` ou `info`. Use `warn` só para investigar, porque a Baileys pode imprimir JIDs (telefones).
 - Para trocar de número ou começar do zero, use **Desconectar** na tela (isso apaga a sessão).
 
 ## Testes

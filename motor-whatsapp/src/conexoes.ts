@@ -54,7 +54,7 @@ type Vaga = {
   religar: ReturnType<typeof setTimeout> | null;
 };
 
-type Opcoes = { pastaSessoes: string; aoEvento: (e: EventoMotor) => void };
+type Opcoes = { pastaSessoes: string; aoEvento: (e: EventoMotor) => void; nivelLog?: string };
 
 /**
  * Uma conexão da Baileys por vaga, com a sessão salva em `pastaSessoes/<numeroId>`.
@@ -62,9 +62,11 @@ type Opcoes = { pastaSessoes: string; aoEvento: (e: EventoMotor) => void };
  */
 export class Conexoes {
   private readonly vagas = new Map<string, Vaga>();
-  private readonly logger = pino({ level: "warn" });
+  private readonly logger: ReturnType<typeof pino>;
 
-  constructor(private readonly opcoes: Opcoes) {}
+  constructor(private readonly opcoes: Opcoes) {
+    this.logger = pino({ level: opcoes.nivelLog ?? "silent" });
+  }
 
   async conectar(numeroId: string): Promise<void> {
     this.validar(numeroId);

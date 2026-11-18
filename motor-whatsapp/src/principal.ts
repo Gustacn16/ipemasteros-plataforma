@@ -2,13 +2,27 @@ import { buscarComandos, enviarEventos, responderComando } from "./api.ts";
 import { config } from "./config.ts";
 import { Conexoes } from "./conexoes.ts";
 import { FilaEventos } from "./fila-eventos.ts";
+import { adquirirTrava } from "./trava.ts";
 import type { ComandoMotor } from "./tipos.ts";
 
 const INTERVALO_COMANDOS_MS = 3000;
 const INTERVALO_SINAL_MS = 60_000;
 
+// Só um motor por pasta de sessões: dois motores na mesma sessão derrubam o WhatsApp.
+let liberarTrava: () => void;
+try {
+  liberarTrava = adquirirTrava(config.pastaSessoes);
+} catch (erro) {
+  console.error(`[motor] ${erro instanceof Error ? erro.message : "não consegui adquirir a trava"}`);
+  process.exit(1);
+}
+
 const fila = new FilaEventos(enviarEventos);
-const conexoes = new Conexoes({ pastaSessoes: config.pastaSessoes, aoEvento: (e) => fila.adicionar(e) });
+const conexoes = new Conexoes({
+  pastaSessoes: config.pastaSessoes,
+  aoEvento: (e) => fila.adicionar(e),
+  nivelLog: config.nivelLogBaileys,
+});
 
 let encerrando = false;
 let proximaBusca: ReturnType<typeof setTimeout> | null = null;
@@ -59,6 +73,7 @@ async function encerrar(sinal: string): Promise<void> {
   clearInterval(relogioSinal);
   fila.parar();
   await fila.esvaziar();
+  liberarTrava();
   process.exit(0);
 }
 

@@ -3,6 +3,9 @@
  * Falta de SISTEMA_URL ou MOTOR_WHATSAPP_SEGREDO encerra o motor com mensagem clara.
  * O segredo nunca é impresso.
  */
+import path from "node:path";
+import { resolverPastaSessoes } from "./trava.ts";
+
 try {
   process.loadEnvFile();
 } catch {
@@ -36,8 +39,11 @@ function lerSegredo(): string {
   return segredo;
 }
 
-export const config: { sistemaUrl: string; segredo: string; pastaSessoes: string } = {
+export const config: { sistemaUrl: string; segredo: string; pastaSessoes: string; nivelLogBaileys: string } = {
   sistemaUrl: lerSistemaUrl(),
   segredo: lerSegredo(),
-  pastaSessoes: process.env.PASTA_SESSOES?.trim() || "./sessoes",
+  // Absoluta: não muda se o motor for iniciado de outra pasta.
+  pastaSessoes: resolverPastaSessoes(process.env.PASTA_SESSOES, path.resolve(import.meta.dirname, "..")),
+  // "silent" por padrão: a Baileys pode imprimir JIDs (telefones) nos logs.
+  nivelLogBaileys: process.env.NIVEL_LOG_BAILEYS?.trim() || "silent",
 };
