@@ -126,19 +126,30 @@ vi.mock("@/lib/ia/cliente", () => ({ obterClienteAnthropic: () => null }));
 
 import { calcularCustoMicroUsd } from "@/lib/ia/precos";
 import { INSTRUCOES_RESUMO } from "../ia/resumo-grupo";
-import { coletarLotes, criarLoteDoDia, type ClienteLotes, type ResultadoLote } from "./lote-ia";
+import Anthropic from "@anthropic-ai/sdk";
+import {
+  clienteLotesAnthropic,
+  coletarLotes,
+  criarLoteDoDia,
+  LoteRecusadoError,
+  type ClienteLotes,
+  type ResultadoLote,
+} from "./lote-ia";
 
 // 18/11 às 07:30 UTC (04:30 em São Paulo): "ontem" é 17/11 de 03:00Z até 18/11 03:00Z.
 const AGORA = new Date("2026-11-18T07:30:00Z");
 const DIA = new Date("2026-11-17T00:00:00.000Z");
 const ONTEM = (h: number) => new Date(Date.UTC(2026, 10, 17, 3 + h));
 
-function clienteFalso(opcoes: { falhar?: boolean } = {}) {
+type Falha = false | "recusa" | "incerto";
+// "recusa": a API respondeu 4xx (com certeza não criou o lote). "incerto": tempo esgotado ou rede.
+function clienteFalso(opcoes: { falhar?: Falha } = {}) {
   const enviados: unknown[][] = [];
-  const cliente: ClienteLotes & { falhar?: boolean } = {
+  const cliente: ClienteLotes & { falhar?: Falha } = {
     falhar: opcoes.falhar,
     async criar(requisicoes) {
-      if (cliente.falhar) throw new Error("rede");
+      if (cliente.falhar === "recusa") throw new LoteRecusadoError(400);
+      if (cliente.falhar === "incerto") throw new Error("rede");
       enviados.push(requisicoes);
       return { id: "msgbatch_1" };
     },
@@ -332,19 +343,58 @@ describe("criarLoteDoDia", () => {
     expect(banco.estado.resumos[0]).toMatchObject({ situacao: "pronto", resumo: "ok" });
   });
 
-  it("falha ao criar o lote: resumos do dia viram falhou e nada de LoteIa", async () => {
+  it("lote recusado (4xx): resumos do dia viram falhou e nada de LoteIa", async () => {
     grupo("g1");
     grupo("g2");
     mensagem("g1", { texto: "segredo do aluno" });
     mensagem("g2");
-    const { cliente } = clienteFalso({ falhar: true });
+    const { cliente } = clienteFalso({ falhar: "recusa" });
     expect(await criarLoteDoDia(AGORA, cliente)).toEqual({ criado: false, pedidos: 0, semVerba: 0, motivo: "falha_envio" });
     expect(banco.estado.lotes).toHaveLength(0);
     expect(banco.estado.resumos).toHaveLength(2);
     for (const r of banco.estado.resumos) expect(r).toMatchObject({ situacao: "falhou", erro: "Não foi possível enviar o lote." });
     // O log leva só o nome do erro.
-    expect(console.error).toHaveBeenCalledWith(expect.any(String), "Error");
+    expect(console.error).toHaveBeenCalledWith(expect.any(String), "LoteRecusadoError");
     expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain("segredo");
+  });
+
+  it("envio incerto (tempo esgotado, rede, 5xx): a reserva fica sem idExterno, resumos pendentes e nada é reenviado", async () => {
+    grupo("g1");
+    mensagem("g1");
+    const { cliente, enviados } = clienteFalso({ falhar: "incerto" });
+    expect(await criarLoteDoDia(AGORA, cliente)).toEqual({ criado: false, pedidos: 0, semVerba: 0, motivo: "envio_incerto" });
+    expect(banco.estado.lotes).toEqual([expect.objectContaining({ situacao: "aberto", idExterno: null })]);
+    expect(banco.estado.resumos[0]).toMatchObject({ situacao: "pendente", erro: null, loteId: banco.estado.lotes[0].id });
+    expect(console.error).toHaveBeenCalledWith(expect.any(String), "Error");
+
+    // A segunda execução do dia não reenvia: o lote pode existir na Anthropic.
+    cliente.falhar = false;
+    expect(await criarLoteDoDia(AGORA, cliente)).toMatchObject({ criado: false, motivo: "ja_existe" });
+    expect(enviados).toHaveLength(0);
+  });
+
+  it("falha no meio da gravação dos resumos: os pendentes já gravados viram falhou e a reserva sai", async () => {
+    grupo("g1");
+    grupo("g2");
+    mensagem("g1");
+    mensagem("g2");
+    const create = banco.prisma.resumoGrupo.create;
+    let chamadas = 0;
+    banco.prisma.resumoGrupo.create = async (args: { data: Linha }) => {
+      if (++chamadas === 2) throw new Error("banco caiu");
+      return create(args);
+    };
+    const { cliente, enviados } = clienteFalso();
+    try {
+      await expect(criarLoteDoDia(AGORA, cliente)).rejects.toThrow("banco caiu");
+    } finally {
+      banco.prisma.resumoGrupo.create = create;
+    }
+    expect(enviados).toHaveLength(0);
+    expect(banco.estado.lotes).toHaveLength(0);
+    expect(banco.estado.resumos).toEqual([
+      expect.objectContaining({ situacao: "falhou", erro: "Não foi possível enviar o lote.", loteId: null }),
+    ]);
   });
 
   it("duas execuções simultâneas: só uma envia (a outra pega ja_existe pelo único)", async () => {
@@ -372,17 +422,18 @@ describe("criarLoteDoDia", () => {
     await expect(criarLoteDoDia(AGORA, cliente)).rejects.toThrow();
     expect(enviados).toHaveLength(1);
     expect(banco.estado.lotes).toEqual([expect.objectContaining({ situacao: "aberto", idExterno: null })]);
-    expect(console.error).toHaveBeenCalledWith(expect.any(String), "Error");
+    // O id externo vai para o log para a recuperação manual.
+    expect(console.error).toHaveBeenCalledWith(expect.any(String), "Error", "msgbatch_1");
 
     banco.estado.falharUpdateLote = false;
     expect(await criarLoteDoDia(AGORA, cliente)).toMatchObject({ criado: false, motivo: "ja_existe" });
     expect(enviados).toHaveLength(1);
   });
 
-  it("falha no envio apaga a reserva e permite nova tentativa", async () => {
+  it("recusa no envio (4xx) apaga a reserva e permite nova tentativa", async () => {
     grupo("g1");
     mensagem("g1");
-    const { cliente, enviados } = clienteFalso({ falhar: true });
+    const { cliente, enviados } = clienteFalso({ falhar: "recusa" });
     expect(await criarLoteDoDia(AGORA, cliente)).toMatchObject({ criado: false, motivo: "falha_envio" });
     expect(banco.estado.lotes).toHaveLength(0);
     expect(banco.estado.resumos[0]).toMatchObject({ situacao: "falhou", erro: "Não foi possível enviar o lote.", loteId: null });
@@ -417,6 +468,46 @@ describe("criarLoteDoDia", () => {
     }
     expect(pedidosDe(enviados).map((p) => p.custom_id)).not.toContain("resumo_r0");
     expect(banco.estado.resumos.find((r) => r.id === "r0")).toMatchObject({ situacao: "pronto", resumo: "ok" });
+  });
+});
+
+describe("clienteLotesAnthropic", () => {
+  function sdkFalso(erro?: unknown) {
+    const create = vi.fn(async () => {
+      if (erro) throw erro;
+      return { id: "msgbatch_9" };
+    });
+    return { create, sdk: { messages: { batches: { create } } } as unknown as Anthropic };
+  }
+
+  it("envia sem retentativa e com prazo de 5 minutos", async () => {
+    const { create, sdk } = sdkFalso();
+    expect(await clienteLotesAnthropic(sdk).criar([{ custom_id: "resumo_1" }])).toEqual({ id: "msgbatch_9" });
+    expect(create).toHaveBeenCalledWith({ requests: [{ custom_id: "resumo_1" }] }, { maxRetries: 0, timeout: 300_000 });
+  });
+
+  it("4xx vira LoteRecusadoError (recusa certa)", async () => {
+    for (const status of [400, 401, 413, 429]) {
+      const { sdk } = sdkFalso(Anthropic.APIError.generate(status, { type: "error" }, "x", new Headers()));
+      await expect(clienteLotesAnthropic(sdk).criar([])).rejects.toBeInstanceOf(LoteRecusadoError);
+    }
+  });
+
+  it("tempo esgotado, conexão, 408 e 5xx passam como estão (envio incerto)", async () => {
+    const erros = [
+      new Anthropic.APIConnectionTimeoutError(),
+      new Anthropic.APIConnectionError({ message: "rede" }),
+      Anthropic.APIError.generate(408, { type: "error" }, "x", new Headers()),
+      Anthropic.APIError.generate(500, { type: "error" }, "x", new Headers()),
+      Anthropic.APIError.generate(529, { type: "error" }, "x", new Headers()),
+      new Error("qualquer"),
+    ];
+    for (const erro of erros) {
+      const { sdk } = sdkFalso(erro);
+      const r = await clienteLotesAnthropic(sdk).criar([]).catch((e: unknown) => e);
+      expect(r).toBe(erro);
+      expect(r).not.toBeInstanceOf(LoteRecusadoError);
+    }
   });
 });
 

@@ -1,5 +1,5 @@
 import "server-only";
-import type Anthropic from "@anthropic-ai/sdk";
+import Anthropic from "@anthropic-ai/sdk";
 import type { z } from "zod";
 import { obterClienteAnthropic } from "@/lib/ia/cliente";
 import { calcularCustoMicroUsd, MODELOS_IA, type ModeloIa } from "@/lib/ia/precos";
@@ -35,13 +35,38 @@ export type ClienteLotes = {
   resultados(id: string): AsyncIterable<ResultadoLote>;
 };
 
+/**
+ * A API recusou o envio do lote (resposta 4xx): com certeza nenhum lote foi criado.
+ * Qualquer outro erro no envio (tempo esgotado, conexão, 5xx) é incerto: o lote pode ter sido criado.
+ */
+export class LoteRecusadoError extends Error {
+  constructor(readonly status: number) {
+    super(`Lote recusado pela API (${status}).`);
+    this.name = "LoteRecusadoError";
+  }
+}
+
+/** 4xx é recusa certa; 408 (tempo esgotado) não garante que nada foi criado. */
+export function envioRecusado(e: unknown): e is InstanceType<typeof Anthropic.APIError> & { status: number } {
+  return (
+    e instanceof Anthropic.APIError && typeof e.status === "number" && e.status >= 400 && e.status < 500 && e.status !== 408
+  );
+}
+
 export function clienteLotesAnthropic(cliente: Anthropic): ClienteLotes {
   return {
     async criar(requisicoes) {
-      const lote = await cliente.messages.batches.create({
-        requests: requisicoes as Anthropic.Messages.BatchCreateParams.Request[],
-      });
-      return { id: lote.id };
+      try {
+        // Sem retentativa: repetir um envio que pode ter dado certo pagaria o lote duas vezes.
+        const lote = await cliente.messages.batches.create(
+          { requests: requisicoes as Anthropic.Messages.BatchCreateParams.Request[] },
+          { maxRetries: 0, timeout: 300_000 },
+        );
+        return { id: lote.id };
+      } catch (e) {
+        if (envioRecusado(e)) throw new LoteRecusadoError(e.status);
+        throw e;
+      }
     },
     async buscar(id) {
       const lote = await cliente.messages.batches.retrieve(id);
@@ -59,7 +84,7 @@ type ResultadoCriacao = {
   criado: boolean;
   pedidos: number;
   semVerba: number;
-  motivo?: "sem_chave" | "ja_existe" | "nada_a_fazer" | "falha_envio";
+  motivo?: "sem_chave" | "ja_existe" | "nada_a_fazer" | "falha_envio" | "envio_incerto";
 };
 
 /** Prefixo do custom_id de cada pedido. A API só aceita ^[a-zA-Z0-9_-]{1,64}$ (sem dois-pontos). */
@@ -195,6 +220,11 @@ export async function criarLoteDoDia(
       enviados.push(id);
     }
   } catch (e) {
+    // Nada foi enviado: os resumos já gravados como pendentes deste lote não podem ficar pendentes para sempre.
+    await prisma.resumoGrupo.updateMany({
+      where: { loteId: reservaId, situacao: "pendente" },
+      data: { situacao: "falhou", erro: ERRO_ENVIO_LOTE, loteId: null },
+    });
     await prisma.loteIa.delete({ where: { id: reservaId } });
     throw e;
   }
@@ -208,11 +238,16 @@ export async function criarLoteDoDia(
     idExterno = (await lotes.criar(pedidos)).id;
   } catch (e) {
     console.error("[whatsapp] falha ao criar o lote de resumos:", descreverErro(e));
+    if (!(e instanceof LoteRecusadoError)) {
+      // Tempo esgotado, conexão ou 5xx: o lote pode existir na Anthropic. A reserva fica (sem idExterno) e os
+      // resumos ficam pendentes; a coleta marca falhou depois de 1 h, e nada é reenviado no mesmo dia.
+      return { criado: false, pedidos: 0, semVerba: semVerba.length, motivo: "envio_incerto" };
+    }
     await prisma.resumoGrupo.updateMany({
       where: { id: { in: enviados }, situacao: { not: "pronto" } },
       data: { situacao: "falhou", erro: ERRO_ENVIO_LOTE, loteId: null },
     });
-    // Sem envio, a reserva sai: uma nova tentativa no mesmo dia pode enviar.
+    // Recusa certa (4xx): a reserva sai e uma nova tentativa no mesmo dia pode enviar.
     await prisma.loteIa.delete({ where: { id: reservaId } });
     return { criado: false, pedidos: 0, semVerba: semVerba.length, motivo: "falha_envio" };
   }
@@ -221,7 +256,8 @@ export async function criarLoteDoDia(
     await prisma.loteIa.update({ where: { id: reservaId }, data: { idExterno } });
   } catch (e) {
     // A reserva fica (sem idExterno): nada é reenviado; a coleta marca falhou depois de 1 h.
-    console.error("[whatsapp] falha ao gravar o id do lote de resumos:", descreverErro(e));
+    // O id externo do lote (não é dado pessoal) vai para o log para a recuperação manual.
+    console.error("[whatsapp] falha ao gravar o id do lote de resumos:", descreverErro(e), idExterno);
     throw e;
   }
   return { criado: true, pedidos: pedidos.length, semVerba: semVerba.length };
