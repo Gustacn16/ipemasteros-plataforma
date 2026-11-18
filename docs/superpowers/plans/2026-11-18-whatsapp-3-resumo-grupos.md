@@ -24,7 +24,7 @@
   - vão só o texto e o nome do contato (`nomeExibido`), nunca telefone nem JID;
   - quem é da equipe (`deMim`, ou contato com `usuarioId`) aparece como `Nome (equipe)`;
   - mensagem própria (`deMim`) aparece como `Equipe IPEMaster (equipe)`.
-- **Modelo e parâmetros:** `claude-opus-5-5`, guardado em `ConfiguracaoWhatsapp.modelo`. Omita `thinking` (no Opus 5.5 ele está sempre ligado). Use `output_config.effort: "medium"` e `max_tokens: 8000`.
+- **Modelo e parâmetros:** `claude-opus-5-5`, guardado em `ConfiguracaoWhatsapp.modelo`. Omita `thinking` (no Opus 5.5 ele está sempre ligado). Use `output_config.effort: "medium"` e `max_tokens: 16000` (o raciocínio do Opus 5.5 conta; a estimativa do orçamento usa 4000).
 - **Limites:**
   - WhatsApp `limiteMensalMicroUsd = 80_000_000` (US$ 80);
   - Nexu continua com US$ 20, mas passa a somar só `origem = "nexu"`;
@@ -123,7 +123,7 @@
     - as dúvidas e reclamações de alunos **sem resposta** da equipe até o fim do dia;
     - os destaques;
     - nunca inventar o que não está nas mensagens.
-  - `pedidoResumo(customId: string, modelo: ModeloIa, entrada: string)`: devolve o objeto `{ custom_id, params }` do lote com `system`, `messages`, `max_tokens: 8000`, `output_config: { effort: "medium", format: { type: "json_schema", schema: ESQUEMA_RESUMO } }`.
+  - `pedidoResumo(customId: string, modelo: ModeloIa, entrada: string)`: devolve o objeto `{ custom_id, params }` do lote com `system`, `messages`, `max_tokens: 16000` (o raciocínio do Opus 5.5 conta; a estimativa do orçamento usa 4000), `output_config: { effort: "medium", format: { type: "json_schema", schema: ESQUEMA_RESUMO } }`.
 
 - [ ] **Step 1: Escreva os testes:**
   - `"janelaDeOntem às 02:00 UTC de 19/11 (23h do dia 18 em SP) devolve o dia 17"`;
