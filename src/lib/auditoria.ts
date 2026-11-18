@@ -45,7 +45,13 @@ export type AcaoAuditoria =
   | "whatsapp.conversa_aberta"
   | "whatsapp.dados_telefone_apagados"
   | "nexu.configuracao_alterada"
-  | "nexu.proposta_confirmada";
+  | "nexu.proposta_confirmada"
+  | "espiao.concorrente_criado"
+  | "espiao.concorrente_alterado"
+  | "espiao.concorrente_excluido"
+  | "espiao.pagina_alterada"
+  | "espiao.teto_alterado"
+  | "espiao.coleta_manual";
 
 type DadosAuditoria = {
   usuarioId: string | null;

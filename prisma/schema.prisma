@@ -73,6 +73,9 @@ model Usuario {
   usosIa                   UsoIa[]
   configuracoesIaAlteradas ConfiguracaoIa[]
 
+  espiaoVistoEm DateTime?     @map("espiao_visto_em")
+  gastosEspiao  GastoEspiao[]
+
   @@map("usuarios")
 }
 
@@ -1313,6 +1316,7 @@ model ConfiguracaoIa {
   modelo               String   @db.VarChar(60)
   limiteMensalMicroUsd Int      @map("limite_mensal_micro_usd")
   perguntasPorDia      Int      @map("perguntas_por_dia")
+  limiteEspiaoMicroUsd Int      @default(10000000) @map("limite_espiao_micro_usd")
   atualizadoPorId      String?  @map("atualizado_por_id")
   atualizadoEm         DateTime @updatedAt @map("atualizado_em")
 
@@ -1506,4 +1510,212 @@ model MensagemWhatsapp {
   @@index([conversaId, enviadaEm])
   @@index([enviadaEm])
   @@map("mensagens_whatsapp")
+}
+
+// ---------------------------------------------------------------------------
+// Espião de concorrentes (Nexu N2a) — spec docs/superpowers/specs/2026-11-18-nexu-n2-espiao-design.md
+
+enum TipoMidiaConcorrente {
+  post
+  carrossel
+  reels
+  video
+}
+
+enum SituacaoTranscricao {
+  pendente
+  feita
+  sem_video
+  longa_demais
+  falhou
+  nao_se_aplica
+}
+
+enum OrigemColeta {
+  agendada
+  manual
+}
+
+enum StatusColeta {
+  rodando
+  concluida
+  parcial
+  falhou
+  sem_saldo
+}
+
+enum TipoSinal {
+  conteudo_destaque
+  ritmo_mudou
+  seguidores_salto
+  pagina_nova
+  pagina_mudou
+  preco_mudou
+  bio_link_mudou
+}
+
+enum ServicoExterno {
+  groq
+  dataforseo
+  apify
+}
+
+model Concorrente {
+  id           String    @id @default(cuid())
+  nome         String    @db.VarChar(80)
+  instagram    String?   @db.VarChar(30)
+  site         String?   @db.VarChar(191)
+  observacoes  String?   @db.Text
+  ativo        Boolean   @default(true)
+  criadoEm     DateTime  @default(now()) @map("criado_em")
+  atualizadoEm DateTime  @updatedAt @map("atualizado_em")
+  excluidoEm   DateTime? @map("excluido_em")
+
+  paginas PaginaConcorrente[]
+  fotos   FotoInstagram[]
+  midias  MidiaConcorrente[]
+  sinais  SinalEspiao[]
+
+  @@map("concorrentes")
+}
+
+model PaginaConcorrente {
+  id              String    @id @default(cuid())
+  concorrenteId   String    @map("concorrente_id")
+  url             String    @db.VarChar(500)
+  rotulo          String    @db.VarChar(60)
+  ativa           Boolean   @default(true)
+  legivel         Boolean   @default(false)
+  ultimoHash      String?   @map("ultimo_hash") @db.VarChar(64)
+  ultimaCapturaEm DateTime? @map("ultima_captura_em")
+  criadoEm        DateTime  @default(now()) @map("criado_em")
+  atualizadoEm    DateTime  @updatedAt @map("atualizado_em")
+  excluidoEm      DateTime? @map("excluido_em")
+
+  concorrente Concorrente    @relation(fields: [concorrenteId], references: [id], onDelete: Cascade)
+  versoes     VersaoPagina[]
+
+  @@index([concorrenteId])
+  @@map("paginas_concorrentes")
+}
+
+model VersaoPagina {
+  id          String   @id @default(cuid())
+  paginaId    String   @map("pagina_id")
+  hash        String   @db.VarChar(64)
+  texto       String   @db.LongText
+  precos      Json
+  capturadaEm DateTime @default(now()) @map("capturada_em")
+
+  pagina PaginaConcorrente @relation(fields: [paginaId], references: [id], onDelete: Cascade)
+
+  @@index([paginaId, capturadaEm])
+  @@map("versoes_paginas")
+}
+
+model FotoInstagram {
+  id            String   @id @default(cuid())
+  concorrenteId String   @map("concorrente_id")
+  coletaId      String?  @map("coleta_id")
+  seguidores    Int
+  totalPosts    Int      @map("total_posts")
+  biografia     String?  @db.Text
+  site          String?  @db.VarChar(500)
+  capturadaEm   DateTime @default(now()) @map("capturada_em")
+
+  concorrente Concorrente   @relation(fields: [concorrenteId], references: [id], onDelete: Cascade)
+  coleta      ColetaEspiao? @relation(fields: [coletaId], references: [id], onDelete: SetNull)
+
+  @@index([concorrenteId, capturadaEm])
+  @@map("fotos_instagram")
+}
+
+model MidiaConcorrente {
+  id                  String               @id @default(cuid())
+  concorrenteId       String               @map("concorrente_id")
+  idExterno           String               @unique @map("id_externo") @db.VarChar(64)
+  tipo                TipoMidiaConcorrente
+  legenda             String?              @db.Text
+  permalink           String               @db.VarChar(500)
+  publicadoEm         DateTime             @map("publicado_em")
+  curtidas            Int?
+  comentarios         Int?
+  visualizacoes       Int?
+  metricasEm          DateTime             @map("metricas_em")
+  transcricao         String?              @db.LongText
+  resumo              String?              @db.Text
+  situacaoTranscricao SituacaoTranscricao  @default(nao_se_aplica) @map("situacao_transcricao")
+  criadoEm            DateTime             @default(now()) @map("criado_em")
+  atualizadoEm        DateTime             @updatedAt @map("atualizado_em")
+
+  concorrente Concorrente @relation(fields: [concorrenteId], references: [id], onDelete: Cascade)
+
+  @@index([concorrenteId, publicadoEm])
+  @@map("midias_concorrentes")
+}
+
+model ColetaEspiao {
+  id           String       @id @default(cuid())
+  origem       OrigemColeta
+  status       StatusColeta @default(rodando)
+  iniciadaEm   DateTime     @default(now()) @map("iniciada_em")
+  progressoEm  DateTime     @default(now()) @map("progresso_em")
+  finalizadaEm DateTime?    @map("finalizada_em")
+  passos       Json
+  erros        Json
+
+  fotos     FotoInstagram[]
+  sinais    SinalEspiao[]
+  relatorio RelatorioEspiao?
+  gastos    GastoEspiao[]
+
+  @@index([status])
+  @@index([iniciadaEm])
+  @@map("coletas_espiao")
+}
+
+model SinalEspiao {
+  id            String    @id @default(cuid())
+  concorrenteId String    @map("concorrente_id")
+  coletaId      String    @map("coleta_id")
+  tipo          TipoSinal
+  titulo        String    @db.VarChar(300)
+  detalhe       Json
+  origemUrl     String?   @map("origem_url") @db.VarChar(500)
+  chave         String?   @unique @db.VarChar(120)
+  criadoEm      DateTime  @default(now()) @map("criado_em")
+
+  concorrente Concorrente  @relation(fields: [concorrenteId], references: [id], onDelete: Cascade)
+  coleta      ColetaEspiao @relation(fields: [coletaId], references: [id], onDelete: Cascade)
+
+  @@index([criadoEm])
+  @@index([concorrenteId, criadoEm])
+  @@map("sinais_espiao")
+}
+
+model RelatorioEspiao {
+  id       String   @id @default(cuid())
+  coletaId String   @unique @map("coleta_id")
+  analise  String   @db.Text
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  coleta ColetaEspiao @relation(fields: [coletaId], references: [id], onDelete: Cascade)
+
+  @@map("relatorios_espiao")
+}
+
+model GastoEspiao {
+  id            String         @id @default(cuid())
+  servico       ServicoExterno
+  quantidade    Int
+  custoMicroUsd Int            @map("custo_micro_usd")
+  coletaId      String?        @map("coleta_id")
+  usuarioId     String?        @map("usuario_id")
+  criadoEm      DateTime       @default(now()) @map("criado_em")
+
+  coleta  ColetaEspiao? @relation(fields: [coletaId], references: [id], onDelete: SetNull)
+  usuario Usuario?      @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([criadoEm])
+  @@map("gastos_espiao")
 }
