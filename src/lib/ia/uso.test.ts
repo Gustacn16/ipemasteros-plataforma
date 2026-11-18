@@ -14,7 +14,7 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
-const { registrarUsoIa, situacaoLimites } = await import("./uso");
+const { registrarUsoIa, situacaoLimites, gastoMesMicroUsd } = await import("./uso");
 
 beforeEach(() => {
   Object.values(banco).forEach((m) => m.mockReset());
@@ -47,8 +47,39 @@ describe("registrarUsoIa", () => {
   });
 });
 
+describe("registrarUsoIa em lote", () => {
+  it("registrarUsoIa com lote grava o custo pela metade", async () => {
+    banco.create.mockResolvedValue({});
+    const custo = await registrarUsoIa({
+      origem: "whatsapp",
+      usuarioId: null,
+      modelo: "claude-opus-5-5",
+      inicioPergunta: false,
+      lote: true,
+      usage: { input_tokens: 1_000_000, output_tokens: 1_000_000 },
+    });
+    expect(custo).toBe(12_000_000);
+    expect(banco.create.mock.calls[0][0].data.custoMicroUsd).toBe(12_000_000);
+  });
+});
+
+describe("gastoMesMicroUsd", () => {
+  it("gasto do mês do Nexu ignora a origem whatsapp", async () => {
+    banco.aggregate.mockResolvedValue({ _sum: { custoMicroUsd: 123 } });
+    expect(await gastoMesMicroUsd("nexu", new Date("2026-11-18T12:00:00Z"))).toBe(123);
+    expect(banco.aggregate).toHaveBeenCalledWith({
+      _sum: { custoMicroUsd: true },
+      where: { origem: "nexu", criadoEm: { gte: new Date("2026-11-01T03:00:00.000Z") } },
+    });
+  });
+  it("sem gasto, devolve zero", async () => {
+    banco.aggregate.mockResolvedValue({ _sum: { custoMicroUsd: null } });
+    expect(await gastoMesMicroUsd("whatsapp")).toBe(0);
+  });
+});
+
 describe("situacaoLimites", () => {
-  it("conta perguntas só do nexu/usuário e soma o gasto de todas as origens", async () => {
+  it("conta perguntas só do nexu/usuário e soma o gasto só do nexu", async () => {
     banco.config.mockResolvedValue({ modelo: "claude-haiku-5-5", limiteMensalMicroUsd: 1000, perguntasPorDia: 5 });
     banco.count.mockResolvedValue(2);
     banco.aggregate.mockResolvedValue({ _sum: { custoMicroUsd: 400 } });
@@ -59,7 +90,7 @@ describe("situacaoLimites", () => {
     });
     expect(banco.aggregate).toHaveBeenCalledWith({
       _sum: { custoMicroUsd: true },
-      where: { criadoEm: { gte: new Date("2026-11-01T03:00:00.000Z") } },
+      where: { origem: "nexu", criadoEm: { gte: new Date("2026-11-01T03:00:00.000Z") } },
     });
   });
   it("sem gasto no mês, soma é zero", async () => {

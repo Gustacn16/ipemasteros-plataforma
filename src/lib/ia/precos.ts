@@ -53,9 +53,9 @@ function precoDoModelo(modelo: ModeloIa, t: TokensUso): Preco {
   return entradaTotal > LIMITE_FAIXA_HAIKU ? HAIKU_ACIMA_100K : HAIKU_ATE_100K;
 }
 
-/** Custo em micro-dólares (US$ 1 = 1.000.000), inteiro, arredondado para cima. */
-export function calcularCustoMicroUsd(modelo: ModeloIa, t: TokensUso): number {
+/** Custo em micro-dólares (US$ 1 = 1.000.000), inteiro, arredondado para cima. Com `lote: true` custa metade (50%), arredondando só no fim. */
+export function calcularCustoMicroUsd(modelo: ModeloIa, t: TokensUso, opcoes?: { lote?: boolean }): number {
   const p = precoDoModelo(modelo, t);
   const total = t.entrada * p.entrada + t.cacheEscrita * p.escrita + t.cacheLeitura * p.leitura + t.saida * p.saida;
-  return Math.ceil(total / ESCALA);
+  return Math.ceil(total / (opcoes?.lote ? ESCALA * 2 : ESCALA));
 }

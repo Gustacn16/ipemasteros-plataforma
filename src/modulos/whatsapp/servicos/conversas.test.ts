@@ -13,6 +13,7 @@ const banco = vi.hoisted(() => {
     mensagens: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
     contatos: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
     turmas: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
+    resumos: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
     auditorias: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
   };
   const prisma = {
@@ -65,6 +66,16 @@ const banco = vi.hoisted(() => {
           .slice(0, take)
           .map((m) => ({ ...m, contato: estado.contatos.find((k) => k.id === m.contatoId) ?? null })),
     },
+    resumoGrupo: {
+      findMany: async ({ where }: { where: Linha }) =>
+        estado.resumos.filter(
+          (r) => where.conversaId.in.includes(r.conversaId) && r.dia.getTime() === where.dia.getTime() && r.situacao === where.situacao,
+        ),
+      findUnique: async ({ where }: { where: { conversaId_dia: { conversaId: string; dia: Date } } }) =>
+        estado.resumos.find(
+          (r) => r.conversaId === where.conversaId_dia.conversaId && r.dia.getTime() === where.conversaId_dia.dia.getTime(),
+        ) ?? null,
+    },
     turma: {
       findUnique: async ({ where }: { where: { id: string } }) => estado.turmas.find((t) => t.id === where.id) ?? null,
       findMany: async () => estado.turmas,
@@ -90,6 +101,7 @@ const {
   listarGrupos,
   mensagensDaConversa,
   nomeDoAutor,
+  resumoDoGrupo,
 } = await import("./conversas");
 
 const gestor = { id: "g1", papel: "gestor" } as UsuarioAtual;
@@ -127,6 +139,7 @@ beforeEach(() => {
     { id: "m3", conversaId: "i1", contatoId: "k1", deMim: false, tipo: "texto", texto: "olá", enviadaEm: dias(1) },
     { id: "m4", conversaId: "i2", contatoId: "k1", deMim: true, tipo: "audio", texto: null, enviadaEm: dias(1) },
   ];
+  e.resumos = [];
   e.auditorias = [];
 });
 
@@ -259,5 +272,49 @@ describe("nome do autor", () => {
     expect(msgs.length).toBe(1);
     expect(semNome[0].autor).toBe("…7432");
     expect(JSON.stringify(semNome)).not.toContain("5562981707432");
+  });
+});
+
+describe("resumo do grupo", () => {
+  const ontem = new Date("2026-11-17T00:00:00.000Z");
+  const base = { conversaId: "g1", dia: ontem, erro: null, resumo: null, temas: null, pendencias: null, destaques: null, participacao: [], totalMensagens: 0 };
+
+  it("resumoDoGrupo devolve pronto com pendências; falhou devolve situacao e erro", async () => {
+    banco.estado.resumos = [
+      {
+        ...base,
+        situacao: "pronto",
+        resumo: "Falaram da prova.",
+        temas: ["prova"],
+        pendencias: [{ autor: "Maria", hora: "10:30", texto: "Quando é a prova?" }],
+        destaques: ["Prova na sexta"],
+        participacao: [{ autor: "Maria", mensagens: 3 }],
+        totalMensagens: 7,
+      },
+    ];
+    const pronto = await resumoDoGrupo("g1", ontem);
+    expect(pronto).toMatchObject({
+      situacao: "pronto",
+      resumo: "Falaram da prova.",
+      temas: ["prova"],
+      pendencias: [{ autor: "Maria", hora: "10:30", texto: "Quando é a prova?" }],
+      participacao: [{ autor: "Maria", mensagens: 3 }],
+      totalMensagens: 7,
+    });
+    banco.estado.resumos = [{ ...base, situacao: "falhou", erro: "Falha ao gerar." }];
+    expect(await resumoDoGrupo("g1", ontem)).toMatchObject({ situacao: "falhou", erro: "Falha ao gerar." });
+    expect(await resumoDoGrupo("g1", new Date("2026-11-16T00:00:00.000Z"))).toBeNull();
+  });
+
+  it("listarGrupos traz pendenciasOntem do resumo pronto de ontem, null sem resumo", async () => {
+    const agora = new Date("2026-11-18T15:00:00Z");
+    banco.estado.resumos = [
+      { ...base, situacao: "pronto", pendencias: [{ autor: "A", hora: "09:00", texto: "x" }, { autor: "B", hora: "10:00", texto: "y" }] },
+    ];
+    expect((await listarGrupos(gestor, agora))[0].pendenciasOntem).toBe(2);
+    banco.estado.resumos = [{ ...base, situacao: "falhou" }];
+    expect((await listarGrupos(gestor, agora))[0].pendenciasOntem).toBeNull();
+    banco.estado.resumos = [{ ...base, dia: new Date("2026-11-16T00:00:00.000Z"), situacao: "pronto", pendencias: [] }];
+    expect((await listarGrupos(gestor, agora))[0].pendenciasOntem).toBeNull();
   });
 });

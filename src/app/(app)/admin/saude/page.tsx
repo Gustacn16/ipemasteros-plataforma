@@ -4,13 +4,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/componentes/ui/table";
 import { formatarDataHora } from "@/lib/datas";
 import { exigirPermissaoPagina } from "@/lib/sessao";
+import { LimiteIa } from "@/modulos/whatsapp/componentes/limite-ia";
+import { formatarMicroUsd } from "@/modulos/whatsapp/regras/dinheiro";
 import { saudeWhatsapp } from "@/modulos/whatsapp/servicos/saude";
 
 export const metadata: Metadata = { title: "Saúde do WhatsApp — IPEMaster OS" };
 export const dynamic = "force-dynamic";
 
 export default async function PaginaSaude() {
-  await exigirPermissaoPagina("whatsapp:gerenciar_numeros");
+  const usuario = await exigirPermissaoPagina("whatsapp:gerenciar_numeros");
   const saude = await saudeWhatsapp();
   const data = (d: Date | null) => (d ? formatarDataHora(d) : "—");
 
@@ -29,6 +31,22 @@ export default async function PaginaSaude() {
                 : "Sem resposta: nenhum sinal recebido ainda"}
           </CardDescription>
         </CardHeader>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>IA do WhatsApp</CardTitle>
+          <CardDescription>
+            {saude.ia.configurada
+              ? `Gasto do mês: ${formatarMicroUsd(saude.ia.gastoMesMicroUsd)} de ${formatarMicroUsd(saude.ia.limiteMensalMicroUsd)}`
+              : "IA não configurada: falta ANTHROPIC_API_KEY."}
+          </CardDescription>
+        </CardHeader>
+        {usuario.papel === "admin" && (
+          <CardContent>
+            <LimiteIa limiteUsd={saude.ia.limiteMensalMicroUsd / 1_000_000} />
+          </CardContent>
+        )}
       </Card>
 
       <Card>

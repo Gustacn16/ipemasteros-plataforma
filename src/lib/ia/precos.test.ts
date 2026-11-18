@@ -30,6 +30,17 @@ describe("calcularCustoMicroUsd", () => {
   });
 });
 
+describe("calcularCustoMicroUsd em lote", () => {
+  it("lote custa metade: Opus 1M entrada + 1M saída = 12_000_000 µUSD", () => {
+    const t = { ...zero, entrada: 1_000_000, saida: 1_000_000 };
+    expect(calcularCustoMicroUsd("claude-opus-5-5", t)).toBe(24_000_000);
+    expect(calcularCustoMicroUsd("claude-opus-5-5", t, { lote: true })).toBe(12_000_000);
+  });
+  it("arredonda para cima só no fim", () => {
+    expect(calcularCustoMicroUsd("claude-haiku-5-5", { ...zero, entrada: 1 }, { lote: true })).toBe(1);
+  });
+});
+
 describe("tokensDoUsage", () => {
   it("troca null e undefined por 0", () => {
     expect(

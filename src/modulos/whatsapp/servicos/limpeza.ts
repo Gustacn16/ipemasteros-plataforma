@@ -62,13 +62,13 @@ async function religarContatos(): Promise<number> {
 
 /**
  * Limpeza diária: apaga as mensagens provisórias vencidas de grupos que continuam não monitorados
- * (e zera `provisoriaAte`) e as mensagens com mais de 90 dias; religa contatos a alunos e usuários
+ * (e zera `provisoriaAte`) e as mensagens com mais de 90 dias e os resumos de grupo com mais de 365 dias; religa contatos a alunos e usuários
  * cadastrados depois; apaga conversas individuais vazias (menos "pessoal") e contatos sem nada.
  * Devolve só contagens.
  */
 export async function limparWhatsapp(
   agora: Date = new Date(),
-): Promise<{ provisorias: number; antigas: number; religados: number; conversasVazias: number; contatosVazios: number }> {
+): Promise<{ provisorias: number; antigas: number; resumosAntigos: number; religados: number; conversasVazias: number; contatosVazios: number }> {
   const vencidas = await prisma.conversaWhatsapp.findMany({
     where: { tipo: "grupo", monitorada: false, provisoriaAte: { lt: agora } },
     select: { id: true },
@@ -82,6 +82,11 @@ export async function limparWhatsapp(
   }
   const limite = new Date(agora.getTime() - DIAS_RETENCAO * 24 * 60 * 60 * 1000);
   const antigas = await apagarEmLotes({ enviadaEm: { lt: limite } });
+
+  // Resumos de grupo ficam 1 ano; `dia` é a data de São Paulo guardada como meia-noite UTC.
+  const { count: resumosAntigos } = await prisma.resumoGrupo.deleteMany({
+    where: { dia: { lt: new Date(agora.getTime() - 365 * 24 * 60 * 60 * 1000) } },
+  });
 
   const religados = await religarContatos();
   // As conversas saem antes dos contatos: o contato só some quando não tem mais conversa.
@@ -98,5 +103,5 @@ export async function limparWhatsapp(
   const { count: contatosVazios } = await prisma.contatoWhatsapp.deleteMany({
     where: { mensagens: { none: {} }, conversas: { none: {} }, alunoId: null, usuarioId: null, criadoEm: { lt: umDiaAtras } },
   });
-  return { provisorias, antigas, religados, conversasVazias, contatosVazios };
+  return { provisorias, antigas, resumosAntigos, religados, conversasVazias, contatosVazios };
 }

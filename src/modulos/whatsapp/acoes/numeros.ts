@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import QRCode from "qrcode";
 import { z } from "zod";
 import { tratarErroAcao, type EstadoAcao } from "@/lib/acoes";
+import { ErroPermissao } from "@/lib/permissoes";
 import { exigirPermissao, exigirUsuario } from "@/lib/sessao";
 import { esquemaApagarDadosTelefone } from "../esquemas/titular";
 import type { EstadoTela } from "../regras/conexao";
@@ -14,6 +15,7 @@ import {
   solicitarConexao,
   solicitarDesconexao,
 } from "../servicos/numeros";
+import { salvarConfiguracaoWhatsapp } from "../servicos/configuracao";
 import { apagarDadosDoTelefone } from "../servicos/titular";
 
 const idNumero = z.string().min(1).max(40);
@@ -88,6 +90,29 @@ export async function apagarDadosTelefoneAcao(dados: unknown): Promise<EstadoAca
       mensagem: r.encontrado ? `Dados apagados: ${r.mensagens} mensagens e ${r.conversas} conversas.` : "Nenhum contato com este telefone.",
       dados: r,
     };
+  } catch (erro) {
+    return tratarErroAcao(erro);
+  }
+}
+
+const esquemaLimiteIa = z.object({
+  limiteUsd: z
+    .string({ error: "Informe o limite em dólares." })
+    .trim()
+    .min(1, "Informe o limite em dólares.")
+    .transform((v) => Number(v.replace(",", ".")))
+    .pipe(z.number({ error: "Informe um valor válido." }).finite().min(0, "O limite não pode ser negativo.").max(500, "O limite máximo é US$ 500.")),
+});
+
+/** Limite mensal da IA do WhatsApp, digitado em dólares (ex.: "12,34") e gravado em micro-dólares. Só o admin edita. */
+export async function salvarLimiteIaWhatsappAcao(dados: unknown): Promise<EstadoAcao> {
+  try {
+    const ator = await exigirPermissao("whatsapp:gerenciar_numeros");
+    if (ator.papel !== "admin") throw new ErroPermissao("whatsapp:gerenciar_numeros");
+    const { limiteUsd } = esquemaLimiteIa.parse(dados);
+    await salvarConfiguracaoWhatsapp({ limiteMensalMicroUsd: Math.round(limiteUsd * 1_000_000) }, ator.id);
+    revalidatePath("/admin/saude");
+    return { ok: true, mensagem: "Limite salvo." };
   } catch (erro) {
     return tratarErroAcao(erro);
   }

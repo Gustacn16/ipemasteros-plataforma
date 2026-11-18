@@ -5,6 +5,7 @@ import { ErroNegocio } from "@/lib/erros";
 import { prisma } from "@/lib/prisma";
 import { ErroPermissao, temPermissao } from "@/lib/permissoes";
 import type { UsuarioAtual } from "@/lib/sessao";
+import { janelaDeOntem } from "../regras/dia";
 
 const ESCOPO_GRUPOS = "whatsapp:ver_grupos";
 const ESCOPO_EQUIPE = "whatsapp:ver_equipe";
@@ -31,6 +32,19 @@ export type GrupoNaTela = {
   numeros: string[];
   ultimaMensagemEm: Date | null;
   totalMensagens7d: number;
+  /** Pendências do resumo pronto de ontem; null quando não há resumo pronto. */
+  pendenciasOntem: number | null;
+};
+
+export type ResumoTela = {
+  situacao: "pendente" | "pronto" | "falhou";
+  erro: string | null;
+  resumo: string | null;
+  temas: string[];
+  pendencias: { autor: string; hora: string; texto: string }[];
+  destaques: string[];
+  participacao: { autor: string; mensagens: number }[];
+  totalMensagens: number;
 };
 
 export type ConversaNaTela = {
@@ -92,7 +106,7 @@ async function individualDoAtor(ator: UsuarioAtual, conversaId: string) {
   return conversa;
 }
 
-export async function listarGrupos(ator: UsuarioAtual): Promise<GrupoNaTela[]> {
+export async function listarGrupos(ator: UsuarioAtual, agora: Date = new Date()): Promise<GrupoNaTela[]> {
   exigirGrupos(ator);
   const grupos = await prisma.conversaWhatsapp.findMany({
     where: { tipo: "grupo" },
@@ -111,6 +125,14 @@ export async function listarGrupos(ator: UsuarioAtual): Promise<GrupoNaTela[]> {
           _count: { _all: true },
         });
   const porGrupo = new Map(contagens.map((c) => [c.conversaId, c._count._all]));
+  const resumos =
+    grupos.length === 0
+      ? []
+      : await prisma.resumoGrupo.findMany({
+          where: { conversaId: { in: grupos.map((g) => g.id) }, dia: janelaDeOntem(agora).dia, situacao: "pronto" },
+          select: { conversaId: true, pendencias: true },
+        });
+  const pendenciasPorGrupo = new Map(resumos.map((r) => [r.conversaId, listaJson(r.pendencias).length]));
   return grupos.map((g) => ({
     id: g.id,
     nome: g.nome ?? "Grupo sem nome",
@@ -120,7 +142,35 @@ export async function listarGrupos(ator: UsuarioAtual): Promise<GrupoNaTela[]> {
     numeros: g.nosGrupo.map((n) => n.numero.nome),
     ultimaMensagemEm: g.ultimaMensagemEm,
     totalMensagens7d: porGrupo.get(g.id) ?? 0,
+    pendenciasOntem: pendenciasPorGrupo.get(g.id) ?? null,
   }));
+}
+
+function listaJson(valor: unknown): unknown[] {
+  return Array.isArray(valor) ? valor : [];
+}
+
+/** Resumo do grupo no dia (`dia` é a meia-noite UTC da data de São Paulo); null quando não existe. A permissão é conferida pela tela. */
+export async function resumoDoGrupo(conversaId: string, dia: Date): Promise<ResumoTela | null> {
+  const r = await prisma.resumoGrupo.findUnique({ where: { conversaId_dia: { conversaId, dia } } });
+  if (!r) return null;
+  const texto = (v: unknown) => (typeof v === "string" ? v : "");
+  return {
+    situacao: r.situacao,
+    erro: r.erro,
+    resumo: r.resumo,
+    temas: listaJson(r.temas).map(texto).filter(Boolean),
+    pendencias: listaJson(r.pendencias).map((p) => {
+      const o = (p ?? {}) as Record<string, unknown>;
+      return { autor: texto(o.autor), hora: texto(o.hora), texto: texto(o.texto) };
+    }),
+    destaques: listaJson(r.destaques).map(texto).filter(Boolean),
+    participacao: listaJson(r.participacao).map((p) => {
+      const o = (p ?? {}) as Record<string, unknown>;
+      return { autor: texto(o.autor), mensagens: typeof o.mensagens === "number" ? o.mensagens : 0 };
+    }),
+    totalMensagens: r.totalMensagens,
+  };
 }
 
 /** Turmas para o seletor da tela de grupos. Lê direto do banco: módulos não importam serviços uns dos outros. */

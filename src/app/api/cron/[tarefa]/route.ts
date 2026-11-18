@@ -3,6 +3,7 @@ import { segredoValido } from "@/lib/cron";
 import { importarMetaAds } from "@/modulos/comercial/servicos/importacao-meta";
 import { atualizarInstagram } from "@/modulos/conteudo/servicos/atualizacao-instagram";
 import { limparWhatsapp } from "@/modulos/whatsapp/servicos/limpeza";
+import { coletarLotes, criarLoteDoDia } from "@/modulos/whatsapp/servicos/lote-ia";
 import { limparConversasAntigas } from "@/modulos/nexu/servicos/limpeza";
 import { iniciarColeta } from "@/modulos/espiao/servicos/coleta";
 import { limparEspiaoAntigo } from "@/modulos/espiao/servicos/limpeza";
@@ -60,6 +61,9 @@ const TAREFAS: Record<string, () => Promise<Record<string, unknown>>> = {
         .catch((e) => console.error("[espiao] falha na limpeza:", e instanceof Error ? e.name : "desconhecido"));
     }
   },
+  // Só contagens na resposta.
+  "ia-whatsapp": async () => ({ ok: true, ...(await criarLoteDoDia()) }),
+  "coletar-ia-whatsapp": async () => ({ ok: true, ...(await coletarLotes()) }),
   "importar-stories-instagram": async () => {
     const r = await atualizarInstagram({ tipo: "stories", origem: "agendada" });
     return { ok: r.status === "concluida", status: r.status, registros: r.registros };

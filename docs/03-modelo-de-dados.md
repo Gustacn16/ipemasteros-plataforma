@@ -85,7 +85,7 @@ erDiagram
 - **Agenda ↔ entidades:** a Agenda não grava nada nas tabelas de outros módulos. A camada de tarefas lê as entregas de `Tarefa` na hora. Os eventos da agenda pessoal (`AgendaExterna`, link iCal cifrado) são lidos do Google ou do Outlook e nunca vão para o banco. `AssinaturaAgenda` guarda só o hash do token do link `.ics`. Detalhes em `modulos/agenda.md`.
 - **Professor ↔ Usuario:** `Professor.usuarioId?` é opcional. Um professor pode ser cadastrado antes de receber acesso.
 - **Comercial ↔ Acadêmico:** o `Produto` do Comercial é o catálogo único; as turmas do Acadêmico vão apontar para ele (ver `modulos/comercial.md`).
-- **WhatsApp ↔ Acadêmico e Core:** `ContatoWhatsapp` liga-se a `Aluno` ou `Usuario` pelo telefone (`alunoId?`, `usuarioId?`, `SetNull` ao apagar). O grupo (`ConversaWhatsapp` com `tipo = grupo`) pode apontar para uma `Turma` (`turmaId?`). O WhatsApp nunca grava nas tabelas desses módulos. Detalhes em `modulos/whatsapp.md`.
+- **WhatsApp ↔ Acadêmico e Core:** `ContatoWhatsapp` liga-se a `Aluno` ou `Usuario` pelo telefone (`alunoId?`, `usuarioId?`, `SetNull` ao apagar). O grupo (`ConversaWhatsapp` com `tipo = grupo`) pode apontar para uma `Turma` (`turmaId?`). `ResumoGrupo` (resumo diário por grupo, único por conversa + dia, apagado junto com a conversa) liga-se a `ConversaWhatsapp` e, opcionalmente, a `LoteIa` (`SetNull`); `ConfiguracaoWhatsapp` guarda modelo e limite mensal da IA do WhatsApp. O WhatsApp nunca grava nas tabelas desses módulos. Detalhes em `modulos/whatsapp.md`.
 
 ## Seed
 `prisma/seed.ts` cria um admin de desenvolvimento, papéis de exemplo, um espaço de tarefas e uma turma fictícia com alunos **fictícios**. Nunca usar dados reais no seed.

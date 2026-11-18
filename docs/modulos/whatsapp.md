@@ -12,6 +12,9 @@ Conectar os números de WhatsApp da escola e dos vendedores ao IPEMaster OS e gu
 | `ConversaWhatsapp` | id, jid, tipo (`grupo`/`individual`), chaveGrupo? (= jid nos grupos, único), numeroId? (só individuais), nome?, contatoId?, turmaId?, numeroEnvioId? (sem uso ainda), categoria (padrão `outro`; `pessoal` descarta), monitorada, provisoriaAte?, ultimaMensagemEm? |
 | `NumeroNoGrupo` | numeroId + conversaId: quais números da empresa estão em cada grupo |
 | `MensagemWhatsapp` | id, conversaId, idExterno (único por conversa), numeroId (quem capturou primeiro), contatoId? (autor), deMim, tipo, texto?, respondeAIdExterno?, enviadaEm |
+| `ConfiguracaoWhatsapp` | id (`unica`), modelo (padrão `claude-opus-5-5`), limiteMensalMicroUsd (padrão US$ 80), atualizadoPorId? |
+| `LoteIa` | id, idExterno (único), tipo (`resumo_grupo`/`avaliacao`), dia, situacao (`aberto`/`concluido`/`falhou`), erro?, concluidoEm? |
+| `ResumoGrupo` | id, conversaId, dia (data de São Paulo), loteId?, resumo?, temas?, pendencias?, destaques?, participacao, totalMensagens, modelo, situacao (`pendente`/`pronto`/`falhou`), erro?; único por conversa + dia |
 
 Grupo é único pelo jid, mesmo que vários números da empresa estejam nele. Conversa individual é única por número + jid. A mesma mensagem capturada por dois números não duplica (`conversaId` + `idExterno`).
 
@@ -50,6 +53,10 @@ A tela nunca fala com o motor: grava comandos no banco e o motor os busca. O mot
 14. **Apagar dados de um telefone (direito do titular, LGPD):** botão "Apagar dados de um telefone" na tela Números, só para `whatsapp:gerenciar_numeros`. Pede o telefone duas vezes. O contato é achado pela chave do telefone (qualquer formato). Numa transação apaga as mensagens dele (também as de grupos), as conversas individuais (com as mensagens delas, em cascata) e o contato. Resultado: "Dados apagados: N mensagens e M conversas." ou "Nenhum contato com este telefone.". Auditoria `whatsapp.dados_telefone_apagados` com o id do contato e as contagens, nunca o telefone; telefone sem contato não audita.
 
 15. **Tela de saúde (`/admin/saude`):** só para `whatsapp:gerenciar_numeros` (item "Saúde" no menu de administração). Mostra se o motor está ligado (algum número com sinal há menos de 5 min; senão, "Sem resposta desde <data>") e, por número, a situação, o último sinal, as mensagens capturadas nas últimas 24 h (contadas pelo `numeroId` que capturou) e a data da última. Números excluídos não aparecem. Textos prontos de LGPD (grupos, termo do vendedor, política de privacidade): `docs/lgpd/whatsapp-textos.md`.
+
+16. **Resumo diário dos grupos (entrega 3):** todo dia o cron `ia-whatsapp` (07:30 UTC) pede à IA, em lote, o resumo de ontem (dia de São Paulo) de cada grupo monitorado com mensagens; o cron `coletar-ia-whatsapp` (a cada 15 min) recolhe os resultados. O resumo traz resumo, temas, pendências (mensagens sem resposta), destaques e quem mais falou. Situação `pendente`, `pronto` ou `falhou`. A IA recebe só texto e nome do contato, nunca telefone nem JID. Gasto do mês limitado por `ConfiguracaoWhatsapp.limiteMensalMicroUsd` (padrão US$ 80), somando só a origem `whatsapp`.
+17. **Telas do resumo:** em `/whatsapp/conversas/[id]` de um grupo, painel acima das mensagens com seletor de dia (`?dia=AAAA-MM-DD`, padrão ontem; valor inválido vira ontem), mostrando Resumo, Temas, Sem resposta, Destaques e Quem mais falou. Resumo pendente mostra "O resumo deste dia ainda está sendo preparado."; falhou ou inexistente, "Sem resumo neste dia.". A lista de grupos ganha a coluna "Pendências de ontem" (número, ou "—" sem resumo pronto). `/admin/saude` ganha o cartão "IA do WhatsApp" com o gasto do mês e o limite; só o admin edita o limite (ação `salvarLimiteIaWhatsappAcao`, permissão `whatsapp:gerenciar_numeros`, entre US$ 0 e US$ 500).
+18. **Retenção dos resumos:** 365 dias. A limpeza diária apaga `ResumoGrupo` com `dia` anterior a 365 dias e devolve `resumosAntigos` na resposta.
 
 ## Situação da implementação
 **Entrega 1:** motor, comandos, tela de números e conexão por QR. Verificação na tela com o motor ligado é feita no site `teste`.

@@ -68,10 +68,11 @@ model Usuario {
   numerosWhatsapp       NumeroWhatsapp[]
   contatosWhatsapp      ContatoWhatsapp[]
 
-  conversasNexu            ConversaNexu[]
-  propostasNexu            PropostaNexu[]
-  usosIa                   UsoIa[]
-  configuracoesIaAlteradas ConfiguracaoIa[]
+  conversasNexu                  ConversaNexu[]
+  propostasNexu                  PropostaNexu[]
+  usosIa                         UsoIa[]
+  configuracoesIaAlteradas       ConfiguracaoIa[]
+  configuracoesWhatsappAlteradas ConfiguracaoWhatsapp[]
 
   espiaoVistoEm DateTime?     @map("espiao_visto_em")
   gastosEspiao  GastoEspiao[]
@@ -1466,6 +1467,7 @@ model ConversaWhatsapp {
   turma     Turma?             @relation(fields: [turmaId], references: [id], onDelete: SetNull)
   nosGrupo  NumeroNoGrupo[]
   mensagens MensagemWhatsapp[]
+  resumos   ResumoGrupo[]
 
   @@unique([numeroId, jid])
   @@index([tipo, monitorada])
@@ -1718,4 +1720,79 @@ model GastoEspiao {
 
   @@index([criadoEm])
   @@map("gastos_espiao")
+}
+
+/// Linha única (id "unica"); sem linha valem os padrões do serviço.
+model ConfiguracaoWhatsapp {
+  id                   String   @id
+  modelo               String   @db.VarChar(60)
+  limiteMensalMicroUsd Int      @map("limite_mensal_micro_usd")
+  atualizadoPorId      String?  @map("atualizado_por_id")
+  atualizadoEm         DateTime @updatedAt @map("atualizado_em")
+
+  atualizadoPor Usuario? @relation(fields: [atualizadoPorId], references: [id], onDelete: SetNull)
+
+  @@map("configuracoes_whatsapp")
+}
+
+enum TipoLoteIa {
+  resumo_grupo
+  avaliacao
+}
+
+enum SituacaoLoteIa {
+  aberto
+  concluido
+  falhou
+}
+
+/// Lote enviado à API de lotes da Anthropic (idExterno = id do lote lá; nulo antes do envio).
+model LoteIa {
+  id          String         @id @default(cuid())
+  /// Nulo enquanto a reserva do dia ainda está sendo enviada.
+  idExterno   String?        @unique @map("id_externo") @db.VarChar(100)
+  tipo        TipoLoteIa
+  dia         DateTime       @db.Date
+  situacao    SituacaoLoteIa @default(aberto)
+  erro        String?        @db.VarChar(255)
+  criadoEm    DateTime       @default(now()) @map("criado_em")
+  concluidoEm DateTime?      @map("concluido_em")
+
+  resumos ResumoGrupo[]
+
+  /// Um lote por tipo e dia: a criação é a reserva contra execução dupla.
+  @@unique([tipo, dia])
+  @@map("lotes_ia")
+}
+
+enum SituacaoResumo {
+  pendente
+  pronto
+  falhou
+}
+
+/// Resumo diário de um grupo monitorado. `dia` é a data de São Paulo.
+model ResumoGrupo {
+  id             String         @id @default(cuid())
+  conversaId     String         @map("conversa_id")
+  dia            DateTime       @db.Date
+  loteId         String?        @map("lote_id")
+  resumo         String?        @db.Text
+  temas          Json?
+  pendencias     Json?
+  destaques      Json?
+  participacao   Json
+  totalMensagens Int            @map("total_mensagens")
+  modelo         String         @db.VarChar(60)
+  situacao       SituacaoResumo @default(pendente)
+  erro           String?        @db.VarChar(255)
+  criadoEm       DateTime       @default(now()) @map("criado_em")
+  atualizadoEm   DateTime       @updatedAt @map("atualizado_em")
+
+  conversa ConversaWhatsapp @relation(fields: [conversaId], references: [id], onDelete: Cascade)
+  lote     LoteIa?          @relation(fields: [loteId], references: [id], onDelete: SetNull)
+
+  @@unique([conversaId, dia])
+  @@index([dia])
+  @@map("resumos_grupo")
 }
