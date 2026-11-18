@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { DisconnectReason } from "baileys";
+import { DisconnectReason, proto } from "baileys";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { EventoMotor } from "./tipos.ts";
 
@@ -117,6 +117,17 @@ describe("Conexoes", () => {
     disco.resolver(estadoSalvo());
     await primeiro;
     expect(baileys.makeWASocket).toHaveBeenCalledTimes(1);
+  });
+
+  it("aceita o histórico recente do pareamento, mas não o histórico completo", async () => {
+    await conexoes.conectar("vaga1");
+    const config = (baileys.makeWASocket.mock.calls[0] as unknown[])[0] as {
+      shouldSyncHistoryMessage?: (msg: { syncType?: number }) => boolean;
+    };
+    const tipos = proto.Message.HistorySyncNotification.HistorySyncType;
+    expect(config.shouldSyncHistoryMessage?.({ syncType: tipos.INITIAL_BOOTSTRAP })).toBe(true);
+    expect(config.shouldSyncHistoryMessage?.({ syncType: tipos.RECENT })).toBe(true);
+    expect(config.shouldSyncHistoryMessage?.({ syncType: tipos.FULL })).toBe(false);
   });
 
   it("conectar durante uma reconexão em andamento não abre outro socket", async () => {

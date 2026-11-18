@@ -1,6 +1,6 @@
 import { mkdir, readdir, rm } from "node:fs/promises";
 import path from "node:path";
-import makeWASocket, { DisconnectReason, useMultiFileAuthState, type WAMessage, type WASocket } from "baileys";
+import makeWASocket, { DisconnectReason, proto, useMultiFileAuthState, type WAMessage, type WASocket } from "baileys";
 import pino from "pino";
 import { converterConversas, converterMensagem, emLotes } from "./conversao.ts";
 import { esperaReconexao } from "./espera.ts";
@@ -152,6 +152,9 @@ export class Conexoes {
         auth: state,
         markOnlineOnConnect: false,
         syncFullHistory: false,
+        // Sem isto a Baileys descarta todo histórico quando syncFullHistory é false: aceita o recente
+        // do pareamento (o servidor guarda só 30 dias), nunca o histórico completo.
+        shouldSyncHistoryMessage: (msg) => msg.syncType !== proto.Message.HistorySyncNotification.HistorySyncType.FULL,
         logger: this.logger,
       });
       vaga.sock = sock;
