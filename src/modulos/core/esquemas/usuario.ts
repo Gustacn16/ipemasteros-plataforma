@@ -50,12 +50,6 @@ export const esquemaPrimeiroAcesso = senhaComConfirmacao.and(
   z.object({ token: z.string().min(1, "Informe o token de primeiro acesso"), nome, email }),
 );
 
-export const esquemaLogin = z.object({ email, senha: z.string().min(1, "Informe a senha") });
-
 export const esquemaAlterarPapel = z.object({ usuarioId: z.string().min(1), papel });
 
 export const esquemaIdUsuario = z.object({ usuarioId: z.string().min(1) });
-
-export const esquemaRecuperarSenha = z.object({ email });
-
-export const esquemaRedefinirSenha = senhaComConfirmacao.and(z.object({ token: z.string().min(1) }));

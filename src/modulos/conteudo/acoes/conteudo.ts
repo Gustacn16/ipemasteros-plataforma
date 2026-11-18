@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { dadosDoFormulario, tratarErroAcao, type EstadoAcao } from "@/lib/acoes";
+import { dadosDoFormulario, idDaAcao, tratarErroAcao, type EstadoAcao } from "@/lib/acoes";
 import { exigirPermissao } from "@/lib/sessao";
 import {
   esquemaAtualizarConteudo,
@@ -59,7 +59,7 @@ export async function editarMarcaAcao(dados: unknown): Promise<EstadoAcao> {
 
 export async function excluirMarcaAcao(marcaId: string): Promise<EstadoAcao> {
   return executar("conteudo:gerenciar_canais", async (ator) => {
-    await excluirMarca(ator, marcaId);
+    await excluirMarca(ator, idDaAcao(marcaId));
     return { ok: true, mensagem: "Conta excluída." };
   });
 }
@@ -154,7 +154,7 @@ export async function salvarMetricasAcao(dados: unknown): Promise<EstadoAcao> {
 
 export async function excluirConteudoAcao(conteudoId: string): Promise<EstadoAcao> {
   return executar("conteudo:usar", async (ator) => {
-    await excluirConteudo(ator, conteudoId);
+    await excluirConteudo(ator, idDaAcao(conteudoId));
     return { ok: true, mensagem: "Conteúdo excluído." };
   });
 }

@@ -31,6 +31,16 @@ describe("cliente da Graph API", () => {
     expect(linhas.map((l) => l.date_start)).toEqual(["2026-11-01", "2026-11-02"]);
   });
 
+  it("não segue paginação para fora da Graph API (o token iria junto)", async () => {
+    const urls: string[] = [];
+    const espiao = (async (entrada: string | URL | Request) => {
+      urls.push(String(entrada));
+      return resposta({ data: [], paging: { next: "https://exemplo.invalido/roubar" } });
+    }) as typeof fetch;
+    await expect(criarClienteMeta(TOKEN, espiao).listarContas()).rejects.toBeInstanceOf(ErroMeta);
+    expect(urls).toHaveLength(1);
+  });
+
   it("pede os insights por campanha e por dia, no período", async () => {
     const urls: string[] = [];
     const espiao = (async (entrada: string | URL | Request) => {

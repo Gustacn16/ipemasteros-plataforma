@@ -7,6 +7,7 @@
 /** Versão da Graph API (changelog da Meta: v26.0, de 29/07/2026). Revisar uma vez por ano. */
 export const VERSAO_GRAPH = "v26.0";
 export const BASE_GRAPH = `https://graph.facebook.com/${VERSAO_GRAPH}`;
+const ORIGEM_GRAPH = new URL(BASE_GRAPH).origin;
 
 export class ErroMeta extends Error {
   constructor(
@@ -58,6 +59,8 @@ export function criarPedidosGraph(token: string, traduzir: TraduzirErroMeta, fet
         itens.push(item);
       }
       proxima = pagina.paging?.next;
+      // O token vai no cabeçalho de cada página: só segue endereços da própria Graph API.
+      if (proxima && (!URL.canParse(proxima) || new URL(proxima).origin !== ORIGEM_GRAPH)) throw new ErroMeta("A Meta respondeu com um endereço de página inesperado.");
     }
     return itens;
   }
