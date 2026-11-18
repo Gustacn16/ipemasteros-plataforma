@@ -120,8 +120,14 @@ ufw status
 ## 12. Parar o motor do Mac (faça antes do passo 9)
 Dois motores com a mesma sessão fazem o WhatsApp derrubar um deles (erro 440). No terminal do Mac, onde o motor está rodando, aperte `Ctrl + C` e confirme que fechou. Não ligue mais o motor no Mac.
 
-## 13. Ler o QR de novo
-A sessão do Mac **não** é copiada para a VPS. No site, abra a tela do WhatsApp, apague (**Desconectar**) e **Conectar** cada número de novo, e leia o QR no celular (*Aparelhos conectados*).
+## 13. Levar a sessão do Mac (ou ler o QR de novo)
+**Com o motor do Mac já parado**, dá para copiar a sessão do Mac para a VPS e o número conecta sem QR (foi assim na primeira instalação, em 18/11/2026). No Mac, dentro de `motor-whatsapp`:
+
+```bash
+tar -czf - -C sessoes --exclude=.motor.pid . | ssh root@IP_DA_VPS 'cd /opt/ipemaster-os/motor-whatsapp/sessoes && tar -xzf - && chown -R motor:motor . && systemctl restart motor-whatsapp'
+```
+
+Os avisos `Ignoring unknown extended header keyword` do tar são normais (atributos do macOS). Sem a sessão do Mac: no site, **Desconectar** e **Conectar** cada número de novo e ler o QR no celular (*Aparelhos conectados*).
 
 ## 14. Teste de aceite: reiniciar a VPS
 ```bash
