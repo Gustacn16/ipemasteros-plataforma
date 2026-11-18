@@ -15,7 +15,9 @@ PAI="$(dirname "$PASTA_SESSOES")"
 NOME="$(basename "$PASTA_SESSOES")"
 DESTINO="$PASTA_COPIAS/sessoes-$(date +%F).tar.gz"
 
-tar -czf "$DESTINO" --exclude="$NOME/.motor.pid" -C "$PAI" "$NOME"
+# tar sai com 1 quando um arquivo muda durante a leitura (o motor está rodando): não é falha.
+# Só código 2 ou mais aborta.
+tar -czf "$DESTINO" --exclude="$NOME/.motor.pid" -C "$PAI" "$NOME" || [ $? -eq 1 ]
 chmod 600 "$DESTINO"
 
 find "$PASTA_COPIAS" -maxdepth 1 -name 'sessoes-*.tar.gz' -mtime +"$DIAS_GUARDAR" -delete

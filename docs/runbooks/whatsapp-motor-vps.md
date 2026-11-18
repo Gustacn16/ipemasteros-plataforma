@@ -39,9 +39,9 @@ git config --global url."https://github.com/".insteadOf ssh://git@github.com/
    cat /root/.ssh/deploy_ipemaster.pub
    ```
 2. Copie a linha que apareceu (é a chave **pública**, pode ser colada). No GitHub, abra o repositório → **Settings → Deploy keys → Add deploy key**, cole, dê o nome `vps-motor-whatsapp` e **não** marque "Allow write access".
-3. De volta na VPS, clone (troque `DONO/REPOSITORIO` pelo caminho do repositório no GitHub):
+3. De volta na VPS, clone (repositório `Gustacn16/ipemasteros-plataforma`):
    ```bash
-   GIT_SSH_COMMAND="ssh -i /root/.ssh/deploy_ipemaster -o StrictHostKeyChecking=accept-new" git clone git@github.com:DONO/REPOSITORIO.git /opt/ipemaster-os
+   GIT_SSH_COMMAND="ssh -i /root/.ssh/deploy_ipemaster -o StrictHostKeyChecking=accept-new" git clone git@github.com:Gustacn16/ipemasteros-plataforma.git /opt/ipemaster-os
    cd /opt/ipemaster-os
    git config core.sshCommand "ssh -i /root/.ssh/deploy_ipemaster"
    git checkout teste
@@ -81,7 +81,7 @@ chmod 700 /opt/ipemaster-os/motor-whatsapp/sessoes
 ```
 
 ## 9. Instalar e ligar o serviço
-Antes deste passo, **faça o passo 12** (parar o motor do Mac).
+**Antes deste passo, pare o motor do Mac (passo 12) e volte aqui.**
 
 ```bash
 cp /opt/ipemaster-os/motor-whatsapp/deploy/motor-whatsapp.service /etc/systemd/system/
@@ -96,7 +96,7 @@ As sessões são as chaves do aparelho: a cópia fica em `/var/backups/motor-wha
 
 ```bash
 chmod +x /opt/ipemaster-os/motor-whatsapp/deploy/copiar-sessoes.sh
-(crontab -l 2>/dev/null; echo '30 3 * * * /opt/ipemaster-os/motor-whatsapp/deploy/copiar-sessoes.sh >> /var/log/copiar-sessoes.log 2>&1') | crontab -
+crontab -l 2>/dev/null | grep -q copiar-sessoes || (crontab -l 2>/dev/null; echo '30 3 * * * /opt/ipemaster-os/motor-whatsapp/deploy/copiar-sessoes.sh >> /var/log/copiar-sessoes.log 2>&1') | crontab -
 crontab -l
 ```
 Para testar já:
