@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  ESQUEMA_RESUMO,
   esquemaZodResumo,
   montarEntradaResumo,
   participacaoDoDia,
@@ -81,13 +82,49 @@ describe("pedidoResumo", () => {
 });
 
 describe("esquemaZodResumo", () => {
-  it("Zod recusa pendência sem hora", () => {
-    const r = esquemaZodResumo.safeParse({
-      resumo: "x",
-      temas: [],
-      pendencias: [{ autor: "Ana", texto: "Dúvida" }],
-      destaques: [],
-    });
+  const base = { resumo: "x", temas: [], destaques: [] };
+
+  it("Zod recusa pendência sem a chave hora", () => {
+    const r = esquemaZodResumo.safeParse({ ...base, pendencias: [{ autor: "Ana", texto: "Dúvida" }] });
     expect(r.success).toBe(false);
+  });
+
+  it("hora inválida vira vazia e hora válida é mantida", () => {
+    const r = esquemaZodResumo.parse({
+      ...base,
+      pendencias: [
+        { autor: "Ana", hora: "25:99", texto: "a" },
+        { autor: "Bia", hora: "09:30", texto: "b" },
+      ],
+    });
+    expect(r.pendencias.map((p) => p.hora)).toEqual(["", "09:30"]);
+  });
+
+  it("listas acima do limite são aparadas", () => {
+    const r = esquemaZodResumo.parse({
+      resumo: "x",
+      temas: Array(9).fill("t"),
+      destaques: Array(8).fill("d"),
+      pendencias: Array(20).fill({ autor: "A", hora: "10:00", texto: "t" }),
+    });
+    expect([r.temas.length, r.pendencias.length, r.destaques.length]).toEqual([6, 15, 5]);
+  });
+});
+
+describe("ESQUEMA_RESUMO", () => {
+  it("não usa restrições que a API de saída estruturada não suporta", () => {
+    const proibidas = ["maxItems", "minItems", "pattern", "minLength", "maxLength"];
+    const achadas: string[] = [];
+    const andar = (v: unknown) => {
+      if (Array.isArray(v)) return v.forEach(andar);
+      if (v && typeof v === "object") {
+        for (const [k, x] of Object.entries(v)) {
+          if (proibidas.includes(k)) achadas.push(k);
+          andar(x);
+        }
+      }
+    };
+    andar(ESQUEMA_RESUMO);
+    expect(achadas).toEqual([]);
   });
 });

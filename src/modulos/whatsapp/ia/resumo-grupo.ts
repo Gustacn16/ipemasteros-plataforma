@@ -75,34 +75,42 @@ export const ESQUEMA_RESUMO = {
   type: "object",
   properties: {
     resumo: { type: "string" },
-    temas: { type: "array", items: { type: "string" }, maxItems: 6 },
+    temas: { type: "array", items: { type: "string" } },
     pendencias: {
       type: "array",
-      maxItems: 15,
       items: {
         type: "object",
         properties: {
           autor: { type: "string" },
-          hora: { type: "string", pattern: "^[0-2][0-9]:[0-5][0-9]$" },
+          hora: { type: "string" },
           texto: { type: "string" },
         },
         required: ["autor", "hora", "texto"],
         additionalProperties: false,
       },
     },
-    destaques: { type: "array", items: { type: "string" }, maxItems: 5 },
+    destaques: { type: "array", items: { type: "string" } },
   },
   required: ["resumo", "temas", "pendencias", "destaques"],
   additionalProperties: false,
-} as const;
+} as const satisfies Record<string, unknown>;
 
+const HORA_VALIDA = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+// Os limites não vão no JSON Schema (a API não os aceita); aqui a lista é aparada em vez de reprovar um bom resumo.
 export const esquemaZodResumo = z.object({
   resumo: z.string(),
-  temas: z.array(z.string()).max(6),
+  temas: z.array(z.string()).transform((l) => l.slice(0, 6)),
   pendencias: z
-    .array(z.object({ autor: z.string(), hora: z.string().regex(/^[0-2]\d:[0-5]\d$/), texto: z.string() }))
-    .max(15),
-  destaques: z.array(z.string()).max(5),
+    .array(
+      z.object({
+        autor: z.string(),
+        hora: z.string().transform((h) => (HORA_VALIDA.test(h) ? h : "")),
+        texto: z.string(),
+      }),
+    )
+    .transform((l) => l.slice(0, 15)),
+  destaques: z.array(z.string()).transform((l) => l.slice(0, 5)),
 });
 
 export type ResumoGrupo = z.infer<typeof esquemaZodResumo>;
