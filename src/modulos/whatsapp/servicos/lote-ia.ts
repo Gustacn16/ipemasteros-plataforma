@@ -266,11 +266,19 @@ export async function criarLoteDoDia(
 
 type DadosResumo = { situacao: "pendente" | "falhou"; erro: string | null; loteId: string | null; modelo: string };
 
-/** Grava o resumo do dia sem nunca mexer em um que já está pronto. Devolve o id, ou null se já estava pronto. */
+/**
+ * Grava o resumo do dia sem nunca mexer em um que já está pronto. Gravação sem lote (sem verba) também
+ * não mexe em um pendente de outro lote, que ainda vai ser coletado. Devolve o id, ou null se não gravou.
+ */
 async function gravarResumo(c: Candidato, dia: Date, d: DadosResumo): Promise<string | null> {
   const dados = { ...d, participacao: c.participacao, totalMensagens: c.totalMensagens, resumo: null };
   const r = await prisma.resumoGrupo.updateMany({
-    where: { conversaId: c.conversaId, dia, situacao: { not: "pronto" } },
+    where: {
+      conversaId: c.conversaId,
+      dia,
+      situacao: { not: "pronto" },
+      ...(d.loteId === null ? { OR: [{ loteId: null }, { situacao: "falhou" }] } : {}),
+    },
     data: dados,
   });
   if (r.count > 0) {
@@ -283,7 +291,7 @@ async function gravarResumo(c: Candidato, dia: Date, d: DadosResumo): Promise<st
   try {
     return (await prisma.resumoGrupo.create({ data: { conversaId: c.conversaId, dia, ...dados }, select: { id: true } })).id;
   } catch (e) {
-    if (codigoErro(e) === "P2002") return null; // já existe e está pronto
+    if (codigoErro(e) === "P2002") return null; // já existe: pronto, ou pendente de outro lote
     throw e;
   }
 }

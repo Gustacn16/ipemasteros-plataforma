@@ -28,7 +28,8 @@ const banco = vi.hoisted(() => {
     if (where.situacao?.not && r.situacao === where.situacao.not) return false;
     if (typeof where.situacao === "string" && r.situacao !== where.situacao) return false;
     if (where.id !== undefined && typeof where.id === "string" && r.id !== where.id) return false;
-    if (where.loteId !== undefined && r.loteId !== where.loteId) return false;
+    if (where.loteId !== undefined && (r.loteId ?? null) !== where.loteId) return false;
+    if (where.OR && !where.OR.some((w: Linha) => resumoCombina(r, w))) return false;
     if (where.conversaId !== undefined && r.conversaId !== where.conversaId) return false;
     if (where.dia !== undefined && !mesmoDia(r.dia, where.dia)) return false;
     return true;
@@ -332,6 +333,27 @@ describe("criarLoteDoDia", () => {
     expect(await criarLoteDoDia(AGORA, cliente)).toEqual({ criado: false, pedidos: 0, semVerba: 1, motivo: "nada_a_fazer" });
     expect(enviados).toHaveLength(0);
     expect(banco.estado.lotes).toHaveLength(0);
+  });
+
+  it("sem verba não sobrescreve um resumo pendente de outro lote (corrida com outra execução)", async () => {
+    grupo("g1");
+    grupo("g2");
+    mensagem("g1");
+    mensagem("g2");
+    banco.estado.gastoMes = 80_000_000;
+    banco.estado.resumos.push(
+      { id: "r0", conversaId: "g1", dia: DIA, situacao: "pendente", erro: null, loteId: "outro" },
+      { id: "r1", conversaId: "g2", dia: DIA, situacao: "falhou", erro: "Erro da IA.", loteId: "velho" },
+    );
+    const { cliente } = clienteFalso();
+    expect(await criarLoteDoDia(AGORA, cliente)).toMatchObject({ criado: false, semVerba: 2, motivo: "nada_a_fazer" });
+    // O pendente do outro lote continua para a coleta; o que já tinha falhado recebe o aviso do limite.
+    expect(banco.estado.resumos.find((r) => r.id === "r0")).toMatchObject({ situacao: "pendente", erro: null, loteId: "outro" });
+    expect(banco.estado.resumos.find((r) => r.id === "r1")).toMatchObject({
+      situacao: "falhou",
+      erro: "Limite mensal de IA do WhatsApp atingido.",
+      loteId: null,
+    });
   });
 
   it("resumo já pronto do dia não é refeito", async () => {
