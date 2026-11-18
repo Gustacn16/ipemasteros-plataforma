@@ -132,6 +132,7 @@ import {
   coletarLotes,
   criarLoteDoDia,
   LoteRecusadoError,
+  SAIDA_ESTIMADA,
   type ClienteLotes,
   type ResultadoLote,
 } from "./lote-ia";
@@ -308,7 +309,7 @@ describe("criarLoteDoDia", () => {
     // Custo estimado por pedido (entradas pequenas e parecidas): basta para um, não para dois.
     const estimativa = calcularCustoMicroUsd(
       "claude-opus-5-5",
-      { entrada: Math.ceil((INSTRUCOES_RESUMO.length + 60) / 3), cacheEscrita: 0, cacheLeitura: 0, saida: 8000 },
+      { entrada: Math.ceil((INSTRUCOES_RESUMO.length + 60) / 3), cacheEscrita: 0, cacheLeitura: 0, saida: SAIDA_ESTIMADA },
       { lote: true },
     );
     banco.estado.config = { id: "unica", modelo: "claude-opus-5-5", limiteMensalMicroUsd: 10_000_000 };
@@ -814,18 +815,23 @@ describe("coletarLotes", () => {
     expect(banco.estado.resumos[0]).toMatchObject({ situacao: "pronto", resumo: "Dia tranquilo." });
   });
 
-  it("stop_reason max_tokens com JSON cortado: falhou 'Resposta fora do formato.' e uso registrado uma vez", async () => {
+  it("stop_reason max_tokens: falhou 'O resumo ficou grande demais.' (mesmo com JSON válido) e uso registrado uma vez", async () => {
     lote();
     resumo("r1");
+    resumo("r2");
     const cortado = JSON.stringify(JSON_OK).slice(0, 30);
-    const cliente = clienteColeta("ended", [sucesso("resumo_r1", cortado, { stop_reason: "max_tokens" })]);
-    expect(await coletarLotes(COLETA, cliente)).toEqual({ lotes: 1, prontos: 0, falhos: 1 });
-    expect(banco.estado.resumos[0]).toMatchObject({ situacao: "falhou", erro: "Resposta fora do formato." });
-    expect(banco.estado.usos).toHaveLength(1);
+    const cliente = clienteColeta("ended", [
+      sucesso("resumo_r1", cortado, { stop_reason: "max_tokens" }),
+      sucesso("resumo_r2", JSON.stringify(JSON_OK), { stop_reason: "max_tokens" }),
+    ]);
+    expect(await coletarLotes(COLETA, cliente)).toEqual({ lotes: 1, prontos: 0, falhos: 2 });
+    for (const r of banco.estado.resumos) expect(r).toMatchObject({ situacao: "falhou", erro: "O resumo ficou grande demais." });
+    // O uso é cobrado.
+    expect(banco.estado.usos).toHaveLength(2);
     // Coleta repetida não cobra de novo.
     banco.estado.lotes[0].situacao = "aberto";
     await coletarLotes(COLETA, cliente);
-    expect(banco.estado.usos).toHaveLength(1);
+    expect(banco.estado.usos).toHaveLength(2);
   });
 
   it("no fim, LoteIa concluido com concluidoEm", async () => {

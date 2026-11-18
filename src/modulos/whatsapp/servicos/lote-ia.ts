@@ -92,7 +92,8 @@ const PREFIXO_CUSTOM_ID = "resumo_";
 
 const codigoErro = (e: unknown) => (typeof e === "object" && e !== null ? (e as { code?: unknown }).code : undefined);
 
-const SAIDA_ESTIMADA = 8000;
+/** Saída esperada de um resumo (raciocínio + JSON) para a conta da verba; o teto do pedido é MAX_TOKENS_RESUMO. */
+export const SAIDA_ESTIMADA = 4000;
 
 type Candidato = {
   conversaId: string;
@@ -290,6 +291,7 @@ async function gravarResumo(c: Candidato, dia: Date, d: DadosResumo): Promise<st
 export const ERRO_NAO_ENVIADO = "O lote não foi enviado.";
 export const ERRO_RECUSA = "A IA recusou este resumo.";
 export const ERRO_FORMATO = "Resposta fora do formato.";
+export const ERRO_GRANDE_DEMAIS = "O resumo ficou grande demais.";
 export const ERRO_IA = "Erro da IA.";
 export const ERRO_EXPIROU = "O pedido expirou.";
 export const ERRO_CANCELADO = "O pedido foi cancelado.";
@@ -337,6 +339,8 @@ function desfechoDoItem(item: ResultadoLote): Desfecho {
   }
   const mensagem = r.message;
   if (mensagem.stop_reason === "refusal") return { situacao: "falhou", erro: ERRO_RECUSA };
+  // Cortado no teto: o JSON pode até parecer válido, mas não está completo.
+  if (mensagem.stop_reason === "max_tokens") return { situacao: "falhou", erro: ERRO_GRANDE_DEMAIS };
   const bloco = mensagem.content.find((b) => b.type === "text");
   if (!bloco || bloco.type !== "text") return { situacao: "falhou", erro: ERRO_FORMATO };
   let json: unknown;
