@@ -41,7 +41,7 @@ const ICONES = {
   saude: <HeartPulseIcon />,
 };
 
-export type ItemMenu = { href: string; rotulo: string; icone: keyof typeof ICONES; emBreve?: boolean };
+export type ItemMenu = { href: string; rotulo: string; icone: keyof typeof ICONES; emBreve?: boolean; contador?: number };
 
 function Logo(aberta: boolean) {
   return (

@@ -1,11 +1,14 @@
 import { ROTULO_PAPEL, temPermissao } from "@/lib/permissoes";
 import { iaConfigurada } from "@/lib/ia/cliente";
 import { exigirUsuario } from "@/lib/sessao";
+import { contarSinaisNovos } from "@/modulos/espiao/servicos/visao";
 import { PainelNexu } from "@/modulos/nexu/componentes/painel-nexu";
 import { MenuNavegacao, type ItemMenu } from "./menu-navegacao";
 
 export default async function LayoutApp({ children }: { children: React.ReactNode }) {
   const usuario = await exigirUsuario();
+  // Falhar a contagem não pode derrubar o menu.
+  const sinaisNovos = temPermissao(usuario.papel, "espiao:ver") ? await contarSinaisNovos(usuario.id).catch(() => 0) : 0;
   const modulos: ItemMenu[] = [
     { href: "/inicio", rotulo: "Início", icone: "inicio" },
     ...(temPermissao(usuario.papel, "tarefas:usar") ? [{ href: "/tarefas", rotulo: "Tarefas", icone: "tarefas" } as const] : []),
@@ -13,7 +16,7 @@ export default async function LayoutApp({ children }: { children: React.ReactNod
     ...(temPermissao(usuario.papel, "agenda:usar") ? [{ href: "/agenda", rotulo: "Agenda", icone: "agenda" } as const] : []),
     ...(temPermissao(usuario.papel, "academico:ver") ? [{ href: "/academico", rotulo: "Acadêmico", icone: "academico" } as const] : []),
     ...(temPermissao(usuario.papel, "comercial:ver") ? [{ href: "/comercial", rotulo: "Comercial", icone: "comercial" } as const] : []),
-    ...(temPermissao(usuario.papel, "espiao:ver") ? [{ href: "/espiao", rotulo: "Espião", icone: "espiao" } as const] : []),
+    ...(temPermissao(usuario.papel, "espiao:ver") ? [{ href: "/espiao", rotulo: "Espião", icone: "espiao", contador: sinaisNovos } as const] : []),
     ...(temPermissao(usuario.papel, "nexu:usar") ? [{ href: "/nexu", rotulo: "Nexu", icone: "nexu" } as const] : []),
     ...(temPermissao(usuario.papel, "whatsapp:gerenciar_numeros") ||
     temPermissao(usuario.papel, "whatsapp:conectar_proprio") ||

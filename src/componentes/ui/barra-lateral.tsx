@@ -153,14 +153,17 @@ type Item = {
   icone: React.ReactNode;
   ativo?: boolean;
   emBreve?: boolean;
+  /** Número pequeno ao lado do nome (ex.: sinais novos do Espião). */
+  contador?: number;
 };
 
 const estiloItem = "flex h-10 items-center gap-3 rounded-md px-2.5 text-sm transition-colors";
 
-export function ItemBarraLateral({ href, rotulo, icone, ativo, emBreve }: Item) {
+export function ItemBarraLateral({ href, rotulo, icone, ativo, emBreve, contador }: Item) {
   const { aberta, fecharMovel } = useBarraLateral();
   // Recolhida, só o ícone aparece: o nome vai para o leitor de tela e para a dica do mouse.
-  const dica = aberta ? undefined : emBreve ? `${rotulo} (em breve)` : rotulo;
+  const comContador = contador ? `${rotulo} (${contador} novos)` : rotulo;
+  const dica = aberta ? (contador ? comContador : undefined) : emBreve ? `${rotulo} (em breve)` : comContador;
 
   if (emBreve) {
     return (
@@ -185,8 +188,16 @@ export function ItemBarraLateral({ href, rotulo, icone, ativo, emBreve }: Item) 
         ativo ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium" : "hover:bg-sidebar-accent text-sidebar-foreground/80 hover:text-sidebar-foreground",
       )}
     >
-      <span className="shrink-0 [&_svg]:size-5">{icone}</span>
-      <TextoBarra className="transition-transform duration-150 group-hover/item:translate-x-0.5">{rotulo}</TextoBarra>
+      <span className="relative shrink-0 [&_svg]:size-5">
+        {icone}
+        {contador ? <span aria-hidden className="bg-primary absolute -top-1 -right-1 size-2 rounded-full" /> : null}
+      </span>
+      <TextoBarra className="flex-1 transition-transform duration-150 group-hover/item:translate-x-0.5">{rotulo}</TextoBarra>
+      {contador ? (
+        <TextoBarra aria-hidden className="bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 text-[10px] font-semibold">
+          {contador > 99 ? "99+" : contador}
+        </TextoBarra>
+      ) : null}
     </Link>
   );
 }

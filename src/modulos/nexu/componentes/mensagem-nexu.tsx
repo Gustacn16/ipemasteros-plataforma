@@ -13,7 +13,7 @@ export function urlSegura(url: string): string {
   return t;
 }
 
-function Markdown_({ texto }: { texto: string }) {
+export function MarkdownSeguro({ texto }: { texto: string }) {
   return (
     <Markdown
       remarkPlugins={[remarkGfm]}
@@ -69,7 +69,7 @@ export function MensagemNexu({
           dela ? "bg-primary text-primary-foreground whitespace-pre-wrap" : "bg-muted text-foreground",
         )}
       >
-        {dela ? texto : texto ? <Markdown_ texto={texto} /> : <span className="text-muted-foreground">Pensando…</span>}
+        {dela ? texto : texto ? <MarkdownSeguro texto={texto} /> : <span className="text-muted-foreground">Pensando…</span>}
       </div>
     </div>
   );
