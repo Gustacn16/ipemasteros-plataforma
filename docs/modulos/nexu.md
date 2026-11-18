@@ -59,6 +59,11 @@ A lista enviada à API é montada no servidor a partir das permissões do papel;
 | `vendas_e_metas` | `comercial:ver` | **Sem nome de cliente.** Vendedor vê só as próprias; a equipe depende de `comercial:ver_equipe` (regra do serviço) |
 | `produtos` | `comercial:ver` | Catálogo e preços |
 | `buscar_pessoas` | `nexu:usar` | Nome → id, nome e papel de usuário ativo |
+| `espiao_sinais` | `espiao:ver` | Sinais do espião por período e concorrente (até 50) |
+| `espiao_concorrente` | `espiao:ver` | Indicadores, posts recentes com resumo, páginas com preços e últimos sinais de um concorrente |
+| `espiao_buscar_conteudo` | `espiao:ver` | Palavra nas legendas e transcrições guardadas (sem acento, filtro no código) |
+| `espiao_perfil_agora` | `espiao:ver` | Perfil profissional do Instagram lido na hora (12 posts, sem transcrever nem guardar; conteúdo de terceiros) |
+| `espiao_pagina_agora` | `espiao:ver` | Texto e preços de uma página pública lida na hora (até 20 mil caracteres; conteúdo de terceiros) |
 
 **Ações (gravam proposta; o serviço só roda ao confirmar)**
 | Ferramenta | Permissão | Serviço chamado ao confirmar |

@@ -5,6 +5,7 @@ import { atualizarInstagram } from "@/modulos/conteudo/servicos/atualizacao-inst
 import { limparWhatsapp } from "@/modulos/whatsapp/servicos/limpeza";
 import { limparConversasAntigas } from "@/modulos/nexu/servicos/limpeza";
 import { iniciarColeta } from "@/modulos/espiao/servicos/coleta";
+import { limparEspiaoAntigo } from "@/modulos/espiao/servicos/limpeza";
 
 // Jobs agendados (docs/02-arquitetura.md): o cron da Hostinger chama
 // GET /api/cron/<tarefa> com "Authorization: Bearer $CRON_SECRET".
@@ -48,9 +49,16 @@ const TAREFAS: Record<string, () => Promise<Record<string, unknown>>> = {
     };
   },
   espiao: async () => {
-    // Só inicia: a coleta roda em segundo plano no processo Node (ADR/spec do espião, D10).
-    const r = await iniciarColeta({ origem: "agendada", usuarioId: null });
-    return { ok: true, iniciou: r.iniciou, motivo: r.motivo ?? null };
+    try {
+      // Só inicia: a coleta roda em segundo plano no processo Node (spec do espião, D10).
+      const r = await iniciarColeta({ origem: "agendada", usuarioId: null });
+      return { ok: true, iniciou: r.iniciou, motivo: r.motivo ?? null };
+    } finally {
+      // Retenção de 18 meses; nunca lança.
+      await limparEspiaoAntigo()
+        .then((r) => console.info("[espiao] limpeza:", r))
+        .catch((e) => console.error("[espiao] falha na limpeza:", e instanceof Error ? e.name : "desconhecido"));
+    }
   },
   "importar-stories-instagram": async () => {
     const r = await atualizarInstagram({ tipo: "stories", origem: "agendada" });

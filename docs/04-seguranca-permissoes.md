@@ -93,6 +93,8 @@ Professor e aluno não usam o Nexu. Cada ferramenta do Nexu exige, além de `nex
 |---|---|---|---|---|
 | `nexu:usar` (conversar, ver o próprio histórico, confirmar ou recusar as próprias propostas) | ✅ | ✅ | ✅ | ✅ |
 | `nexu:configurar` (modelo, limites e painel de uso em `/admin/nexu`) | ✅ | — | — | — |
+| `espiao:ver` (telas do espião e ferramentas `espiao_*` do Nexu) | ✅ | ✅ | — | ✅ |
+| `espiao:configurar` (concorrentes, páginas, teto de gasto, coletar agora, testar perfil) | ✅ | — | — | — |
 
 - Conversa e proposta só são lidas ou alteradas pelo **dono**, inclusive pelo admin. O admin vê só números de uso, nunca o conteúdo.
 - A ação proposta roda como a pessoa que confirmou, e o serviço do módulo refaz a checagem de permissão.

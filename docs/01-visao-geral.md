@@ -31,6 +31,7 @@ A IPEMaster oferece pós-graduações e cursos livres para médicos. Hoje a oper
 | Conteúdo | Canais, calendário editorial, fluxo de aprovação e publicação | `modulos/conteudo.md` |
 | Comercial | Catálogo de produtos, vendas, metas e dashboard (depois: Kommo e Meta Ads) | `modulos/comercial.md` |
 | Nexu | Assistente de IA: responde sobre os dados dos módulos e propõe ações que a pessoa confirma | `modulos/nexu.md` |
+| Espião | Concorrentes: coleta semanal do Instagram e das landing pages, sinais do que mudou e análise da IA | `modulos/espiao.md` |
 
 ## Roadmap por fases
 | Fase | Entrega |

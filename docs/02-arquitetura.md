@@ -78,6 +78,7 @@ O motor (projeto à parte, `motor-whatsapp/`) fala com o sistema por três rotas
 ## Jobs agendados
 A Hostinger Cloud oferece cron no hPanel. Cada job é um `GET /api/cron/<tarefa>` com o header `Authorization: Bearer $CRON_SECRET`.
 - `importar-meta-ads` (diário, 4h): refaz os últimos 7 dias do Meta Ads; implementado em `src/app/api/cron/[tarefa]/route.ts`. A mesma tarefa também apaga as conversas do Nexu com mais de 90 dias, isolada em `try/catch` para não derrubar a importação.
+- `espiao` (diário, 4h): só **inicia** a coleta do espião de concorrentes se a última concluída tiver mais de 6 dias (ou retoma uma parada há mais de 2 h). A coleta roda em segundo plano no processo Node, depois da resposta, por passos idempotentes (`src/modulos/espiao/servicos/coleta.ts`). Na mesma chamada, apaga o histórico do espião com mais de 18 meses.
 - `importar-instagram` (diário, 4h): posts novos, números dos posts dos últimos 30 dias e da conta (últimos 7 dias e mês) e seguidores do dia.
 - `importar-stories-instagram` (de hora em hora): números dos stories enquanto estão no ar.
 - `limpar-whatsapp` (diário, 3h): apaga as mensagens provisórias vencidas de grupos não monitorados (48 h) e as mensagens do WhatsApp com mais de 90 dias, em lotes de 5000; responde só as contagens.
