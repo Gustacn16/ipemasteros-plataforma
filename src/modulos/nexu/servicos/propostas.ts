@@ -1,4 +1,5 @@
 import "server-only";
+import { descreverErro } from "./descrever-erro";
 import { z } from "zod";
 import type { Prisma, TipoPropostaNexu } from "@/generated/prisma/client";
 import { tratarErroAcao } from "@/lib/acoes";
@@ -349,17 +350,13 @@ async function executarNoModulo(ator: UsuarioAtual, d: DadosProposta): Promise<{
   }
 }
 
-function nomeDoErro(erro: unknown): string {
-  return erro instanceof Error ? erro.name : typeof erro;
-}
-
 /** Mensagem amigável da falha. Erro inesperado vai para o log só com o id da proposta. */
 function mensagemDaFalha(erro: unknown, propostaId: string): string {
   if (erro instanceof z.ZodError) return ERRO_DADOS_INVALIDOS;
   try {
     return tratarErroAcao(erro).mensagem ?? ERRO_INESPERADO;
   } catch {
-    console.error("[nexu] proposta falhou", { propostaId, erro: nomeDoErro(erro) });
+    console.error("[nexu] proposta falhou", { propostaId, erro: descreverErro(erro) });
     return ERRO_INESPERADO;
   }
 }

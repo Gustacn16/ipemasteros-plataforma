@@ -1,4 +1,5 @@
 import "server-only";
+import { descreverErro } from "./descrever-erro";
 import Anthropic from "@anthropic-ai/sdk";
 import { obterClienteAnthropic } from "@/lib/ia/cliente";
 import { obterConfiguracaoIa } from "@/lib/ia/configuracao";
@@ -81,7 +82,7 @@ async function rodarFerramenta(
   } catch (erro) {
     if (!(erro instanceof ErroPermissao) && !(erro instanceof ErroNegocio)) {
       // Só ids e o tipo do erro: nunca o texto da conversa nem dados da consulta.
-      console.error("[nexu] ferramenta falhou", { conversaId, toolUseId: uso.id, ferramenta: ferramenta.nome, erro: nomeDoErro(erro) });
+      console.error("[nexu] ferramenta falhou", { conversaId, toolUseId: uso.id, ferramenta: ferramenta.nome, erro: descreverErro(erro) });
     }
     return { bloco: blocoDeErro(uso.id, mensagemDeErroDaFerramenta(erro)), eventos: [] };
   }
@@ -92,7 +93,7 @@ async function registrarUsoSemFalhar(dados: Parameters<typeof registrarUsoIa>[0]
   try {
     await registrarUsoIa(dados);
   } catch (erro) {
-    console.error("[nexu] falha ao registrar uso", { usuarioId: dados.usuarioId, erro: nomeDoErro(erro) });
+    console.error("[nexu] falha ao registrar uso", { usuarioId: dados.usuarioId, erro: descreverErro(erro) });
   }
 }
 
@@ -105,10 +106,6 @@ function avisarBlocosDescartados(
   if (descartados.length === 0) return;
   const motivos = [...new Set(descartados.map((t) => t.reason))];
   console.warn("[nexu] blocos de thinking descartados", { conversaId, quantidade: descartados.length, motivos });
-}
-
-function nomeDoErro(erro: unknown): string {
-  return erro instanceof Error ? erro.name : typeof erro;
 }
 
 /**
@@ -281,7 +278,7 @@ export async function* executarPergunta(e: {
     console.error("[nexu] pergunta falhou", {
       usuarioId: ator.id,
       conversaId,
-      erro: nomeDoErro(erro),
+      erro: descreverErro(erro),
       status: erro instanceof Anthropic.APIError ? erro.status : undefined,
     });
     yield { tipo: "erro", mensagem: TEXTOS.indisponivel };
