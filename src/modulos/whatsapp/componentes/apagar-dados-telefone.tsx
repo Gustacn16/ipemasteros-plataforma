@@ -9,13 +9,14 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { apagarDadosTelefoneAcao } from "../acoes/numeros";
 
 const soDigitos = (v: string) => v.replace(/\D/g, "");
+const tamanhoValido = (v: string) => soDigitos(v).length >= 10 && soDigitos(v).length <= 13;
 
 function Formulario() {
   const [telefone, setTelefone] = useState("");
   const [confirmacao, setConfirmacao] = useState("");
   const [resultado, setResultado] = useState<{ ok: boolean; mensagem?: string } | null>(null);
   const [pendente, executar] = useTransition();
-  const igual = soDigitos(telefone).length >= 10 && soDigitos(telefone) === soDigitos(confirmacao);
+  const igual = tamanhoValido(telefone) && soDigitos(telefone) === soDigitos(confirmacao);
 
   return (
     <form
@@ -25,7 +26,7 @@ function Formulario() {
         if (!igual) return;
         executar(async () => {
           const r = await apagarDadosTelefoneAcao({ telefone });
-          setResultado({ ok: r.ok, mensagem: r.mensagem });
+          setResultado({ ok: r.ok, mensagem: r.mensagem ?? (r.ok ? undefined : (r.erros?.telefone?.join(" ") ?? "Telefone inválido.")) });
           if (r.ok) {
             setTelefone("");
             setConfirmacao("");

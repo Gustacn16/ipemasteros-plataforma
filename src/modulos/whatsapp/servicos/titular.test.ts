@@ -7,8 +7,16 @@ const banco = vi.hoisted(() => {
 
   function combina(l: L, where: L | undefined): boolean {
     for (const [k, v] of Object.entries(where ?? {})) {
+      if (k === "OR") {
+        if (!(v as L[]).some((w) => combina(l, w))) return false;
+        continue;
+      }
       if (v !== null && typeof v === "object") {
         if ("endsWith" in v || "contains" in v || "startsWith" in v) throw new Error("LIKE não é permitido");
+        if ("not" in v) {
+          if (l[k] === v.not) return false;
+          continue;
+        }
         if ("in" in v) {
           if (!v.in.includes(l[k])) return false;
           continue;
@@ -20,6 +28,7 @@ const banco = vi.hoisted(() => {
   }
   const tabela = (nome: keyof typeof estado) => ({
     findMany: async ({ where }: { where?: L } = {}) => estado[nome].filter((l) => combina(l, where)).map((l) => ({ ...l })),
+    count: async ({ where }: { where?: L } = {}) => estado[nome].filter((l) => combina(l, where)).length,
     deleteMany: async ({ where }: { where?: L }) => {
       const sai = estado[nome].filter((l) => combina(l, where));
       estado[nome] = estado[nome].filter((l) => !sai.includes(l));

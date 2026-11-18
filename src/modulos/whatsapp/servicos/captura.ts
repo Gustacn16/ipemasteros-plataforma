@@ -98,6 +98,23 @@ export async function contatoPorChave(chave: string): Promise<Contato | null> {
   return candidatos.find((c) => chaveTelefone(c.telefone) === chave) ?? null;
 }
 
+/** Junta o contato do lid (`b`) no do telefone (`a`), numa transação. O lid é único: `b` sai antes de `a` receber o lid. */
+async function juntarContatos(a: Contato, b: Contato, nome: string | null, trocarNome: boolean): Promise<Contato> {
+  return prisma.$transaction(async (tx) => {
+    await tx.mensagemWhatsapp.updateMany({ where: { contatoId: b.id }, data: { contatoId: a.id } });
+    await tx.conversaWhatsapp.updateMany({ where: { contatoId: b.id }, data: { contatoId: a.id } });
+    await tx.contatoWhatsapp.delete({ where: { id: b.id } });
+    const mudancas: Partial<Omit<Contato, "id">> = { lid: b.lid };
+    if (!a.alunoId && !a.usuarioId) {
+      mudancas.alunoId = b.alunoId;
+      mudancas.usuarioId = b.usuarioId;
+    }
+    const nomeNovo = nome ?? b.nomeExibido;
+    if (nomeNovo && nomeNovo !== a.nomeExibido && (trocarNome || !a.nomeExibido)) mudancas.nomeExibido = nomeNovo;
+    return tx.contatoWhatsapp.update({ where: { id: a.id }, data: mudancas, select: CAMPOS_CONTATO });
+  });
+}
+
 async function resolverContato(
   lid: string | null,
   telefone: string | null,
@@ -107,7 +124,11 @@ async function resolverContato(
   const chave = chaveTelefone(telefone);
   const porLid = lid ? await prisma.contatoWhatsapp.findUnique({ where: { lid }, select: CAMPOS_CONTATO }) : null;
   const porTelefone = chave ? await contatoPorChave(chave) : null;
-  // Se o lid e o telefone apontam para contatos diferentes, vale o do telefone (é o que liga ao aluno).
+  // Se o lid e o telefone apontam para contatos diferentes, vale o do telefone (é o que liga ao aluno):
+  // o do lid é juntado a ele, para o apagamento por telefone alcançar também as mensagens do lid.
+  if (porLid && porTelefone && porLid.id !== porTelefone.id) {
+    return juntarContatos(porTelefone, porLid, nome, trocarNome);
+  }
   const contato = porTelefone ?? porLid;
   if (!contato) {
     const ligado = chave ? await ligacoesDoTelefone(chave) : { alunoId: null, usuarioId: null };

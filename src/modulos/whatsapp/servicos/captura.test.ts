@@ -83,6 +83,11 @@ const banco = vi.hoisted(() => {
         if (!l) throw new Error("Registro não encontrado");
         return { ...Object.assign(l, data) };
       },
+      delete: async ({ where }: { where: L }) => {
+        const i = linhas().findIndex((x) => combina(x, where));
+        if (i < 0) throw new Error("Registro não encontrado");
+        return { ...linhas().splice(i, 1)[0] };
+      },
       updateMany: async ({ where, data }: { where: L; data: L }) => {
         const alvo = linhas().filter((x) => combina(x, where));
         alvo.forEach((x) => Object.assign(x, data));
@@ -259,6 +264,26 @@ describe("contato e ligação com aluno", () => {
       lid: "123456789012345@lid", telefone: "556281707432", nomeExibido: "Ana", alunoId: "a1",
     });
     expect(banco.estado.mensagens.map((m) => m.contatoId)).toEqual([banco.estado.contatos[0]!.id, banco.estado.contatos[0]!.id]);
+  });
+
+  it("lid de um contato e telefone de outro: junta os dois no do telefone", async () => {
+    await grupoMonitorado();
+    banco.estado.contatos = [
+      { id: "A", telefone: "556281707432", lid: null, nomeExibido: "Ana", alunoId: null, usuarioId: null },
+      { id: "B", telefone: null, lid: "123456789012345@lid", nomeExibido: null, alunoId: "a9", usuarioId: null },
+    ];
+    banco.estado.conversas.push({ id: "cb", jid: "123456789012345@lid", tipo: "individual", numeroId: "n1", contatoId: "B", categoria: "outro", monitorada: false, provisoriaAte: null, nome: null, chaveGrupo: null });
+    banco.estado.mensagens = [{ id: "mb", conversaId: "cb", idExterno: "x", contatoId: "B" }];
+    await aplicarMensagens(
+      "n1",
+      "ao_vivo",
+      [msg("m1", { autorJid: "123456789012345@lid", autorTelefone: "556281707432" })],
+      AGORA,
+    );
+    expect(banco.estado.contatos).toHaveLength(1);
+    expect(banco.estado.contatos[0]).toMatchObject({ id: "A", telefone: "556281707432", lid: "123456789012345@lid", alunoId: "a9" });
+    expect(banco.estado.conversas.find((c) => c.id === "cb")!.contatoId).toBe("A");
+    expect(banco.estado.mensagens.find((m) => m.id === "mb")!.contatoId).toBe("A");
   });
 
   it("nome do contato só muda com mensagem ao vivo (o histórico não volta a um nome antigo)", async () => {
