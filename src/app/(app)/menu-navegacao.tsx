@@ -6,6 +6,7 @@ import {
   CalendarIcon,
   ClapperboardIcon,
   GraduationCapIcon,
+  HeartPulseIcon,
   HouseIcon,
   ListChecksIcon,
   LogOutIcon,
@@ -35,6 +36,7 @@ const ICONES = {
   usuarios: <UsersIcon />,
   auditoria: <ShieldCheckIcon />,
   nexu: <SparklesIcon />,
+  saude: <HeartPulseIcon />,
 };
 
 export type ItemMenu = { href: string; rotulo: string; icone: keyof typeof ICONES; emBreve?: boolean };

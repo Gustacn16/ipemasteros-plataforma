@@ -49,6 +49,8 @@ A tela nunca fala com o motor: grava comandos no banco e o motor os busca. O mot
 13. **Mensagem própria em chat `@lid`:** quando o contato daquele `@lid` já tem telefone, a mensagem enviada por nós vai para a conversa do telefone (`<telefone>@s.whatsapp.net`), e não para uma conversa `@lid` separada. Sem telefone no contato, continua na conversa `@lid`. O resultado fica guardado no `ContextoCaptura` (`jidDoLid`) durante a chamada do motor.
 14. **Apagar dados de um telefone (direito do titular, LGPD):** botão "Apagar dados de um telefone" na tela Números, só para `whatsapp:gerenciar_numeros`. Pede o telefone duas vezes. O contato é achado pela chave do telefone (qualquer formato). Numa transação apaga as mensagens dele (também as de grupos), as conversas individuais (com as mensagens delas, em cascata) e o contato. Resultado: "Dados apagados: N mensagens e M conversas." ou "Nenhum contato com este telefone.". Auditoria `whatsapp.dados_telefone_apagados` com o id do contato e as contagens, nunca o telefone; telefone sem contato não audita.
 
+15. **Tela de saúde (`/admin/saude`):** só para `whatsapp:gerenciar_numeros` (item "Saúde" no menu de administração). Mostra se o motor está ligado (algum número com sinal há menos de 5 min; senão, "Sem resposta desde <data>") e, por número, a situação, o último sinal, as mensagens capturadas nas últimas 24 h (contadas pelo `numeroId` que capturou) e a data da última. Números excluídos não aparecem. Textos prontos de LGPD (grupos, termo do vendedor, política de privacidade): `docs/lgpd/whatsapp-textos.md`.
+
 ## Situação da implementação
 **Entrega 1:** motor, comandos, tela de números e conexão por QR. Verificação na tela com o motor ligado é feita no site `teste`.
 

@@ -29,6 +29,9 @@ export default async function LayoutApp({ children }: { children: React.ReactNod
     ...(temPermissao(usuario.papel, "core:ver_auditoria")
       ? [{ href: "/admin/auditoria", rotulo: "Auditoria", icone: "auditoria" } as const]
       : []),
+    ...(temPermissao(usuario.papel, "whatsapp:gerenciar_numeros")
+      ? [{ href: "/admin/saude", rotulo: "Saúde", icone: "saude" } as const]
+      : []),
     ...(temPermissao(usuario.papel, "nexu:configurar") ? [{ href: "/admin/nexu", rotulo: "Nexu", icone: "nexu" } as const] : []),
   ];
 

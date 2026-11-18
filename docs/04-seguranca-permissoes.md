@@ -175,7 +175,7 @@ A anonimização substitui nome, contatos e CPF por valores irreversíveis e man
 - O módulo Core tem a entidade `SolicitacaoTitular` (tipo, titular, status, prazo de resposta) e uma tela para o admin atender pedidos de acesso, correção, anonimização ou exclusão e portabilidade.
 - O prazo de resposta é de 15 dias.
 - A exportação dos dados de um titular sai em JSON/PDF.
-- **WhatsApp:** o pedido de exclusão de um titular é atendido pela ação "Apagar dados de um telefone" (tela Números do WhatsApp, só `whatsapp:gerenciar_numeros`), que apaga contato, conversas e mensagens do telefone e audita só ids e contagens. A `SolicitacaoTitular` ainda não tem tela; a ligação com ela fica para quando a tela existir.
+- **WhatsApp:** o pedido de exclusão de um titular é atendido pela ação "Apagar dados de um telefone" (tela Números do WhatsApp, só `whatsapp:gerenciar_numeros`), que apaga contato, conversas e mensagens do telefone e audita só ids e contagens. A `SolicitacaoTitular` ainda não tem tela; a ligação com ela fica para quando a tela existir. Textos prontos para colar (descrição dos grupos, termo do vendedor, política de privacidade), pendentes de revisão jurídica: [`docs/lgpd/whatsapp-textos.md`](lgpd/whatsapp-textos.md).
 
 ### Encarregado (DPO) e incidentes
 - **Encarregado: a definir.** Nome e canal de contato devem aparecer nos formulários públicos e na política de privacidade.
