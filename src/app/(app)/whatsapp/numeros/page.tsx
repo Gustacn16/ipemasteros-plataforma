@@ -4,6 +4,7 @@ import { CabecalhoPagina } from "@/componentes/cabecalho-pagina";
 import { temPermissao } from "@/lib/permissoes";
 import { exigirUsuario } from "@/lib/sessao";
 import { AbasWhatsapp } from "@/modulos/whatsapp/componentes/abas-whatsapp";
+import { ApagarDadosTelefone } from "@/modulos/whatsapp/componentes/apagar-dados-telefone";
 import { ListaNumeros } from "@/modulos/whatsapp/componentes/lista-numeros";
 import { NovoNumero } from "@/modulos/whatsapp/componentes/novo-numero";
 import { listarNumeros, listarVendedoresAtivos } from "@/modulos/whatsapp/servicos/numeros";
@@ -27,7 +28,14 @@ export default async function PaginaNumeros() {
       <CabecalhoPagina
         titulo="Números do WhatsApp"
         descricao="Conecte cada número lendo o QR no celular. A escola e cada vendedor têm o seu."
-        acoes={gestao ? <NovoNumero vendedores={vendedores} /> : undefined}
+        acoes={
+          gestao ? (
+            <div className="flex gap-2">
+              <ApagarDadosTelefone />
+              <NovoNumero vendedores={vendedores} />
+            </div>
+          ) : undefined
+        }
       />
       <AbasWhatsapp papel={usuario.papel} ativa="numeros" />
       <ListaNumeros numeros={linhas} podeExcluir={gestao} />

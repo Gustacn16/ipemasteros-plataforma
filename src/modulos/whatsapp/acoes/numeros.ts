@@ -5,6 +5,7 @@ import QRCode from "qrcode";
 import { z } from "zod";
 import { tratarErroAcao, type EstadoAcao } from "@/lib/acoes";
 import { exigirPermissao, exigirUsuario } from "@/lib/sessao";
+import { esquemaApagarDadosTelefone } from "../esquemas/titular";
 import type { EstadoTela } from "../regras/conexao";
 import {
   criarNumero,
@@ -13,6 +14,7 @@ import {
   solicitarConexao,
   solicitarDesconexao,
 } from "../servicos/numeros";
+import { apagarDadosDoTelefone } from "../servicos/titular";
 
 const idNumero = z.string().min(1).max(40);
 
@@ -69,6 +71,23 @@ export async function situacaoNumeroAcao(
     const { estado, rotulo, detalhe, qr } = await situacaoParaTela(ator, idNumero.parse(numeroId));
     const qrSvg = qr ? await QRCode.toString(qr, { type: "svg", margin: 1 }) : null;
     return { ok: true, dados: { estado, rotulo, detalhe, qrSvg } };
+  } catch (erro) {
+    return tratarErroAcao(erro);
+  }
+}
+
+/** Pedido de exclusão de um titular (LGPD): apaga contato, conversas individuais e mensagens do telefone. */
+export async function apagarDadosTelefoneAcao(dados: unknown): Promise<EstadoAcao<{ encontrado: boolean; mensagens: number; conversas: number }>> {
+  try {
+    const ator = await exigirPermissao("whatsapp:gerenciar_numeros");
+    const { telefone } = esquemaApagarDadosTelefone.parse(dados);
+    const r = await apagarDadosDoTelefone(telefone, ator.id);
+    revalidatePath("/whatsapp", "layout");
+    return {
+      ok: true,
+      mensagem: r.encontrado ? `Dados apagados: ${r.mensagens} mensagens e ${r.conversas} conversas.` : "Nenhum contato com este telefone.",
+      dados: r,
+    };
   } catch (erro) {
     return tratarErroAcao(erro);
   }

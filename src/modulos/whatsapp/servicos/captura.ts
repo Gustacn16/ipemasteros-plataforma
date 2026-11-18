@@ -90,7 +90,7 @@ export async function ligacoesDoTelefone(chave: string): Promise<{ alunoId: stri
 }
 
 /** Contato pela chave: busca por igualdade nos formatos possíveis do telefone e confere a chave aqui. */
-async function contatoPorChave(chave: string): Promise<Contato | null> {
+export async function contatoPorChave(chave: string): Promise<Contato | null> {
   const candidatos = await prisma.contatoWhatsapp.findMany({
     where: { telefone: { in: variantesTelefone(chave) } },
     select: CAMPOS_CONTATO,
@@ -246,7 +246,12 @@ function dadosDoAutor(m: MensagemMotor, conversa: Conversa): DadosContato | null
  * Cache que vale para uma chamada inteira do motor (vários eventos de mensagens): contatos já
  * resolvidos e telefones da empresa. Quem aplica um `conectado` no meio do lote apaga `empresa`.
  */
-export type ContextoCaptura = { contatos: Map<string, Contato | null>; empresa?: Set<string> };
+export type ContextoCaptura = {
+  contatos: Map<string, Contato | null>;
+  empresa?: Set<string>;
+  /** lid → jid do telefone do contato (null: o contato não tem telefone ou não existe). */
+  jidDoLid?: Map<string, string | null>;
+};
 
 type LinhaMensagem = {
   conversaId: string;
@@ -276,14 +281,31 @@ export async function aplicarMensagens(
   let descartadas = mensagens.length - validas.length;
   if (validas.length === 0) return { salvas: 0, descartadas };
 
-  const cache = await carregarConversas(numeroId, validas.map((m) => m.jid));
+  // Mensagem própria em chat @lid de contato com telefone vai para a conversa do telefone.
+  const jidDoLid = (contexto.jidDoLid ??= new Map());
+  const jidDe = new Map<MensagemMotor, string>();
+  for (const m of validas) {
+    let jid = m.jid;
+    if (m.deMim && tipoDoJid(jid) === "individual" && lidDoJid(jid)) {
+      if (!jidDoLid.has(jid)) {
+        const c = await prisma.contatoWhatsapp.findUnique({ where: { lid: jid }, select: { telefone: true } });
+        const tel = soDigitos(c?.telefone ?? null);
+        jidDoLid.set(jid, tel && chaveTelefone(tel) ? `${tel}@s.whatsapp.net` : null);
+      }
+      jid = jidDoLid.get(jid) ?? jid;
+    }
+    jidDe.set(m, jid);
+  }
+
+  const cache = await carregarConversas(numeroId, [...jidDe.values()]);
   const empresa = (contexto.empresa ??= await chavesDaEmpresa());
   const contatos = contexto.contatos;
   const linhas: LinhaMensagem[] = [];
   const tocadas = new Map<string, { conversa: Conversa; provisoria: boolean; ultima: Date }>();
 
   for (const m of validas) {
-    const conversa = await obterConversa(numeroId, m.jid, tipoDoJid(m.jid), null, cache);
+    const jid = jidDe.get(m)!;
+    const conversa = await obterConversa(numeroId, jid, tipoDoJid(jid), null, cache);
     const decisao = decidirGuardar(conversa, origem);
     if (decisao === "descartar") {
       descartadas++;

@@ -438,3 +438,21 @@ describe("aplicarMensagens", () => {
     expect(banco.estado.mensagens[0]!.contatoId).toBe(banco.estado.contatos[0]!.id);
   });
 });
+
+describe("mensagem própria em conversa @lid", () => {
+  const LID = "123@lid";
+  const propria = (id: string) => msg(id, { jid: LID, deMim: true, autorJid: undefined, autorTelefone: undefined });
+
+  it("mensagem própria em conversa @lid de contato com telefone vai para a conversa do telefone", async () => {
+    banco.estado.contatos = [{ id: "c1", lid: LID, telefone: "5562981707432", nomeExibido: null, alunoId: null, usuarioId: null }];
+    await aplicarMensagens("n1", "ao_vivo", [propria("m1")], AGORA);
+    expect(banco.estado.conversas.map((c) => c.jid)).toEqual(["5562981707432@s.whatsapp.net"]);
+    expect(banco.estado.mensagens[0]).toMatchObject({ deMim: true });
+  });
+
+  it("@lid de contato sem telefone continua na conversa @lid", async () => {
+    banco.estado.contatos = [{ id: "c1", lid: LID, telefone: null, nomeExibido: null, alunoId: null, usuarioId: null }];
+    await aplicarMensagens("n1", "ao_vivo", [propria("m1")], AGORA);
+    expect(banco.estado.conversas.map((c) => c.jid)).toEqual([LID]);
+  });
+});
