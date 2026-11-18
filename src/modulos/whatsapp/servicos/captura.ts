@@ -98,12 +98,19 @@ export async function contatoPorChave(chave: string): Promise<Contato | null> {
   return candidatos.find((c) => chaveTelefone(c.telefone) === chave) ?? null;
 }
 
-/** Junta o contato do lid (`b`) no do telefone (`a`), numa transação. O lid é único: `b` sai antes de `a` receber o lid. */
-async function juntarContatos(a: Contato, b: Contato, nome: string | null, trocarNome: boolean): Promise<Contato> {
-  return prisma.$transaction(async (tx) => {
+/** Contato resolvido; `apagado` é o contato do lid que acabou de ser juntado nele (sumiu do banco). */
+type Resolvido = { contato: Contato; apagado?: Contato };
+
+/**
+ * Junta o contato do lid (`b`) no do telefone (`a`), numa transação. O lid é único: `b` sai antes de `a` receber o lid.
+ * Se outro lote já juntou `b` (o `deleteMany` não apaga nada), sai sem mudar nada e devolve o contato do telefone achado de novo.
+ */
+async function juntarContatos(a: Contato, b: Contato, chave: string, nome: string | null, trocarNome: boolean): Promise<Resolvido> {
+  const juntado = await prisma.$transaction(async (tx) => {
     await tx.mensagemWhatsapp.updateMany({ where: { contatoId: b.id }, data: { contatoId: a.id } });
     await tx.conversaWhatsapp.updateMany({ where: { contatoId: b.id }, data: { contatoId: a.id } });
-    await tx.contatoWhatsapp.delete({ where: { id: b.id } });
+    const { count } = await tx.contatoWhatsapp.deleteMany({ where: { id: b.id } });
+    if (count === 0) return null;
     const mudancas: Partial<Omit<Contato, "id">> = { lid: b.lid };
     if (!a.alunoId && !a.usuarioId) {
       mudancas.alunoId = b.alunoId;
@@ -113,6 +120,11 @@ async function juntarContatos(a: Contato, b: Contato, nome: string | null, troca
     if (nomeNovo && nomeNovo !== a.nomeExibido && (trocarNome || !a.nomeExibido)) mudancas.nomeExibido = nomeNovo;
     return tx.contatoWhatsapp.update({ where: { id: a.id }, data: mudancas, select: CAMPOS_CONTATO });
   });
+  if (juntado) return { contato: juntado, apagado: b };
+  const achado = await contatoPorChave(chave);
+  // Sem o contato do telefone, o P2025 faz `contatoDe` resolver tudo de novo.
+  if (!achado) throw Object.assign(new Error("Contato do telefone sumiu durante a junção."), { code: "P2025" });
+  return { contato: achado, apagado: b };
 }
 
 async function resolverContato(
@@ -120,22 +132,26 @@ async function resolverContato(
   telefone: string | null,
   nome: string | null,
   trocarNome: boolean,
-): Promise<Contato> {
+): Promise<Resolvido> {
   const chave = chaveTelefone(telefone);
   const porLid = lid ? await prisma.contatoWhatsapp.findUnique({ where: { lid }, select: CAMPOS_CONTATO }) : null;
   const porTelefone = chave ? await contatoPorChave(chave) : null;
   // Se o lid e o telefone apontam para contatos diferentes, vale o do telefone (é o que liga ao aluno):
   // o do lid é juntado a ele, para o apagamento por telefone alcançar também as mensagens do lid.
-  if (porLid && porTelefone && porLid.id !== porTelefone.id) {
-    return juntarContatos(porTelefone, porLid, nome, trocarNome);
+  // Só junta se o contato do lid não tem outro telefone; se tem, nenhum lid muda.
+  if (chave && porLid && porTelefone && porLid.id !== porTelefone.id
+    && (!porLid.telefone || chaveTelefone(porLid.telefone) === chave)) {
+    return juntarContatos(porTelefone, porLid, chave, nome, trocarNome);
   }
   const contato = porTelefone ?? porLid;
   if (!contato) {
     const ligado = chave ? await ligacoesDoTelefone(chave) : { alunoId: null, usuarioId: null };
-    return prisma.contatoWhatsapp.create({
-      data: { telefone: chave ? telefone : null, lid, nomeExibido: nome, ...ligado },
-      select: CAMPOS_CONTATO,
-    });
+    return {
+      contato: await prisma.contatoWhatsapp.create({
+        data: { telefone: chave ? telefone : null, lid, nomeExibido: nome, ...ligado },
+        select: CAMPOS_CONTATO,
+      }),
+    };
   }
   const mudancas: Partial<Omit<Contato, "id">> = {};
   if (nome && nome !== contato.nomeExibido && (trocarNome || !contato.nomeExibido)) mudancas.nomeExibido = nome;
@@ -145,28 +161,35 @@ async function resolverContato(
     mudancas.telefone = telefone;
     if (!contato.alunoId && !contato.usuarioId) Object.assign(mudancas, await ligacoesDoTelefone(chave));
   }
-  if (Object.keys(mudancas).length === 0) return contato;
-  return prisma.contatoWhatsapp.update({ where: { id: contato.id }, data: mudancas, select: CAMPOS_CONTATO });
+  if (Object.keys(mudancas).length === 0) return { contato };
+  return { contato: await prisma.contatoWhatsapp.update({ where: { id: contato.id }, data: mudancas, select: CAMPOS_CONTATO }) };
 }
 
 type DadosContato = { jid?: string; telefone?: string | null; nome?: string | null };
+
+/** Avisado quando o contato `apagado` (do lid) foi juntado em `ficou` (do telefone). */
+type AoJuntar = (apagado: Contato, ficou: Contato) => void;
 
 /**
  * Contato pelo lid ou pela chave do telefone; null quando não há nenhum dos dois.
  * `trocarNome` falso (histórico): o nome só preenche quem está sem nome, para não voltar a um nome antigo.
  */
-async function contatoDe(dados: DadosContato, trocarNome = true): Promise<Contato | null> {
+async function contatoDe(dados: DadosContato, trocarNome = true, aoJuntar?: AoJuntar): Promise<Contato | null> {
   const lid = lidDoJid(dados.jid);
   const telefone = dados.telefone ?? telefoneDoJid(dados.jid);
   const nome = dados.nome?.trim().slice(0, 100) || null;
   if (!lid && !chaveTelefone(telefone)) return null;
+  let r: Resolvido;
   try {
-    return await resolverContato(lid, telefone, nome, trocarNome);
+    r = await resolverContato(lid, telefone, nome, trocarNome);
   } catch (e) {
-    // Outro lote criou o mesmo contato no meio do caminho (telefone e lid são únicos): busca de novo.
-    if (codigoErro(e) === "P2002") return resolverContato(lid, telefone, nome, trocarNome);
-    throw e;
+    // Outro lote criou (P2002) ou juntou/apagou (P2025) o mesmo contato no meio do caminho: busca de novo.
+    const codigo = codigoErro(e);
+    if (codigo !== "P2002" && codigo !== "P2025") throw e;
+    r = await resolverContato(lid, telefone, nome, trocarNome);
   }
+  if (r.apagado) aoJuntar?.(r.apagado, r.contato);
+  return r.contato;
 }
 
 export async function obterOuCriarContato(dados: DadosContato): Promise<string> {
@@ -201,6 +224,7 @@ async function obterConversa(
   tipo: "grupo" | "individual",
   nome: string | null,
   cache: Map<string, Conversa>,
+  aoJuntar?: AoJuntar,
 ): Promise<Conversa> {
   const existente = cache.get(jid);
   if (existente) return existente;
@@ -209,7 +233,7 @@ async function obterConversa(
     conversa = await criarGrupo(jid, nome);
   } else {
     // Nome de chat (lista do histórico) só preenche contato sem nome; quem troca o nome é a mensagem ao vivo.
-    const contato = await contatoDe({ jid, nome }, false);
+    const contato = await contatoDe({ jid, nome }, false, aoJuntar);
     // INSERT IGNORE pelo único (numeroId, jid): se outro lote criou antes, fica a dele.
     await prisma.conversaWhatsapp.createMany({
       data: [{
@@ -272,6 +296,8 @@ export type ContextoCaptura = {
   empresa?: Set<string>;
   /** lid → jid do telefone do contato (null: o contato não tem telefone ou não existe). */
   jidDoLid?: Map<string, string | null>;
+  /** Contatos do lid juntados no meio da chamada: id apagado → id que ficou. */
+  juntados: Map<string, string>;
 };
 
 type LinhaMensagem = {
@@ -296,7 +322,7 @@ export async function aplicarMensagens(
   origem: "historico" | "ao_vivo",
   mensagens: EventoMensagens["mensagens"],
   agora: Date,
-  contexto: ContextoCaptura = { contatos: new Map() },
+  contexto: ContextoCaptura = { contatos: new Map(), juntados: new Map() },
 ): Promise<{ salvas: number; descartadas: number }> {
   const validas = origem === "historico" ? mensagens.filter((m) => dentroDoHistorico(new Date(m.enviadaEm), agora)) : mensagens;
   let descartadas = mensagens.length - validas.length;
@@ -321,12 +347,20 @@ export async function aplicarMensagens(
   const cache = await carregarConversas(numeroId, [...jidDe.values()]);
   const empresa = (contexto.empresa ??= await chavesDaEmpresa());
   const contatos = contexto.contatos;
+  const juntados = contexto.juntados;
+  // O contato do lid juntado some do banco: quem apontava para ele (cache e linhas deste lote) passa ao que ficou.
+  const aoJuntar: AoJuntar = (apagado, ficou) => {
+    for (const [de, para] of juntados) if (para === apagado.id) juntados.set(de, ficou.id);
+    juntados.set(apagado.id, ficou.id);
+    for (const [chave, c] of contatos) if (c?.id === apagado.id) contatos.set(chave, ficou);
+    if (apagado.lid) jidDoLid.delete(apagado.lid);
+  };
   const linhas: LinhaMensagem[] = [];
   const tocadas = new Map<string, { conversa: Conversa; provisoria: boolean; ultima: Date }>();
 
   for (const m of validas) {
     const jid = jidDe.get(m)!;
-    const conversa = await obterConversa(numeroId, jid, tipoDoJid(jid), null, cache);
+    const conversa = await obterConversa(numeroId, jid, tipoDoJid(jid), null, cache, aoJuntar);
     const decisao = decidirGuardar(conversa, origem);
     if (decisao === "descartar") {
       descartadas++;
@@ -337,7 +371,7 @@ export async function aplicarMensagens(
     if (dados) {
       // A origem entra na chave: ao vivo troca o nome, histórico não.
       const chaveCache = `${origem}|${dados.jid ?? ""}|${dados.telefone ?? ""}|${dados.nome ?? ""}`;
-      if (!contatos.has(chaveCache)) contatos.set(chaveCache, await contatoDe(dados, origem === "ao_vivo"));
+      if (!contatos.has(chaveCache)) contatos.set(chaveCache, await contatoDe(dados, origem === "ao_vivo", aoJuntar));
       autor = contatos.get(chaveCache)!;
     }
     const chaveAutor = chaveTelefone(autor?.telefone);
@@ -359,6 +393,7 @@ export async function aplicarMensagens(
     tocadas.set(conversa.id, t);
   }
 
+  for (const l of linhas) if (l.contatoId) l.contatoId = juntados.get(l.contatoId) ?? l.contatoId;
   const { count } = linhas.length
     ? await prisma.mensagemWhatsapp.createMany({ data: linhas, skipDuplicates: true })
     : { count: 0 };

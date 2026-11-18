@@ -88,6 +88,12 @@ const banco = vi.hoisted(() => {
         if (i < 0) throw new Error("Registro não encontrado");
         return { ...linhas().splice(i, 1)[0] };
       },
+      deleteMany: async ({ where }: { where?: L } = {}) => {
+        const antes = linhas().length;
+        const ficam = linhas().filter((x) => !combina(x, where));
+        linhas().splice(0, antes, ...ficam);
+        return { count: antes - ficam.length };
+      },
       updateMany: async ({ where, data }: { where: L; data: L }) => {
         const alvo = linhas().filter((x) => combina(x, where));
         alvo.forEach((x) => Object.assign(x, data));
@@ -286,6 +292,62 @@ describe("contato e ligação com aluno", () => {
     expect(banco.estado.mensagens.find((m) => m.id === "mb")!.contatoId).toBe("A");
   });
 
+  it("lid sozinho e depois lid+telefone no mesmo lote: as duas mensagens ficam com o contato do telefone", async () => {
+    await grupoMonitorado();
+    banco.estado.contatos = [{ id: "A", telefone: "556281707432", lid: null, nomeExibido: "Ana", alunoId: null, usuarioId: null }];
+    const LID = "123456789012345@lid";
+    const contexto = { contatos: new Map(), juntados: new Map() };
+    await aplicarMensagens(
+      "n1",
+      "ao_vivo",
+      [
+        msg("m1", { autorJid: LID, autorTelefone: undefined }),
+        msg("m2", { autorJid: LID, autorTelefone: "556281707432" }),
+        msg("m3", { autorJid: LID, autorTelefone: undefined }),
+      ],
+      AGORA,
+      contexto,
+    );
+    expect(banco.estado.contatos).toHaveLength(1);
+    expect(banco.estado.contatos[0]).toMatchObject({ id: "A", lid: LID });
+    expect(banco.estado.mensagens.map((m) => [m.idExterno, m.contatoId])).toEqual([["m1", "A"], ["m2", "A"], ["m3", "A"]]);
+    expect([...contexto.contatos.values()].every((c) => c?.id === "A")).toBe(true);
+    expect(contexto.juntados.size).toBe(1);
+  });
+
+  it("junção já feita por outro lote (o contato do lid sumiu): usa o do telefone sem perder o evento", async () => {
+    await grupoMonitorado();
+    const LID = "123456789012345@lid";
+    banco.estado.contatos = [
+      { id: "A", telefone: "556281707432", lid: null, nomeExibido: "Ana", alunoId: null, usuarioId: null },
+      { id: "B", telefone: null, lid: LID, nomeExibido: null, alunoId: null, usuarioId: null },
+    ];
+    const original = banco.prisma.contatoWhatsapp.deleteMany;
+    // O outro lote junta B em A logo antes: este deleteMany não acha mais B.
+    const apagar = vi.spyOn(banco.prisma.contatoWhatsapp, "deleteMany").mockImplementationOnce(async (args: unknown) => {
+      await original(args);
+      banco.estado.contatos.find((c) => c.id === "A")!.lid = LID;
+      return { count: 0 };
+    });
+    const r = await aplicarMensagens("n1", "ao_vivo", [msg("m1", { autorJid: LID, autorTelefone: "556281707432" })], AGORA);
+    expect(r).toEqual({ salvas: 1, descartadas: 0 });
+    expect(banco.estado.contatos).toHaveLength(1);
+    expect(banco.estado.mensagens[0]!.contatoId).toBe("A");
+    apagar.mockRestore();
+  });
+
+  it("lid de contato com outro telefone: não junta e nenhum lid muda", async () => {
+    await grupoMonitorado();
+    const LID = "123456789012345@lid";
+    banco.estado.contatos = [
+      { id: "A", telefone: "556281707432", lid: null, nomeExibido: "Ana", alunoId: null, usuarioId: null },
+      { id: "B", telefone: "5562977776666", lid: LID, nomeExibido: "Bia", alunoId: null, usuarioId: null },
+    ];
+    await aplicarMensagens("n1", "ao_vivo", [msg("m1", { autorJid: LID, autorTelefone: "556281707432" })], AGORA);
+    expect(banco.estado.contatos.map((c) => [c.id, c.lid])).toEqual([["A", null], ["B", LID]]);
+    expect(banco.estado.mensagens[0]!.contatoId).toBe("A");
+  });
+
   it("nome do contato só muda com mensagem ao vivo (o histórico não volta a um nome antigo)", async () => {
     await grupoMonitorado();
     await aplicarMensagens("n1", "ao_vivo", [msg("m1", { autorNome: "Ana Atual" })], AGORA);
@@ -309,7 +371,7 @@ describe("contato e ligação com aluno", () => {
   it("contexto compartilhado: números da empresa lidos uma vez e ao vivo ainda troca o nome depois do histórico", async () => {
     await grupoMonitorado();
     const busca = vi.spyOn(banco.prisma.numeroWhatsapp, "findMany");
-    const contexto = { contatos: new Map() };
+    const contexto = { contatos: new Map(), juntados: new Map() };
     await aplicarMensagens("n1", "ao_vivo", [msg("m1", { autorNome: "Ana" })], AGORA, contexto);
     await aplicarMensagens("n1", "historico", [msg("m0", { autorNome: "Ana Velha", enviadaEm: horasAtras(48).toISOString() })], AGORA, contexto);
     await aplicarMensagens("n1", "ao_vivo", [msg("m2", { autorNome: "Ana Velha" })], AGORA, contexto);

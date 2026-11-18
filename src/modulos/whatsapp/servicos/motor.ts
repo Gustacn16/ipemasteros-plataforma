@@ -21,7 +21,7 @@ export async function aplicarEventos(
 ): Promise<{ aplicados: number; ignorados: number }> {
   let aplicados = 0;
   let ignorados = 0;
-  const contexto: ContextoCaptura = { contatos: new Map() };
+  const contexto: ContextoCaptura = { contatos: new Map(), juntados: new Map() };
   for (const ev of eventos) {
     try {
       if (await aplicarEvento(ev, agora, contexto)) aplicados++;
