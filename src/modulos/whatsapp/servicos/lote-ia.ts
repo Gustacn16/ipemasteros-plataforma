@@ -62,6 +62,9 @@ type ResultadoCriacao = {
   motivo?: "sem_chave" | "ja_existe" | "nada_a_fazer" | "falha_envio";
 };
 
+/** Prefixo do custom_id de cada pedido. A API só aceita ^[a-zA-Z0-9_-]{1,64}$ (sem dois-pontos). */
+const PREFIXO_CUSTOM_ID = "resumo_";
+
 const codigoErro = (e: unknown) => (typeof e === "object" && e !== null ? (e as { code?: unknown }).code : undefined);
 
 const SAIDA_ESTIMADA = 8000;
@@ -188,7 +191,7 @@ export async function criarLoteDoDia(
     for (const c of cabem) {
       const id = await gravarResumo(c, dia, { situacao: "pendente", erro: null, loteId: reservaId, modelo: config.modelo });
       if (!id) continue; // ficou pronto no meio do caminho
-      pedidos.push(pedidoResumo(`resumo:${id}`, config.modelo, c.texto));
+      pedidos.push(pedidoResumo(`${PREFIXO_CUSTOM_ID}${id}`, config.modelo, c.texto));
       enviados.push(id);
     }
   } catch (e) {
@@ -263,7 +266,6 @@ const UMA_HORA_MS = 3_600_000;
 const PRAZO_LOTE_MS = 25 * UMA_HORA_MS;
 /** Lote encerrado cujo resultado não se consegue ler: depois de 7 dias, desistimos. */
 const PRAZO_LEITURA_MS = 7 * 24 * UMA_HORA_MS;
-const PREFIXO_CUSTOM_ID = "resumo:";
 const MODELO_RESERVA: ModeloIa = "claude-opus-5-5";
 
 const ehModeloIa = (m: unknown): m is ModeloIa => typeof m === "string" && (MODELOS_IA as readonly string[]).includes(m);

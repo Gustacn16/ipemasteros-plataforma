@@ -228,7 +228,7 @@ describe("criarLoteDoDia", () => {
     expect(await criarLoteDoDia(AGORA, cliente)).toMatchObject({ motivo: "ja_existe" });
   });
 
-  it("cria ResumoGrupo pendente com participação e totalMensagens antes de enviar; custom_id = resumo:<id>", async () => {
+  it("cria ResumoGrupo pendente com participação e totalMensagens antes de enviar; custom_id = resumo_<id>", async () => {
     banco.estado.turmas.push({ id: "t1", nome: "Turma A" });
     banco.estado.contatos.push(
       { id: "c1", nomeExibido: "Ana", usuarioId: null },
@@ -266,7 +266,7 @@ describe("criarLoteDoDia", () => {
     ]);
     const resumo = banco.estado.resumos[0];
     const [pedido] = pedidosDe(enviados);
-    expect(pedido.custom_id).toBe(`resumo:${resumo.id}`);
+    expect(pedido.custom_id).toBe(`resumo_${resumo.id}`);
     expect(pedido.params.model).toBe("claude-opus-5-5");
     const entrada: string = pedido.params.messages[0].content;
     expect(entrada).toContain("Turma: Turma A");
@@ -274,6 +274,18 @@ describe("criarLoteDoDia", () => {
     expect(entrada).toContain("Equipe IPEMaster (equipe): aviso");
     expect(entrada).toContain("Participante: eu também");
     expect(resumo.loteId).toBe(banco.estado.lotes[0].id);
+  });
+
+  it("todo custom_id enviado casa com o formato aceito pela API (^[a-zA-Z0-9_-]{1,64}$)", async () => {
+    grupo("g1");
+    grupo("g2");
+    mensagem("g1");
+    mensagem("g2");
+    const { cliente, enviados } = clienteFalso();
+    await criarLoteDoDia(AGORA, cliente);
+    const ids = pedidosDe(enviados).map((p) => p.custom_id);
+    expect(ids).toHaveLength(2);
+    for (const id of ids) expect(id).toMatch(/^[a-zA-Z0-9_-]{1,64}$/);
   });
 
   it("verba restante só cabe em 1 dos 2 grupos: entra o de mais mensagens, o outro fica falhou com o texto do limite", async () => {
@@ -295,7 +307,7 @@ describe("criarLoteDoDia", () => {
     expect(await criarLoteDoDia(AGORA, cliente)).toEqual({ criado: true, pedidos: 1, semVerba: 1 });
     const g1 = banco.estado.resumos.find((r) => r.conversaId === "g1")!;
     const g2 = banco.estado.resumos.find((r) => r.conversaId === "g2")!;
-    expect(pedidosDe(enviados).map((p) => p.custom_id)).toEqual([`resumo:${g2.id}`]);
+    expect(pedidosDe(enviados).map((p) => p.custom_id)).toEqual([`resumo_${g2.id}`]);
     expect(g2).toMatchObject({ situacao: "pendente", loteId: banco.estado.lotes[0].id });
     expect(g1).toMatchObject({ situacao: "falhou", erro: "Limite mensal de IA do WhatsApp atingido.", loteId: null });
   });
@@ -403,7 +415,7 @@ describe("criarLoteDoDia", () => {
     } finally {
       banco.prisma.resumoGrupo.findUnique = findUnique;
     }
-    expect(pedidosDe(enviados).map((p) => p.custom_id)).not.toContain("resumo:r0");
+    expect(pedidosDe(enviados).map((p) => p.custom_id)).not.toContain("resumo_r0");
     expect(banco.estado.resumos.find((r) => r.id === "r0")).toMatchObject({ situacao: "pronto", resumo: "ok" });
   });
 });
@@ -505,7 +517,7 @@ describe("coletarLotes", () => {
   it("succeeded com JSON válido: resumo pronto com temas, pendências e destaques; registra uso de lote", async () => {
     lote();
     resumo("r1");
-    const cliente = clienteColeta("ended", [sucesso("resumo:r1", JSON.stringify(JSON_OK))]);
+    const cliente = clienteColeta("ended", [sucesso("resumo_r1", JSON.stringify(JSON_OK))]);
     expect(await coletarLotes(COLETA, cliente)).toEqual({ lotes: 1, prontos: 1, falhos: 0 });
     expect(banco.estado.resumos[0]).toMatchObject({
       situacao: "pronto",
@@ -542,7 +554,7 @@ describe("coletarLotes", () => {
       temas: ["1", "2", "3", "4", "5", "6", "7"],
       pendencias: [{ autor: "Ana", hora: "25:99", texto: "x" }],
     };
-    await coletarLotes(COLETA, clienteColeta("ended", [sucesso("resumo:r1", JSON.stringify(longo))]));
+    await coletarLotes(COLETA, clienteColeta("ended", [sucesso("resumo_r1", JSON.stringify(longo))]));
     expect(banco.estado.resumos[0].temas).toHaveLength(6);
     expect(banco.estado.resumos[0].pendencias).toEqual([{ autor: "Ana", hora: "", texto: "x" }]);
   });
@@ -552,7 +564,7 @@ describe("coletarLotes", () => {
     resumo("r1", { modelo: "claude-sonnet-5-5" });
     await coletarLotes(
       COLETA,
-      clienteColeta("ended", [sucesso("resumo:r1", JSON.stringify(JSON_OK), { model: "claude-sonnet-5-5-20261101" })]),
+      clienteColeta("ended", [sucesso("resumo_r1", JSON.stringify(JSON_OK), { model: "claude-sonnet-5-5-20261101" })]),
     );
     expect(banco.estado.usos[0].modelo).toBe("claude-sonnet-5-5");
   });
@@ -560,7 +572,7 @@ describe("coletarLotes", () => {
   it("stop_reason refusal: falhou com 'A IA recusou este resumo.'", async () => {
     lote();
     resumo("r1");
-    const cliente = clienteColeta("ended", [sucesso("resumo:r1", "", { stop_reason: "refusal" })]);
+    const cliente = clienteColeta("ended", [sucesso("resumo_r1", "", { stop_reason: "refusal" })]);
     expect(await coletarLotes(COLETA, cliente)).toEqual({ lotes: 1, prontos: 0, falhos: 1 });
     expect(banco.estado.resumos[0]).toMatchObject({ situacao: "falhou", erro: "A IA recusou este resumo." });
     // O uso é registrado mesmo na recusa.
@@ -573,9 +585,9 @@ describe("coletarLotes", () => {
     resumo("r2");
     resumo("r3");
     const cliente = clienteColeta("ended", [
-      sucesso("resumo:r1", "isto não é JSON"),
-      sucesso("resumo:r2", JSON.stringify({ resumo: "só isso" })),
-      sucesso("resumo:r3", "", { content: [] }),
+      sucesso("resumo_r1", "isto não é JSON"),
+      sucesso("resumo_r2", JSON.stringify({ resumo: "só isso" })),
+      sucesso("resumo_r3", "", { content: [] }),
     ]);
     expect(await coletarLotes(COLETA, cliente)).toEqual({ lotes: 1, prontos: 0, falhos: 3 });
     for (const r of banco.estado.resumos) expect(r).toMatchObject({ situacao: "falhou", erro: "Resposta fora do formato." });
@@ -588,9 +600,9 @@ describe("coletarLotes", () => {
     resumo("r2");
     resumo("r3");
     const cliente = clienteColeta("ended", [
-      { custom_id: "resumo:r1", result: { type: "errored" } },
-      { custom_id: "resumo:r2", result: { type: "expired" } },
-      { custom_id: "resumo:r3", result: { type: "canceled" } },
+      { custom_id: "resumo_r1", result: { type: "errored" } },
+      { custom_id: "resumo_r2", result: { type: "expired" } },
+      { custom_id: "resumo_r3", result: { type: "canceled" } },
     ]);
     expect(await coletarLotes(COLETA, cliente)).toEqual({ lotes: 1, prontos: 0, falhos: 3 });
     expect(banco.estado.resumos.map((r) => [r.situacao, r.erro])).toEqual([
@@ -604,7 +616,7 @@ describe("coletarLotes", () => {
   it("custom_id de resumo já pronto não é regravado (coleta repetida)", async () => {
     lote();
     resumo("r1", { situacao: "pronto", resumo: "antigo" });
-    const cliente = clienteColeta("ended", [sucesso("resumo:r1", JSON.stringify(JSON_OK))]);
+    const cliente = clienteColeta("ended", [sucesso("resumo_r1", JSON.stringify(JSON_OK))]);
     expect(await coletarLotes(COLETA, cliente)).toEqual({ lotes: 1, prontos: 0, falhos: 0 });
     expect(banco.estado.resumos[0]).toMatchObject({ situacao: "pronto", resumo: "antigo" });
     expect(banco.estado.usos).toHaveLength(0);
@@ -615,8 +627,8 @@ describe("coletarLotes", () => {
     resumo("r1");
     const cliente = clienteColeta("ended", [
       sucesso("outro:r1", JSON.stringify({ ...JSON_OK, resumo: "segredo" })),
-      sucesso("resumo:nao-existe", JSON.stringify(JSON_OK)),
-      sucesso("resumo:r1", JSON.stringify(JSON_OK)),
+      sucesso("resumo_nao-existe", JSON.stringify(JSON_OK)),
+      sucesso("resumo_r1", JSON.stringify(JSON_OK)),
     ]);
     expect(await coletarLotes(COLETA, cliente)).toEqual({ lotes: 1, prontos: 1, falhos: 0 });
     expect(banco.estado.usos).toHaveLength(1);
@@ -635,8 +647,8 @@ describe("coletarLotes", () => {
     };
     try {
       const cliente = clienteColeta("ended", [
-        sucesso("resumo:r1", JSON.stringify(JSON_OK)),
-        sucesso("resumo:r2", JSON.stringify(JSON_OK)),
+        sucesso("resumo_r1", JSON.stringify(JSON_OK)),
+        sucesso("resumo_r2", JSON.stringify(JSON_OK)),
       ]);
       expect(await coletarLotes(COLETA, cliente)).toEqual({ lotes: 1, prontos: 1, falhos: 1 });
     } finally {
@@ -661,8 +673,8 @@ describe("coletarLotes", () => {
     };
     try {
       const cliente = clienteColeta("ended", [
-        sucesso("resumo:r1", JSON.stringify(JSON_OK)),
-        sucesso("resumo:r2", JSON.stringify(JSON_OK)),
+        sucesso("resumo_r1", JSON.stringify(JSON_OK)),
+        sucesso("resumo_r2", JSON.stringify(JSON_OK)),
       ]);
       expect(await coletarLotes(COLETA, cliente)).toEqual({ lotes: 1, prontos: 2, falhos: 0 });
     } finally {
@@ -676,7 +688,7 @@ describe("coletarLotes", () => {
   it("duas coletas simultâneas do mesmo item registram o uso uma vez só", async () => {
     lote();
     resumo("r1");
-    const itens = [sucesso("resumo:r1", JSON.stringify(JSON_OK))];
+    const itens = [sucesso("resumo_r1", JSON.stringify(JSON_OK))];
     const findUnique = banco.prisma.resumoGrupo.findUnique;
     let leiturasPendentes = 0;
     banco.prisma.resumoGrupo.findUnique = async (args: { where: Linha }) => {
@@ -700,7 +712,7 @@ describe("coletarLotes", () => {
     lote();
     resumo("r1");
     const cliente = clienteColeta("ended", [
-      sucesso("resumo:r1", "", {
+      sucesso("resumo_r1", "", {
         content: [
           { type: "thinking", thinking: "pensando", signature: "sig" },
           { type: "text", text: JSON.stringify(JSON_OK), citations: null },
@@ -715,7 +727,7 @@ describe("coletarLotes", () => {
     lote();
     resumo("r1");
     const cortado = JSON.stringify(JSON_OK).slice(0, 30);
-    const cliente = clienteColeta("ended", [sucesso("resumo:r1", cortado, { stop_reason: "max_tokens" })]);
+    const cliente = clienteColeta("ended", [sucesso("resumo_r1", cortado, { stop_reason: "max_tokens" })]);
     expect(await coletarLotes(COLETA, cliente)).toEqual({ lotes: 1, prontos: 0, falhos: 1 });
     expect(banco.estado.resumos[0]).toMatchObject({ situacao: "falhou", erro: "Resposta fora do formato." });
     expect(banco.estado.usos).toHaveLength(1);
@@ -729,7 +741,7 @@ describe("coletarLotes", () => {
     lote();
     resumo("r1");
     resumo("r2"); // sem resultado no lote: não fica pendente para sempre
-    await coletarLotes(COLETA, clienteColeta("ended", [sucesso("resumo:r1", JSON.stringify(JSON_OK))]));
+    await coletarLotes(COLETA, clienteColeta("ended", [sucesso("resumo_r1", JSON.stringify(JSON_OK))]));
     expect(banco.estado.lotes[0]).toMatchObject({ situacao: "concluido", concluidoEm: COLETA });
     expect(banco.estado.resumos[1]).toMatchObject({ situacao: "falhou", erro: "A IA não devolveu este resumo." });
     // Coleta seguinte: o lote já não está aberto.
@@ -778,15 +790,15 @@ describe("coletarLotes", () => {
     const quebrado: ClienteLotes = {
       ...clienteColeta("ended"),
       async *resultados() {
-        yield sucesso("resumo:r1", JSON.stringify(JSON_OK));
+        yield sucesso("resumo_r1", JSON.stringify(JSON_OK));
         throw new Error("rede");
       },
     };
     expect(await coletarLotes(COLETA, quebrado)).toEqual({ lotes: 0, prontos: 1, falhos: 0 });
     expect(banco.estado.lotes[0]).toMatchObject({ situacao: "aberto" });
     const cliente = clienteColeta("ended", [
-      sucesso("resumo:r1", JSON.stringify(JSON_OK)),
-      sucesso("resumo:r2", JSON.stringify(JSON_OK)),
+      sucesso("resumo_r1", JSON.stringify(JSON_OK)),
+      sucesso("resumo_r2", JSON.stringify(JSON_OK)),
     ]);
     expect(await coletarLotes(COLETA, cliente)).toEqual({ lotes: 1, prontos: 1, falhos: 0 });
     expect(banco.estado.usos).toHaveLength(2);
