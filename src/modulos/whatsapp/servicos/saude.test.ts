@@ -16,7 +16,9 @@ const banco = vi.hoisted(() => {
     numeroWhatsapp: {
       findMany: async ({ where }: { where: Linha }) => {
         semLike(where);
-        return estado.numeros.filter((n) => where.excluidoEm !== null || n.excluidoEm === null).filter((n) => n.excluidoEm === null);
+        // Aplica o filtro de excluidoEm que a consulta pedir (null: só os não excluídos).
+        if (!("excluidoEm" in where)) return estado.numeros.map((n) => ({ ...n }));
+        return estado.numeros.filter((n) => n.excluidoEm === where.excluidoEm).map((n) => ({ ...n }));
       },
     },
     mensagemWhatsapp: {

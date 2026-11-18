@@ -42,7 +42,7 @@ export default async function PaginaSaude() {
                   <TableHead>Número</TableHead>
                   <TableHead>Situação</TableHead>
                   <TableHead>Último sinal</TableHead>
-                  <TableHead>Mensagens nas últimas 24 h</TableHead>
+                  <TableHead>Capturadas nas últimas 24 h</TableHead>
                   <TableHead>Última mensagem</TableHead>
                 </TableRow>
               </TableHeader>
@@ -58,6 +58,9 @@ export default async function PaginaSaude() {
                 ))}
               </TableBody>
             </Table>
+          )}
+          {saude.numeros.length > 0 && (
+            <p className="text-muted-foreground mt-3 text-xs">Conta pelo número que guardou a mensagem primeiro.</p>
           )}
         </CardContent>
       </Card>

@@ -69,7 +69,7 @@ export function ApagarDadosTelefone() {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Apagar dados de um telefone</DialogTitle>
-          <DialogDescription>Apaga o contato, as conversas e todas as mensagens deste telefone. Não dá para desfazer.</DialogDescription>
+          <DialogDescription>Apaga o contato, as conversas e as mensagens ligadas a este telefone. Não dá para desfazer.</DialogDescription>
         </DialogHeader>
         {aberto && <Formulario />}
       </DialogContent>
