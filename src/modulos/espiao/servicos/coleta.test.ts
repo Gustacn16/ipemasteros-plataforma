@@ -157,6 +157,31 @@ describe("executarColeta", () => {
   });
 });
 
+describe("páginas entre coletas", () => {
+  const pagina = () => ({ id: "p1", concorrenteId: "c1", url: "https://x.com/pos", rotulo: "Pós", legivel: false, ultimoHash: null, ultimaCapturaEm: null });
+  const texto = (preco: string) => `${"Conteúdo completo da pós em dermatologia. ".repeat(12)} Por ${preco}.`;
+  async function rodar(mem: ReturnType<typeof criarRepositorioMemoria>, lida: { texto: string; legivel: boolean; precos: string[] }) {
+    const { deps } = criarDeps();
+    deps.lerPagina = async () => ({ urlFinal: "u", ...lida });
+    await executarColeta((await mem.repo.criarColeta("manual", agora)).id, mem.repo, deps);
+    agora = new Date(agora.getTime() + 7 * DIA);
+  }
+
+  it("página que ficou ilegível uma semana e voltou igual não vira pagina_nova", async () => {
+    const mem = criarRepositorioMemoria({ concorrentes: [{ id: "c1", nome: "Um", instagram: null }], paginas: [pagina()] });
+    await rodar(mem, { texto: texto("R$ 10"), legivel: true, precos: ["R$ 10,00"] });
+    await rodar(mem, { texto: "verificando…", legivel: false, precos: [] });
+    await rodar(mem, { texto: texto("R$ 10"), legivel: true, precos: ["R$ 10,00"] });
+    expect(mem.sinais).toEqual([]);
+  });
+
+  it("preço que vai e volta gera um sinal a cada mudança", async () => {
+    const mem = criarRepositorioMemoria({ concorrentes: [{ id: "c1", nome: "Um", instagram: null }], paginas: [pagina()] });
+    for (const p of ["R$ 10", "R$ 8", "R$ 10", "R$ 8"]) await rodar(mem, { texto: texto(p), legivel: true, precos: [`${p},00`] });
+    expect(mem.sinais.filter((s) => s.tipo === "preco_mudou")).toHaveLength(3);
+  });
+});
+
 describe("iniciarColeta", () => {
   it("coleta rodando há 1 h: em andamento, nada roda", async () => {
     const mem = criarRepositorioMemoria({ concorrentes: tres });

@@ -289,18 +289,20 @@ async function capturarPagina(
   const hash = hashTexto(lida.texto);
   const ehLinhaDeBase = p.ultimaCapturaEm === null;
   const mudou = lida.legivel && hash !== p.ultimoHash;
-  const anterior = mudou ? await repo.ultimaVersao(p.id) : null;
-  const sinais = mudou || (lida.legivel && !p.legivel)
-    ? sinaisDePagina({ url: p.url, rotulo: p.rotulo, legivelAntes: p.legivel, versaoAnterior: anterior, atual: { texto: lida.texto, precos: lida.precos, legivel: lida.legivel }, ehLinhaDeBase })
-    : [];
+  // Compara sempre com a última versão legível: uma semana "não legível" no meio não vira página nova.
+  const anterior = lida.legivel && !ehLinhaDeBase ? await repo.ultimaVersao(p.id) : null;
+  const sinais =
+    lida.legivel && (mudou || !anterior)
+      ? sinaisDePagina({ url: p.url, rotulo: p.rotulo, versaoAnterior: anterior, atual: { texto: lida.texto, precos: lida.precos, legivel: true }, ehLinhaDeBase })
+      : [];
   for (const s of sinais) {
     if (s.tipo !== "pagina_mudou" || !anterior) continue;
     await exigirSaldo();
     const titulo = await deps.tituloDaMudanca({ rotulo: p.rotulo, antes: anterior.texto, depois: lida.texto });
     if (titulo) s.titulo = `${p.rotulo}: ${titulo}`.slice(0, 300);
   }
-  // A chave com o hash da versão impede sinal repetido se a coleta for retomada.
-  if (sinais.length) await repo.criarSinais(coletaId, concorrenteId, sinais.map((s) => ({ ...s, chave: `${s.tipo}:${p.id}:${hash.slice(0, 16)}` })), agora);
+  // Chave por página e coleta: retomar a mesma coleta não repete; um preço que volta numa coleta futura gera sinal de novo.
+  if (sinais.length) await repo.criarSinais(coletaId, concorrenteId, sinais.map((s) => ({ ...s, chave: `${s.tipo}:${p.id}:${coletaId}` })), agora);
   await repo.salvarCaptura(p.id, { legivel: lida.legivel, hash, texto: lida.texto, precos: lida.precos, novaVersao: mudou }, agora);
 }
 

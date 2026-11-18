@@ -129,13 +129,13 @@ const mesmoConjunto = (a: string[], b: string[]) => a.length === b.length && [..
 export function sinaisDePagina(p: {
   url: string;
   rotulo: string;
-  legivelAntes: boolean;
+  /** Última versão LEGÍVEL guardada (null = nunca houve). */
   versaoAnterior: { texto: string; precos: string[] } | null;
   atual: { texto: string; precos: string[]; legivel: boolean };
   ehLinhaDeBase: boolean;
 }): SinalNovo[] {
   if (p.ehLinhaDeBase || !p.atual.legivel) return [];
-  if (!p.legivelAntes || !p.versaoAnterior) {
+  if (!p.versaoAnterior) {
     return [{ tipo: "pagina_nova", titulo: `Página nova: ${p.rotulo}`, detalhe: { precos: p.atual.precos }, origemUrl: p.url, chave: null }];
   }
   if (!mesmoConjunto(p.versaoAnterior.precos, p.atual.precos)) {

@@ -80,7 +80,7 @@ describe("sinalDeBio", () => {
 describe("sinaisDePagina", () => {
   const cem = (troca: number) => Array.from({ length: 100 }, (_, i) => (i < troca ? `novo${i}` : `p${i}`)).join(" ");
   const pagina = (o: Partial<Parameters<typeof sinaisDePagina>[0]> = {}) =>
-    sinaisDePagina({ url: "https://x.com/pos", rotulo: "Pós Dermato", legivelAntes: true, versaoAnterior: { texto: cem(0), precos: ["R$ 10,00"] }, atual: { texto: cem(0), precos: ["R$ 10,00"], legivel: true }, ehLinhaDeBase: false, ...o });
+    sinaisDePagina({ url: "https://x.com/pos", rotulo: "Pós Dermato", versaoAnterior: { texto: cem(0), precos: ["R$ 10,00"] }, atual: { texto: cem(0), precos: ["R$ 10,00"], legivel: true }, ehLinhaDeBase: false, ...o });
 
   it("linha de base não gera sinal", () => {
     expect(pagina({ ehLinhaDeBase: true, atual: { texto: cem(50), precos: ["R$ 1,00"], legivel: true } })).toEqual([]);
@@ -94,7 +94,7 @@ describe("sinaisDePagina", () => {
     expect(pagina({ atual: { texto: cem(4), precos: ["R$ 10,00"], legivel: true } })).toEqual([]);
     expect(pagina({ atual: { texto: cem(5), precos: ["R$ 10,00"], legivel: true } })[0]).toMatchObject({ tipo: "pagina_mudou", titulo: "Página Pós Dermato mudou" });
   });
-  it("página que ficou legível vira pagina_nova", () => {
-    expect(pagina({ legivelAntes: false, versaoAnterior: null })[0]?.tipo).toBe("pagina_nova");
+  it("página sem nenhuma versão legível anterior vira pagina_nova", () => {
+    expect(pagina({ versaoAnterior: null })[0]?.tipo).toBe("pagina_nova");
   });
 });
