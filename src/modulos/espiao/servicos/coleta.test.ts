@@ -100,6 +100,18 @@ describe("executarColeta", () => {
     expect(mem.relatorios.size).toBe(3);
   });
 
+  it("salto de seguidores e ritmo não se repetem em outra coleta da mesma semana", async () => {
+    const mem = criarRepositorioMemoria({ concorrentes: [tres[0]] });
+    agora = new Date("2026-11-09T07:00:00Z");
+    await executarColeta((await mem.repo.criarColeta("agendada", agora)).id, mem.repo, criarDeps({ perfis: { um: () => perfil(base(), 1000) } }).deps);
+    const subiu = criarDeps({ perfis: { um: () => perfil(base(), 1100) } }).deps;
+    agora = new Date("2026-11-16T07:00:00Z");
+    await executarColeta((await mem.repo.criarColeta("agendada", agora)).id, mem.repo, subiu);
+    agora = new Date("2026-11-18T10:00:00Z");
+    await executarColeta((await mem.repo.criarColeta("manual", agora)).id, mem.repo, subiu);
+    expect(mem.sinais.filter((s) => s.tipo === "seguidores_salto")).toHaveLength(1);
+  });
+
   it("Reels novo é transcrito, resumido e gera gasto do Groq", async () => {
     const mem = criarRepositorioMemoria({ concorrentes: [tres[0]] });
     const { deps, chamadas } = criarDeps({ perfis: { um: () => perfil([midia("r1", 1, 10)]) } });

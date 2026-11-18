@@ -5,6 +5,7 @@ import type { ClienteGroq, baixarVideo as BaixarVideo } from "../fontes/groq";
 import type { lerPagina as LerPagina } from "../fontes/pagina";
 import { calcularIndicadores } from "../regras/indicadores";
 import { type SinalNovo, type TipoSinal, sinalDeBio, sinalDeRitmo, sinalDeSeguidores, sinaisDeConteudo, sinaisDePagina } from "../regras/sinais";
+import { inicioDaSemanaSaoPaulo } from "../regras/semana";
 import { hashTexto } from "../regras/texto";
 import { custoGroqMicroUsd } from "../fontes/groq";
 import type { escreverAnalise as EscreverAnalise, resumirReels as ResumirReels, tituloDaMudanca as TituloDaMudanca } from "./ia";
@@ -249,11 +250,14 @@ export async function executarColeta(coletaId: string, repo: RepositorioEspiao, 
           midias.map((m) => ({ ...m, jaSinalizada: jaSinalizadas.has(`conteudo_destaque:${m.idExterno}`) })),
           agora,
         ).map((s) => ({ ...s, chave: s.chave! }));
-        const porColeta = (s: SinalNovo | null, tipo: string) => (s ? [{ ...s, chave: `${tipo}:${c.id}:${coletaId}` }] : []);
+        // Ritmo e seguidores: um por concorrente por semana (outra coleta da semana recalcula a mesma janela).
+        const semana = inicioDaSemanaSaoPaulo(agora).toISOString().slice(0, 10);
+        const comChave = (s: SinalNovo | null, chave: string) => (s ? [{ ...s, chave }] : []);
         sinais.push(
-          ...porColeta(sinalDeRitmo(midias.map((m) => m.publicadoEm), agora), "ritmo"),
-          ...porColeta(sinalDeSeguidores(atual.seguidores, comIdade, atual.capturadaEm), "seguidores"),
-          ...porColeta(sinalDeBio(atual, anterior), "bio"),
+          ...comChave(sinalDeRitmo(midias.map((m) => m.publicadoEm), agora), `ritmo:${c.id}:${semana}`),
+          ...comChave(sinalDeSeguidores(atual.seguidores, comIdade, atual.capturadaEm), `seguidores:${c.id}:${semana}`),
+          // A bio compara com a foto anterior: outra coleta da semana não vê mudança de novo.
+          ...comChave(sinalDeBio(atual, anterior), `bio:${c.id}:${coletaId}`),
         );
         if (sinais.length) await repo.criarSinais(coletaId, c.id, sinais, agora);
       });
