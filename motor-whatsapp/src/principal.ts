@@ -62,6 +62,13 @@ async function encerrar(sinal: string): Promise<void> {
   process.exit(0);
 }
 
+// A Baileys às vezes rejeita uma consulta interna sem ninguém esperar por ela (ex.: "Timed Out" ao
+// conferir as pre-keys numa conexão instável). Sem isto o Node encerra o motor; a própria Baileys
+// derruba e reabre a conexão, então só registramos o nome do erro e seguimos.
+process.on("unhandledRejection", (erro: unknown) => {
+  console.error(`[motor] erro sem tratamento ignorado (${erro instanceof Error ? erro.message : typeof erro})`);
+});
+
 console.info("[motor] iniciando");
 await conexoes.retomarSalvas();
 enviarSinal();
