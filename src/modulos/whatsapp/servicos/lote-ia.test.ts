@@ -14,7 +14,9 @@ const banco = vi.hoisted(() => {
     config: null as Record<string, any> | null, // eslint-disable-line @typescript-eslint/no-explicit-any
     gastoMes: 0,
     seq: 0,
+    falharUpdateLote: false,
   };
+  const p2002 = () => Object.assign(new Error("único"), { code: "P2002" });
   const semLike = (where: unknown) => {
     const json = JSON.stringify(where ?? {});
     for (const op of ["contains", "startsWith", "endsWith"]) if (json.includes(`"${op}"`)) throw new Error(`operador ${op} proibido`);
@@ -23,6 +25,8 @@ const banco = vi.hoisted(() => {
   const resumoCombina = (r: Linha, where: Linha) => {
     if (where.id?.in && !where.id.in.includes(r.id)) return false;
     if (where.situacao?.not && r.situacao === where.situacao.not) return false;
+    if (where.conversaId !== undefined && r.conversaId !== where.conversaId) return false;
+    if (where.dia !== undefined && !mesmoDia(r.dia, where.dia)) return false;
     return true;
   };
   const porChave = (w: Linha) =>
@@ -40,10 +44,21 @@ const banco = vi.hoisted(() => {
         semLike(where);
         return estado.lotes.find((l) => l.tipo === where.tipo && mesmoDia(l.dia, where.dia)) ?? null;
       },
+      // Respeita o único (tipo, dia) como o MySQL: o segundo create do dia dá P2002.
       create: async ({ data }: { data: Linha }) => {
-        const l = { id: `lote${++estado.seq}`, situacao: "aberto", ...data };
+        await Promise.resolve();
+        if (estado.lotes.some((l) => l.tipo === data.tipo && mesmoDia(l.dia, data.dia))) throw p2002();
+        const l = { id: `lote${++estado.seq}`, situacao: "aberto", idExterno: null, ...data };
         estado.lotes.push(l);
         return { id: l.id };
+      },
+      update: async ({ where, data }: { where: Linha; data: Linha }) => {
+        if (estado.falharUpdateLote) throw new Error("banco caiu");
+        Object.assign(estado.lotes.find((l) => l.id === where.id)!, data);
+      },
+      delete: async ({ where }: { where: Linha }) => {
+        estado.lotes = estado.lotes.filter((l) => l.id !== where.id);
+        estado.resumos.filter((r) => r.loteId === where.id).forEach((r) => (r.loteId = null)); // onDelete: SetNull
       },
     },
     conversaWhatsapp: {
@@ -74,13 +89,9 @@ const banco = vi.hoisted(() => {
     },
     resumoGrupo: {
       findUnique: async ({ where }: { where: Linha }) => porChave(where) ?? null,
-      upsert: async ({ where, create, update }: { where: Linha; create: Linha; update: Linha }) => {
-        const atual = porChave(where);
-        if (atual) {
-          Object.assign(atual, update);
-          return { id: atual.id };
-        }
-        const r = { id: `res${++estado.seq}`, ...create };
+      create: async ({ data }: { data: Linha }) => {
+        if (porChave({ conversaId_dia: { conversaId: data.conversaId, dia: data.dia } })) throw p2002();
+        const r = { id: `res${++estado.seq}`, ...data };
         estado.resumos.push(r);
         return { id: r.id };
       },
@@ -109,9 +120,10 @@ const ONTEM = (h: number) => new Date(Date.UTC(2026, 10, 17, 3 + h));
 
 function clienteFalso(opcoes: { falhar?: boolean } = {}) {
   const enviados: unknown[][] = [];
-  const cliente: ClienteLotes = {
+  const cliente: ClienteLotes & { falhar?: boolean } = {
+    falhar: opcoes.falhar,
     async criar(requisicoes) {
-      if (opcoes.falhar) throw new Error("rede");
+      if (cliente.falhar) throw new Error("rede");
       enviados.push(requisicoes);
       return { id: "msgbatch_1" };
     },
@@ -153,6 +165,7 @@ beforeEach(() => {
     config: null,
     gastoMes: 0,
     seq: 0,
+    falharUpdateLote: false,
   });
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -297,12 +310,84 @@ describe("criarLoteDoDia", () => {
     mensagem("g1", { texto: "segredo do aluno" });
     mensagem("g2");
     const { cliente } = clienteFalso({ falhar: true });
-    expect(await criarLoteDoDia(AGORA, cliente)).toEqual({ criado: false, pedidos: 0, semVerba: 0 });
+    expect(await criarLoteDoDia(AGORA, cliente)).toEqual({ criado: false, pedidos: 0, semVerba: 0, motivo: "falha_envio" });
     expect(banco.estado.lotes).toHaveLength(0);
     expect(banco.estado.resumos).toHaveLength(2);
     for (const r of banco.estado.resumos) expect(r).toMatchObject({ situacao: "falhou", erro: "Não foi possível enviar o lote." });
     // O log leva só o nome do erro.
     expect(console.error).toHaveBeenCalledWith(expect.any(String), "Error");
     expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain("segredo");
+  });
+
+  it("duas execuções simultâneas: só uma envia (a outra pega ja_existe pelo único)", async () => {
+    grupo("g1");
+    mensagem("g1");
+    const { cliente, enviados } = clienteFalso();
+    const criar = vi.spyOn(banco.prisma.loteIa, "create");
+    const resultados = await Promise.all([criarLoteDoDia(AGORA, cliente), criarLoteDoDia(AGORA, cliente)]);
+    expect(resultados.filter((r) => r.criado)).toHaveLength(1);
+    expect(resultados.filter((r) => r.motivo === "ja_existe")).toHaveLength(1);
+    // As duas passaram pelo caminho rápido; quem barrou a segunda foi o único (tipo, dia).
+    expect(criar).toHaveBeenCalledTimes(2);
+    criar.mockRestore();
+    expect(enviados).toHaveLength(1);
+    expect(banco.estado.lotes).toHaveLength(1);
+    expect(banco.estado.lotes[0].idExterno).toBe("msgbatch_1");
+    expect(banco.estado.resumos).toEqual([expect.objectContaining({ situacao: "pendente", loteId: banco.estado.lotes[0].id })]);
+  });
+
+  it("falha ao gravar idExterno depois do envio: não reenvia na próxima execução", async () => {
+    grupo("g1");
+    mensagem("g1");
+    const { cliente, enviados } = clienteFalso();
+    banco.estado.falharUpdateLote = true;
+    await expect(criarLoteDoDia(AGORA, cliente)).rejects.toThrow();
+    expect(enviados).toHaveLength(1);
+    expect(banco.estado.lotes).toEqual([expect.objectContaining({ situacao: "aberto", idExterno: null })]);
+    expect(console.error).toHaveBeenCalledWith(expect.any(String), "Error");
+
+    banco.estado.falharUpdateLote = false;
+    expect(await criarLoteDoDia(AGORA, cliente)).toMatchObject({ criado: false, motivo: "ja_existe" });
+    expect(enviados).toHaveLength(1);
+  });
+
+  it("falha no envio apaga a reserva e permite nova tentativa", async () => {
+    grupo("g1");
+    mensagem("g1");
+    const { cliente, enviados } = clienteFalso({ falhar: true });
+    expect(await criarLoteDoDia(AGORA, cliente)).toMatchObject({ criado: false, motivo: "falha_envio" });
+    expect(banco.estado.lotes).toHaveLength(0);
+    expect(banco.estado.resumos[0]).toMatchObject({ situacao: "falhou", erro: "Não foi possível enviar o lote.", loteId: null });
+
+    cliente.falhar = false;
+    expect(await criarLoteDoDia(AGORA, cliente)).toEqual({ criado: true, pedidos: 1, semVerba: 0 });
+    expect(enviados).toHaveLength(1);
+    expect(banco.estado.resumos).toHaveLength(1);
+    expect(banco.estado.resumos[0]).toMatchObject({ situacao: "pendente", erro: null, loteId: banco.estado.lotes[0].id });
+  });
+
+  it("nunca reabre um resumo já pronto, mesmo se ficar pronto no meio da execução", async () => {
+    grupo("g1");
+    grupo("g2");
+    mensagem("g1");
+    mensagem("g2");
+    // g1 fica pronto entre a leitura inicial e a gravação (simula a coleta terminando em paralelo).
+    const findUnique = banco.prisma.resumoGrupo.findUnique;
+    let leituras = 0;
+    banco.prisma.resumoGrupo.findUnique = async (args: { where: Linha }) => {
+      const r = await findUnique(args);
+      if (args.where.conversaId_dia.conversaId === "g1" && ++leituras === 1) {
+        banco.estado.resumos.push({ id: "r0", conversaId: "g1", dia: DIA, situacao: "pronto", resumo: "ok" });
+      }
+      return r;
+    };
+    const { cliente, enviados } = clienteFalso();
+    try {
+      expect(await criarLoteDoDia(AGORA, cliente)).toMatchObject({ criado: true, pedidos: 1 });
+    } finally {
+      banco.prisma.resumoGrupo.findUnique = findUnique;
+    }
+    expect(pedidosDe(enviados).map((p) => p.custom_id)).not.toContain("resumo:r0");
+    expect(banco.estado.resumos.find((r) => r.id === "r0")).toMatchObject({ situacao: "pronto", resumo: "ok" });
   });
 });

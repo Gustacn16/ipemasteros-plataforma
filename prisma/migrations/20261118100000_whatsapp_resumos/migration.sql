@@ -12,7 +12,7 @@ CREATE TABLE `configuracoes_whatsapp` (
 -- CreateTable
 CREATE TABLE `lotes_ia` (
     `id` VARCHAR(191) NOT NULL,
-    `id_externo` VARCHAR(100) NOT NULL,
+    `id_externo` VARCHAR(100) NULL,
     `tipo` ENUM('resumo_grupo', 'avaliacao') NOT NULL,
     `dia` DATE NOT NULL,
     `situacao` ENUM('aberto', 'concluido', 'falhou') NOT NULL DEFAULT 'aberto',
@@ -21,6 +21,7 @@ CREATE TABLE `lotes_ia` (
     `concluido_em` DATETIME(3) NULL,
 
     UNIQUE INDEX `lotes_ia_id_externo_key`(`id_externo`),
+    UNIQUE INDEX `lotes_ia_tipo_dia_key`(`tipo`, `dia`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 

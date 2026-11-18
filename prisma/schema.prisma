@@ -1534,10 +1534,11 @@ enum SituacaoLoteIa {
   falhou
 }
 
-/// Lote enviado à API de lotes da Anthropic (idExterno = id do lote lá).
+/// Lote enviado à API de lotes da Anthropic (idExterno = id do lote lá; nulo antes do envio).
 model LoteIa {
   id          String         @id @default(cuid())
-  idExterno   String         @unique @map("id_externo") @db.VarChar(100)
+  /// Nulo enquanto a reserva do dia ainda está sendo enviada.
+  idExterno   String?        @unique @map("id_externo") @db.VarChar(100)
   tipo        TipoLoteIa
   dia         DateTime       @db.Date
   situacao    SituacaoLoteIa @default(aberto)
@@ -1547,6 +1548,8 @@ model LoteIa {
 
   resumos ResumoGrupo[]
 
+  /// Um lote por tipo e dia: a criação é a reserva contra execução dupla.
+  @@unique([tipo, dia])
   @@map("lotes_ia")
 }
 

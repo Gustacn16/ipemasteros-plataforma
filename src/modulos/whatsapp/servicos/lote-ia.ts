@@ -57,8 +57,10 @@ type ResultadoCriacao = {
   criado: boolean;
   pedidos: number;
   semVerba: number;
-  motivo?: "sem_chave" | "ja_existe" | "nada_a_fazer";
+  motivo?: "sem_chave" | "ja_existe" | "nada_a_fazer" | "falha_envio";
 };
+
+const codigoErro = (e: unknown) => (typeof e === "object" && e !== null ? (e as { code?: unknown }).code : undefined);
 
 const SAIDA_ESTIMADA = 8000;
 
@@ -82,7 +84,7 @@ export async function criarLoteDoDia(
   if (!lotes) return { criado: false, pedidos: 0, semVerba: 0, motivo: "sem_chave" };
 
   const { dia, inicio, fim } = janelaDeOntem(agora);
-  // Trava contra execução dupla: um lote de resumo por dia.
+  // Caminho rápido; a trava de verdade é a reserva (único tipo + dia) logo antes do envio.
   const existente = await prisma.loteIa.findFirst({ where: { tipo: "resumo_grupo", dia }, select: { id: true } });
   if (existente) return { criado: false, pedidos: 0, semVerba: 0, motivo: "ja_existe" };
 
@@ -132,10 +134,8 @@ export async function criarLoteDoDia(
   // Verba: os grupos mais movimentados entram primeiro; quem não cabe fica "falhou" com o aviso do limite.
   candidatos.sort((a, b) => b.totalMensagens - a.totalMensagens);
   let restante = config.limiteMensalMicroUsd - (await gastoMesMicroUsd(ORIGEM_IA_WHATSAPP, agora));
-  const pedidos: PedidoResumo[] = [];
-  const enviados: string[] = [];
-  let semVerba = 0;
-
+  const cabem: Candidato[] = [];
+  const semVerba: Candidato[] = [];
   for (const c of candidatos) {
     const estimativa = calcularCustoMicroUsd(
       config.modelo,
@@ -147,32 +147,56 @@ export async function criarLoteDoDia(
       },
       { lote: true },
     );
-    const cabe = estimativa <= restante;
-    const dados = {
-      participacao: c.participacao,
-      totalMensagens: c.totalMensagens,
-      modelo: config.modelo,
-      situacao: cabe ? ("pendente" as const) : ("falhou" as const),
-      erro: cabe ? null : ERRO_LIMITE_MENSAL,
-      loteId: null,
-      resumo: null,
-    };
-    const resumo = await prisma.resumoGrupo.upsert({
-      where: { conversaId_dia: { conversaId: c.conversaId, dia } },
-      create: { conversaId: c.conversaId, dia, ...dados },
-      update: dados,
-      select: { id: true },
-    });
-    if (!cabe) {
-      semVerba++;
-      continue;
+    if (estimativa <= restante) {
+      restante -= estimativa;
+      cabem.push(c);
+    } else {
+      semVerba.push(c);
     }
-    restante -= estimativa;
-    pedidos.push(pedidoResumo(`resumo:${resumo.id}`, config.modelo, c.texto));
-    enviados.push(resumo.id);
   }
 
-  if (pedidos.length === 0) return { criado: false, pedidos: 0, semVerba, motivo: "nada_a_fazer" };
+  const gravarSemVerba = async () => {
+    for (const c of semVerba) {
+      await gravarResumo(c, dia, { situacao: "falhou", erro: ERRO_LIMITE_MENSAL, loteId: null, modelo: config.modelo });
+    }
+  };
+  if (cabem.length === 0) {
+    await gravarSemVerba();
+    return { criado: false, pedidos: 0, semVerba: semVerba.length, motivo: "nada_a_fazer" };
+  }
+
+  // Reserva do dia antes de qualquer envio: o único (tipo, dia) barra a execução simultânea.
+  let reservaId: string;
+  try {
+    reservaId = (
+      await prisma.loteIa.create({
+        data: { tipo: "resumo_grupo", dia, situacao: "aberto", idExterno: null },
+        select: { id: true },
+      })
+    ).id;
+  } catch (e) {
+    if (codigoErro(e) === "P2002") return { criado: false, pedidos: 0, semVerba: 0, motivo: "ja_existe" };
+    throw e;
+  }
+
+  const pedidos: PedidoResumo[] = [];
+  const enviados: string[] = [];
+  try {
+    await gravarSemVerba();
+    for (const c of cabem) {
+      const id = await gravarResumo(c, dia, { situacao: "pendente", erro: null, loteId: reservaId, modelo: config.modelo });
+      if (!id) continue; // ficou pronto no meio do caminho
+      pedidos.push(pedidoResumo(`resumo:${id}`, config.modelo, c.texto));
+      enviados.push(id);
+    }
+  } catch (e) {
+    await prisma.loteIa.delete({ where: { id: reservaId } });
+    throw e;
+  }
+  if (pedidos.length === 0) {
+    await prisma.loteIa.delete({ where: { id: reservaId } });
+    return { criado: false, pedidos: 0, semVerba: semVerba.length, motivo: "nada_a_fazer" };
+  }
 
   let idExterno: string;
   try {
@@ -181,15 +205,43 @@ export async function criarLoteDoDia(
     console.error("[whatsapp] falha ao criar o lote de resumos:", descreverErro(e));
     await prisma.resumoGrupo.updateMany({
       where: { id: { in: enviados }, situacao: { not: "pronto" } },
-      data: { situacao: "falhou", erro: ERRO_ENVIO_LOTE },
+      data: { situacao: "falhou", erro: ERRO_ENVIO_LOTE, loteId: null },
     });
-    return { criado: false, pedidos: 0, semVerba };
+    // Sem envio, a reserva sai: uma nova tentativa no mesmo dia pode enviar.
+    await prisma.loteIa.delete({ where: { id: reservaId } });
+    return { criado: false, pedidos: 0, semVerba: semVerba.length, motivo: "falha_envio" };
   }
 
-  const lote = await prisma.loteIa.create({ data: { idExterno, tipo: "resumo_grupo", dia }, select: { id: true } });
-  await prisma.resumoGrupo.updateMany({
-    where: { id: { in: enviados }, situacao: { not: "pronto" } },
-    data: { loteId: lote.id },
+  try {
+    await prisma.loteIa.update({ where: { id: reservaId }, data: { idExterno } });
+  } catch (e) {
+    // A reserva fica (sem idExterno): nada é reenviado; a coleta marca falhou depois de 1 h.
+    console.error("[whatsapp] falha ao gravar o id do lote de resumos:", descreverErro(e));
+    throw e;
+  }
+  return { criado: true, pedidos: pedidos.length, semVerba: semVerba.length };
+}
+
+type DadosResumo = { situacao: "pendente" | "falhou"; erro: string | null; loteId: string | null; modelo: string };
+
+/** Grava o resumo do dia sem nunca mexer em um que já está pronto. Devolve o id, ou null se já estava pronto. */
+async function gravarResumo(c: Candidato, dia: Date, d: DadosResumo): Promise<string | null> {
+  const dados = { ...d, participacao: c.participacao, totalMensagens: c.totalMensagens, resumo: null };
+  const r = await prisma.resumoGrupo.updateMany({
+    where: { conversaId: c.conversaId, dia, situacao: { not: "pronto" } },
+    data: dados,
   });
-  return { criado: true, pedidos: pedidos.length, semVerba };
+  if (r.count > 0) {
+    const linha = await prisma.resumoGrupo.findUnique({
+      where: { conversaId_dia: { conversaId: c.conversaId, dia } },
+      select: { id: true, situacao: true },
+    });
+    return linha && linha.situacao !== "pronto" ? linha.id : null;
+  }
+  try {
+    return (await prisma.resumoGrupo.create({ data: { conversaId: c.conversaId, dia, ...dados }, select: { id: true } })).id;
+  } catch (e) {
+    if (codigoErro(e) === "P2002") return null; // já existe e está pronto
+    throw e;
+  }
 }
