@@ -1,6 +1,6 @@
 # Nexu N2 — Espião de concorrentes ("sniper"): especificação
 
-- **Status:** Rascunho para aprovação
+- **Status:** Aprovado pelo Gustavo em 2026-11-18
 - **Data:** 2026-11-18
 - **Base:** spec do N1 (`docs/superpowers/specs/2026-11-17-nexu-n1-design.md`), `docs/modulos/nexu.md`, `docs/modulos/conteudo.md` (integração Instagram C2a), `src/lib/meta-graph.ts`, `src/lib/ia/`, `docs/04-seguranca-permissoes.md`. Onde divergir deles, vale este documento.
 - **Entregas:** N2a (esta spec em detalhe), N2b e N2c (esboço na seção 12; cada uma ganha uma spec curta antes de construir).
