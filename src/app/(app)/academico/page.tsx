@@ -9,11 +9,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/componentes/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/componentes/ui/table";
 import { temPermissao } from "@/lib/permissoes";
 import { exigirPermissaoPagina } from "@/lib/sessao";
+import { CartaoAniversariantes, nomeDoMes } from "@/modulos/academico/componentes/aniversariantes";
 import { SeloSituacao } from "@/modulos/academico/componentes/exibicao";
 import { visualSituacao } from "@/modulos/academico/componentes/situacao-visual";
 import { CartaoTurma, LinhaTurma, SeletorSituacaoTurma } from "@/modulos/academico/componentes/turma-na-lista";
 import { SITUACOES_MATRICULA, type SituacaoTurma } from "@/modulos/academico/esquemas/academico";
+import { aniversariantesDoMes } from "@/modulos/academico/regras/aniversarios";
+import { listarPessoasComNascimento } from "@/modulos/academico/servicos/aniversarios";
 import { obterVisaoGeral } from "@/modulos/academico/servicos/visao";
+import { diaEmSaoPaulo } from "@/modulos/tarefas/regras/prazo";
 import { ROTULO_TIPO_PRODUTO, type TipoProduto } from "@/modulos/comercial/esquemas/produto";
 
 export const metadata: Metadata = { title: "Acadêmico — IPEMaster OS" };
@@ -48,7 +52,15 @@ function BarraAtivos({ ativos, total }: { ativos: number; total: number }) {
 
 export default async function PaginaVisaoGeral() {
   const usuario = await exigirPermissaoPagina("academico:ver");
-  const visao = await obterVisaoGeral(usuario);
+  const [visao, pessoas] = await Promise.all([obterVisaoGeral(usuario), listarPessoasComNascimento(usuario)]);
+  const hoje = diaEmSaoPaulo(new Date());
+  const aniversariantes = (
+    <CartaoAniversariantes
+      titulo={`Aniversariantes de ${nomeDoMes(hoje)}`}
+      itens={aniversariantesDoMes(pessoas, hoje)}
+      vazio="Ninguém faz aniversário este mês, ou falta cadastrar a data de nascimento."
+    />
+  );
   const podeEditar = temPermissao(usuario.papel, "academico:gerenciar");
   const podeImportar = temPermissao(usuario.papel, "academico:importar_alunos");
   const botaoImportar = podeImportar && (
@@ -61,7 +73,9 @@ export default async function PaginaVisaoGeral() {
 
   if (visao.produtos.length === 0) {
     return (
-      <EstadoVazio
+      <div className="grid gap-6">
+        {aniversariantes}
+        <EstadoVazio
         icone={GraduationCapIcon}
         titulo="Ainda não há turmas"
         descricao="Crie uma turma em Turmas ou importe a planilha de alunos para ver os números por produto."
@@ -72,7 +86,8 @@ export default async function PaginaVisaoGeral() {
             </Button>
           )
         }
-      />
+        />
+      </div>
     );
   }
 
@@ -82,6 +97,8 @@ export default async function PaginaVisaoGeral() {
   return (
     <div className="grid gap-6">
       {botaoImportar && <div className="flex justify-end">{botaoImportar}</div>}
+
+      {aniversariantes}
 
       <section aria-label="Totais" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <CartaoNumero rotulo="Alunos ativos" icone={GraduationCapIcon} valor={visao.ativos} tom="informacao" />

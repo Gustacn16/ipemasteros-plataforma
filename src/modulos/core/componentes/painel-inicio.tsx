@@ -60,6 +60,7 @@ export function PainelInicio({
   hoje,
   agora,
   erro,
+  aviso,
 }: {
   nome: string;
   grupos: GruposInicio | null;
@@ -70,6 +71,8 @@ export function PainelInicio({
   hoje: string;
   agora: Date;
   erro?: string | string[];
+  /** Cartão extra acima das tarefas (ex.: aniversários). */
+  aviso?: React.ReactNode;
 }) {
   const abertas = grupos
     ? GRUPOS_MINHAS.reduce((n, g) => n + grupos[g].length, 0)
@@ -144,6 +147,8 @@ export function PainelInicio({
           </AlertDescription>
         </Alert>
       )}
+
+      {aviso}
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         {grupos && (

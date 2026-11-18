@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { temPermissao } from "@/lib/permissoes";
 import { exigirUsuario } from "@/lib/sessao";
+import { AvisoAniversarios } from "@/modulos/academico/componentes/aviso-aniversarios";
 import { podeVerInstitucional } from "@/modulos/agenda/regras/visibilidade";
 import { listarEventos } from "@/modulos/agenda/servicos/eventos";
 import { PainelInicio } from "@/modulos/core/componentes/painel-inicio";
@@ -42,6 +43,7 @@ export default async function PaginaInicio({
       hoje={hoje}
       agora={agora}
       erro={erro}
+      aviso={<AvisoAniversarios usuario={usuario} />}
     />
   );
 }

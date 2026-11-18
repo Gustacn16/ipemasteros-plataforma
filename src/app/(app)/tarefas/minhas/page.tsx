@@ -5,6 +5,7 @@ import { CabecalhoPagina } from "@/componentes/cabecalho-pagina";
 import { CartaoNumero } from "@/componentes/cartao-numero";
 import { EstadoVazio } from "@/componentes/estado-vazio";
 import { exigirPermissaoPagina } from "@/lib/sessao";
+import { AvisoAniversarios } from "@/modulos/academico/componentes/aviso-aniversarios";
 import { BotaoConcluir } from "@/modulos/tarefas/componentes/botao-concluir";
 import { ChipPrazo, ChipStatus } from "@/modulos/tarefas/componentes/chips-tarefa";
 import { PontoCor } from "@/modulos/tarefas/componentes/exibicao";
@@ -34,6 +35,8 @@ export default async function PaginaMinhasTarefas() {
         <CartaoNumero rotulo="Hoje" icone={CalendarClock} valor={grupos.hoje.length} tom="atencao" />
         <CartaoNumero rotulo="Próximos 7 dias" icone={CalendarRange} valor={grupos.proximos7.length} />
       </div>
+
+      <AvisoAniversarios usuario={usuario} />
 
       {total === 0 && (
         <EstadoVazio
