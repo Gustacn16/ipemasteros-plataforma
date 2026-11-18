@@ -75,7 +75,7 @@ describe("executarColeta", () => {
     expect(await executarColeta(c.id, mem.repo, deps)).toBe("parcial");
     expect(mem.fotos.map((f) => f.concorrenteId).sort()).toEqual(["c1", "c3"]);
     const { erros } = await mem.repo.obterColeta(c.id);
-    expect(erros).toEqual([{ concorrenteId: "c2", passo: "instagram", tipo: "ErroMeta" }]);
+    expect(erros).toEqual([{ concorrenteId: "c2", passo: "instagram", tipo: "perfil_nao_profissional" }]);
   });
 
   it("primeira coleta é só linha de base: nenhum sinal", async () => {

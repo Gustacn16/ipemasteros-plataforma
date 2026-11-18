@@ -64,6 +64,8 @@ export type ConcorrenteTela = {
   site: string | null;
   observacoes: string | null;
   ativo: boolean;
+  /** Erros deste concorrente na última coleta. */
+  erros?: string[];
   paginas: { id: string; url: string; rotulo: string; ativa: boolean; legivel: boolean; ultimaCapturaEm: string | null }[];
 };
 
@@ -116,6 +118,13 @@ export function CartaoConcorrente({ concorrente }: { concorrente: ConcorrenteTel
         <strong>{concorrente.nome}</strong>
         {!concorrente.ativo && <Badge variant="secondary">pausado</Badge>}
       </div>
+      {concorrente.erros?.length ? (
+        <Alert variant="destructive">
+          <AlertDescription>
+            Na última coleta: {concorrente.erros.join(" ")}
+          </AlertDescription>
+        </Alert>
+      ) : null}
       <FormularioConcorrente concorrente={concorrente} />
       <div className="grid gap-2">
         <p className="font-medium text-sm">Páginas acompanhadas ({concorrente.paginas.length}/10)</p>

@@ -7,6 +7,7 @@ import { ErroPermissao, temPermissao } from "@/lib/permissoes";
 import { prisma } from "@/lib/prisma";
 import type { UsuarioAtual } from "@/lib/sessao";
 import type { DadosConcorrente, DadosPagina } from "../esquemas/configuracao";
+import { errosDoConcorrente } from "../regras/erros";
 import { iniciarColeta } from "./coleta";
 import { gastoEspiaoDoMes } from "./gastos";
 
@@ -123,8 +124,9 @@ export async function situacaoConfiguracao(ator: UsuarioAtual) {
     gastoEspiaoDoMes(),
     prisma.coletaEspiao.findMany({ orderBy: { iniciadaEm: "desc" }, take: 10, select: { id: true, origem: true, status: true, iniciadaEm: true, finalizadaEm: true, erros: true } }),
   ]);
+  const ultimaFinalizada = coletas.find((c) => c.status !== "rodando");
   return {
-    concorrentes,
+    concorrentes: concorrentes.map((c) => ({ ...c, erros: errosDoConcorrente(ultimaFinalizada?.erros, c.id) })),
     chaves: {
       meta: Boolean(process.env.META_ACCESS_TOKEN) && Boolean(contaInstagram),
       contaInstagram: contaInstagram?.usuario ?? null,

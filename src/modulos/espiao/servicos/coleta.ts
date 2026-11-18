@@ -3,6 +3,7 @@ import { descreverErro } from "@/modulos/nexu/servicos/descrever-erro";
 import type { ClienteBusinessDiscovery, MidiaBD, TipoMidiaBD } from "../fontes/instagram";
 import type { ClienteGroq, baixarVideo as BaixarVideo } from "../fontes/groq";
 import type { lerPagina as LerPagina } from "../fontes/pagina";
+import { categorizarErro } from "../regras/erros";
 import { calcularIndicadores } from "../regras/indicadores";
 import { type SinalNovo, type TipoSinal, sinalDeBio, sinalDeRitmo, sinalDeSeguidores, sinaisDeConteudo, sinaisDePagina } from "../regras/sinais";
 import { inicioDaSemanaSaoPaulo } from "../regras/semana";
@@ -162,7 +163,8 @@ export async function executarColeta(coletaId: string, repo: RepositorioEspiao, 
           await fn();
         } catch (erro) {
           if (erro instanceof SemSaldo) throw erro;
-          estado.erros.push({ concorrenteId: c.id, passo: nome, tipo: descreverErro(erro) });
+          estado.erros.push({ concorrenteId: c.id, passo: nome, tipo: categorizarErro(erro) });
+          console.error("[espiao] passo falhou", { coletaId, concorrenteId: c.id, passo: nome, erro: descreverErro(erro) });
         }
         await marcar(c.id, nome);
       };
@@ -190,7 +192,7 @@ export async function executarColeta(coletaId: string, repo: RepositorioEspiao, 
             await capturarPagina(coletaId, c.id, p, repo, deps, exigirSaldo);
           } catch (erro) {
             if (erro instanceof SemSaldo) throw erro;
-            estado.erros.push({ concorrenteId: c.id, passo: "paginas", tipo: descreverErro(erro) });
+            estado.erros.push({ concorrenteId: c.id, passo: "paginas", tipo: categorizarErro(erro) });
           }
         }
       });
@@ -218,7 +220,7 @@ export async function executarColeta(coletaId: string, repo: RepositorioEspiao, 
             await deps.registrarGastoExterno({ servico: "groq", quantidade: Math.ceil(segundos), custoMicroUsd: custoGroqMicroUsd(segundos), coletaId, usuarioId: null });
             await repo.atualizarMidia(m.id, { transcricao: texto, situacaoTranscricao: "feita" });
           } catch (erro) {
-            estado.erros.push({ concorrenteId: c.id, passo: "transcricoes", tipo: descreverErro(erro) });
+            estado.erros.push({ concorrenteId: c.id, passo: "transcricoes", tipo: categorizarErro(erro) });
             await repo.atualizarMidia(m.id, { situacaoTranscricao: "falhou" });
           }
         }

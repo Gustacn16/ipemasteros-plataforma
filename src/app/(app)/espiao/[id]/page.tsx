@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CabecalhoPagina } from "@/componentes/cabecalho-pagina";
+import { Alert, AlertDescription } from "@/componentes/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/componentes/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/componentes/ui/table";
 import { ErroNegocio } from "@/lib/erros";
@@ -32,6 +33,13 @@ export default async function PaginaConcorrente({ params }: { params: Promise<{ 
       <Link href="/espiao" className="text-sm underline">
         ← Voltar ao Espião
       </Link>
+      {c.errosUltimaColeta.length > 0 && (
+        <Alert variant="destructive">
+          <AlertDescription>
+            Na última coleta: {c.errosUltimaColeta.join(" ")}
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Card>
         <CardHeader>

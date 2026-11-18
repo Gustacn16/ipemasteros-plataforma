@@ -4,6 +4,7 @@ import { ErroPermissao, temPermissao } from "@/lib/permissoes";
 import { prisma } from "@/lib/prisma";
 import type { UsuarioAtual } from "@/lib/sessao";
 import { diaEmSaoPaulo } from "@/modulos/tarefas/regras/prazo";
+import { errosDoConcorrente } from "../regras/erros";
 import { calcularIndicadores } from "../regras/indicadores";
 import { inicioDaSemanaSaoPaulo } from "../regras/semana";
 import type { IndicadorConcorrente } from "../regras/tipos";
@@ -100,7 +101,11 @@ export async function visaoConcorrente(ator: UsuarioAtual, id: string) {
     },
   });
   if (!c) throw new ErroNegocio("Concorrente não encontrado.");
-  return { ...c, sinais: (c.sinais as SinalBanco[]).map(paraSinal), paginas: c.paginas.map((p) => ({ ...p, versoes: p.versoes.map((v) => ({ ...v, precos: Array.isArray(v.precos) ? (v.precos as string[]) : [] })) })) };
+  const ultima = await prisma.coletaEspiao.findFirst({ where: { status: { not: "rodando" } }, orderBy: { iniciadaEm: "desc" }, select: { erros: true, iniciadaEm: true } });
+  return {
+    ...c,
+    errosUltimaColeta: errosDoConcorrente(ultima?.erros, c.id), sinais: (c.sinais as SinalBanco[]).map(paraSinal), paginas: c.paginas.map((p) => ({ ...p, versoes: p.versoes.map((v) => ({ ...v, precos: Array.isArray(v.precos) ? (v.precos as string[]) : [] })) })),
+  };
 }
 export type VisaoConcorrente = Awaited<ReturnType<typeof visaoConcorrente>>;
 
