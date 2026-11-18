@@ -14,9 +14,9 @@ export function LimiteIa({ limiteUsd }: { limiteUsd: number }) {
       className="flex flex-wrap items-end gap-2"
       onSubmit={(e) => {
         e.preventDefault();
-        const numero = Number(valor.replace(",", "."));
+        if (!valor.trim()) return;
         executar(async () => {
-          avisar(await salvarLimiteIaWhatsappAcao({ limiteUsd: numero }));
+          avisar(await salvarLimiteIaWhatsappAcao({ limiteUsd: valor }));
         });
       }}
     >
@@ -24,7 +24,7 @@ export function LimiteIa({ limiteUsd }: { limiteUsd: number }) {
         Limite mensal (US$)
         <Input inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} className="w-32" />
       </label>
-      <Button type="submit" size="sm" disabled={pendente}>
+      <Button type="submit" size="sm" disabled={pendente || !valor.trim()}>
         Salvar limite
       </Button>
     </form>
