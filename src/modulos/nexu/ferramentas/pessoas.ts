@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { nomeBusca } from "@/modulos/academico/regras/normalizar";
 import { limitarLista } from "./lista";
 import type { FerramentaNexu } from "./tipos";
 
@@ -13,14 +14,17 @@ export const ferramentaBuscarPessoas: FerramentaNexu<typeof entrada> = {
   rotulo: "Procurando pessoas…",
   tipo: "consulta",
   async executar(_ator, { nome }) {
-    const pessoas = await prisma.usuario.findMany({
-      where: { ativo: true, nome: { contains: nome.trim() } },
+    // Filtra no código, não com LIKE: no MySQL da Hostinger o LIKE com parâmetro dá
+    // "Illegal mix of collations" (1267). A equipe é pequena e assim a busca ignora acentos.
+    const chave = nomeBusca(nome);
+    const ativos = await prisma.usuario.findMany({
+      where: { ativo: true },
       orderBy: { nome: "asc" },
-      take: 10,
       select: { id: true, nome: true, papel: true },
     });
+    const achados = chave ? ativos.filter((p) => nomeBusca(p.nome).includes(chave)) : [];
     return limitarLista(
-      pessoas.map((p) => ({ id: p.id, nome: p.nome, papel: p.papel })),
+      achados.map((p) => ({ id: p.id, nome: p.nome, papel: p.papel })),
       10,
     );
   },

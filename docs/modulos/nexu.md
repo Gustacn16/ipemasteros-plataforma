@@ -106,6 +106,7 @@ O Nexu só **consome** serviços de Tarefas, Agenda, Acadêmico, Conteúdo e Com
 - Proposta presa em `executando` (queda do servidor no meio da confirmação) não tem recuperação automática.
 - No proxy da Hostinger, confirmar depois do deploy que a resposta chega aos poucos (SSE).
 - Conferir o preço de cache do Haiku 5.5 na página oficial da Anthropic.
+- **LIKE no MySQL da Hostinger:** `contains` do Prisma gerou "Illegal mix of collations" (erro 1267) no teste. `buscar_pessoas` e `buscar_aluno` agora filtram o nome no código com `nomeBusca` (ignora acento). Outras buscas com `contains` fora do Nexu (produtos, mídia) podem ter o mesmo erro; a correção de raiz é alinhar a collation da conexão com a das tabelas (`utf8mb4_unicode_ci`).
 
 ## Fora do escopo (N1)
 Espião de concorrentes (N2, próxima spec), ações sem confirmação, editar ou excluir dados pelo Nexu, acesso de professores e alunos, anexos na conversa, voz, consultas ao Core (usuários e auditoria), eventos pessoais e o Nexu no WhatsApp.

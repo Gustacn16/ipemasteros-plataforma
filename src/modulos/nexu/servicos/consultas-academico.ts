@@ -9,8 +9,13 @@ export async function buscarAlunosParaNexu(ator: UsuarioAtual, nome: string) {
   exigirPermissaoAcademico(ator, "academico:ver");
   const chave = nomeBusca(nome);
   if (!chave) return [];
+  // Filtra no código, não com LIKE: no MySQL da Hostinger o LIKE com parâmetro dá
+  // "Illegal mix of collations" (1267). Só id e nomeBusca vêm na 1ª leitura.
+  const chaves = await prisma.aluno.findMany({ select: { id: true, nomeBusca: true } });
+  const ids = chaves.filter((a) => a.nomeBusca.includes(chave)).map((a) => a.id);
+  if (ids.length === 0) return [];
   return prisma.aluno.findMany({
-    where: { nomeBusca: { contains: chave } },
+    where: { id: { in: ids } },
     orderBy: { nome: "asc" },
     take: 20,
     select: {
