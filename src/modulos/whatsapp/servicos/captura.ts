@@ -79,7 +79,7 @@ async function telefonesCadastrados(): Promise<IndiceTelefones> {
 }
 
 /** Aluno e usuário com a mesma chave de telefone. Só liga quando há exatamente um. */
-async function ligacoes(chave: string): Promise<{ alunoId: string | null; usuarioId: string | null }> {
+export async function ligacoesDoTelefone(chave: string): Promise<{ alunoId: string | null; usuarioId: string | null }> {
   const indice = await telefonesCadastrados();
   const alunos = indice.alunos.get(chave) ?? [];
   const usuarios = indice.usuarios.get(chave) ?? [];
@@ -110,7 +110,7 @@ async function resolverContato(
   // Se o lid e o telefone apontam para contatos diferentes, vale o do telefone (é o que liga ao aluno).
   const contato = porTelefone ?? porLid;
   if (!contato) {
-    const ligado = chave ? await ligacoes(chave) : { alunoId: null, usuarioId: null };
+    const ligado = chave ? await ligacoesDoTelefone(chave) : { alunoId: null, usuarioId: null };
     return prisma.contatoWhatsapp.create({
       data: { telefone: chave ? telefone : null, lid, nomeExibido: nome, ...ligado },
       select: CAMPOS_CONTATO,
@@ -122,7 +122,7 @@ async function resolverContato(
   if (chave && !contato.telefone) {
     // Contato que só tinha lid ganha o telefone e, com ele, a ligação com aluno/usuário.
     mudancas.telefone = telefone;
-    if (!contato.alunoId && !contato.usuarioId) Object.assign(mudancas, await ligacoes(chave));
+    if (!contato.alunoId && !contato.usuarioId) Object.assign(mudancas, await ligacoesDoTelefone(chave));
   }
   if (Object.keys(mudancas).length === 0) return contato;
   return prisma.contatoWhatsapp.update({ where: { id: contato.id }, data: mudancas, select: CAMPOS_CONTATO });

@@ -37,7 +37,14 @@ const TAREFAS: Record<string, () => Promise<Record<string, unknown>>> = {
   "limpar-whatsapp": async () => {
     // Só contagens na resposta: nada de mensagem, telefone ou nome.
     const r = await limparWhatsapp();
-    return { ok: true, provisorias: r.provisorias, antigas: r.antigas };
+    return {
+      ok: true,
+      provisorias: r.provisorias,
+      antigas: r.antigas,
+      religados: r.religados,
+      conversasVazias: r.conversasVazias,
+      contatosVazios: r.contatosVazios,
+    };
   },
   "importar-stories-instagram": async () => {
     const r = await atualizarInstagram({ tipo: "stories", origem: "agendada" });

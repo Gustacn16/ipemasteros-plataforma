@@ -1,9 +1,11 @@
 import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
-import { DIAS_RETENCAO } from "../regras/captura";
+import { DIAS_RETENCAO, categoriaInicial, chaveTelefone } from "../regras/captura";
+import { esquecerTelefonesCadastrados, ligacoesDoTelefone } from "./captura";
 
 const LOTE = 5000;
+const LOTE_CONTATOS = 500;
 
 /**
  * Apaga em lotes (o deleteMany do Prisma não tem `take`): escolhe os ids e apaga até vir menos que um lote.
@@ -22,10 +24,48 @@ async function apagarEmLotes(where: Prisma.MensagemWhatsappWhereInput): Promise<
 }
 
 /**
- * Limpeza diária: apaga as mensagens provisórias vencidas de grupos que continuam não monitorados
- * (e zera `provisoriaAte`) e as mensagens com mais de 90 dias. Devolve só contagens.
+ * Liga aos cadastros feitos depois os contatos que ainda não têm aluno nem usuário.
+ * Só a conversa ainda em "lead" muda de categoria: o que a gestão escolheu à mão fica.
  */
-export async function limparWhatsapp(agora: Date = new Date()): Promise<{ provisorias: number; antigas: number }> {
+async function religarContatos(): Promise<number> {
+  esquecerTelefonesCadastrados(); // o job vê os cadastros de agora, não os de até 60 s atrás
+  let religados = 0;
+  let ultimo: string | undefined;
+  for (;;) {
+    const lote = await prisma.contatoWhatsapp.findMany({
+      where: { telefone: { not: null }, alunoId: null, usuarioId: null, ...(ultimo ? { id: { gt: ultimo } } : {}) },
+      select: { id: true, telefone: true },
+      orderBy: { id: "asc" },
+      take: LOTE_CONTATOS,
+    });
+    if (lote.length === 0) break;
+    ultimo = lote[lote.length - 1]!.id;
+    for (const c of lote) {
+      const chave = chaveTelefone(c.telefone);
+      if (!chave) continue;
+      const ligado = await ligacoesDoTelefone(chave);
+      if (!ligado.alunoId && !ligado.usuarioId) continue;
+      await prisma.contatoWhatsapp.update({ where: { id: c.id }, data: ligado });
+      await prisma.conversaWhatsapp.updateMany({
+        where: { contatoId: c.id, tipo: "individual", categoria: "lead" },
+        data: { categoria: categoriaInicial(ligado) },
+      });
+      religados++;
+    }
+    if (lote.length < LOTE_CONTATOS) break;
+  }
+  return religados;
+}
+
+/**
+ * Limpeza diária: apaga as mensagens provisórias vencidas de grupos que continuam não monitorados
+ * (e zera `provisoriaAte`) e as mensagens com mais de 90 dias; religa contatos a alunos e usuários
+ * cadastrados depois; apaga conversas individuais vazias (menos "pessoal") e contatos sem nada.
+ * Devolve só contagens.
+ */
+export async function limparWhatsapp(
+  agora: Date = new Date(),
+): Promise<{ provisorias: number; antigas: number; religados: number; conversasVazias: number; contatosVazios: number }> {
   const vencidas = await prisma.conversaWhatsapp.findMany({
     where: { tipo: "grupo", monitorada: false, provisoriaAte: { lt: agora } },
     select: { id: true },
@@ -39,5 +79,19 @@ export async function limparWhatsapp(agora: Date = new Date()): Promise<{ provis
   }
   const limite = new Date(agora.getTime() - DIAS_RETENCAO * 24 * 60 * 60 * 1000);
   const antigas = await apagarEmLotes({ enviadaEm: { lt: limite } });
-  return { provisorias, antigas };
+
+  const religados = await religarContatos();
+  // As conversas saem antes dos contatos: o contato só some quando não tem mais conversa.
+  const { count: conversasVazias } = await prisma.conversaWhatsapp.deleteMany({
+    where: {
+      tipo: "individual",
+      categoria: { not: "pessoal" },
+      mensagens: { none: {} },
+      OR: [{ ultimaMensagemEm: { lt: limite } }, { ultimaMensagemEm: null, criadoEm: { lt: limite } }],
+    },
+  });
+  const { count: contatosVazios } = await prisma.contatoWhatsapp.deleteMany({
+    where: { mensagens: { none: {} }, conversas: { none: {} }, alunoId: null, usuarioId: null },
+  });
+  return { provisorias, antigas, religados, conversasVazias, contatosVazios };
 }
