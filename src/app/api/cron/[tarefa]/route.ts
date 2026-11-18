@@ -4,6 +4,7 @@ import { importarMetaAds } from "@/modulos/comercial/servicos/importacao-meta";
 import { atualizarInstagram } from "@/modulos/conteudo/servicos/atualizacao-instagram";
 import { limparWhatsapp } from "@/modulos/whatsapp/servicos/limpeza";
 import { limparConversasAntigas } from "@/modulos/nexu/servicos/limpeza";
+import { iniciarColeta } from "@/modulos/espiao/servicos/coleta";
 
 // Jobs agendados (docs/02-arquitetura.md): o cron da Hostinger chama
 // GET /api/cron/<tarefa> com "Authorization: Bearer $CRON_SECRET".
@@ -45,6 +46,11 @@ const TAREFAS: Record<string, () => Promise<Record<string, unknown>>> = {
       conversasVazias: r.conversasVazias,
       contatosVazios: r.contatosVazios,
     };
+  },
+  espiao: async () => {
+    // Só inicia: a coleta roda em segundo plano no processo Node (ADR/spec do espião, D10).
+    const r = await iniciarColeta({ origem: "agendada", usuarioId: null });
+    return { ok: true, iniciou: r.iniciou, motivo: r.motivo ?? null };
   },
   "importar-stories-instagram": async () => {
     const r = await atualizarInstagram({ tipo: "stories", origem: "agendada" });
