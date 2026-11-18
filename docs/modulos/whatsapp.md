@@ -12,6 +12,9 @@ Conectar os números de WhatsApp da escola e dos vendedores ao IPEMaster OS e gu
 | `ConversaWhatsapp` | id, jid, tipo (`grupo`/`individual`), chaveGrupo? (= jid nos grupos, único), numeroId? (só individuais), nome?, contatoId?, turmaId?, numeroEnvioId? (sem uso ainda), categoria (padrão `outro`; `pessoal` descarta), monitorada, provisoriaAte?, ultimaMensagemEm? |
 | `NumeroNoGrupo` | numeroId + conversaId: quais números da empresa estão em cada grupo |
 | `MensagemWhatsapp` | id, conversaId, idExterno (único por conversa), numeroId (quem capturou primeiro), contatoId? (autor), deMim, tipo, texto?, respondeAIdExterno?, enviadaEm |
+| `ConfiguracaoWhatsapp` | id (`unica`), modelo (padrão `claude-opus-5-5`), limiteMensalMicroUsd (padrão US$ 80), atualizadoPorId? |
+| `LoteIa` | id, idExterno (único), tipo (`resumo_grupo`/`avaliacao`), dia, situacao (`aberto`/`concluido`/`falhou`), erro?, concluidoEm? |
+| `ResumoGrupo` | id, conversaId, dia (data de São Paulo), loteId?, resumo?, temas?, pendencias?, destaques?, participacao, totalMensagens, modelo, situacao (`pendente`/`pronto`/`falhou`), erro?; único por conversa + dia |
 
 Grupo é único pelo jid, mesmo que vários números da empresa estejam nele. Conversa individual é única por número + jid. A mesma mensagem capturada por dois números não duplica (`conversaId` + `idExterno`).
 

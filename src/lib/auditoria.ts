@@ -44,6 +44,7 @@ export type AcaoAuditoria =
   | "whatsapp.categoria_alterada"
   | "whatsapp.conversa_aberta"
   | "whatsapp.dados_telefone_apagados"
+  | "whatsapp.configuracao_alterada"
   | "nexu.configuracao_alterada"
   | "nexu.proposta_confirmada";
 
