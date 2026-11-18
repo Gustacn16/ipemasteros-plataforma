@@ -73,7 +73,7 @@ Regras: venda já importada (mesmo id, inclusive excluída depois) é pulada; ve
 
 **Não importado** (sem lugar no Comercial hoje): `sales_installments` (805 parcelas, todas pendentes: ficam para a entrega de parcelas e MRR), `product_monthly_targets` e `sales_team_targets` (metas sem vendedor ou só em R$; a meta do produto é a soma das metas por vendedor), `media_metrics` e `funnel_metrics` (lançamentos manuais; a mídia vem da Meta), remuneração (`compensation_*`), `students` (Acadêmico), indicadores (`indicator_*`, `kpi_*`) e diagramas de funil.
 
-Os filtros de vendedor do dashboard e da lista de vendas mostram também quem já vendeu e está inativo (`listarVendedoresDoFiltro`).
+Os filtros de vendedor e de produto do dashboard e da lista de vendas mostram também quem já vendeu e está inativo e os produtos inativos com venda ou meta (`listarVendedoresDoFiltro`, `listarProdutosDoFiltro`).
 
 ## Situação da implementação
 **Entrega 1 (feito):** papel `comercial`, catálogo de produtos com ofertas e links (estante de cartões), canais de venda e importação dos 12 produtos.

@@ -92,6 +92,18 @@ export async function listarProdutosAtivos() {
   });
 }
 
+/** Produtos para os filtros: os ativos e os inativos que já têm venda ou meta (como os do histórico importado). */
+export async function listarProdutosDoFiltro() {
+  return prisma.produto.findMany({
+    where: {
+      excluidoEm: null,
+      OR: [{ ativo: true }, { vendas: { some: { excluidoEm: null } } }, { metas: { some: {} } }],
+    },
+    orderBy: [{ tipo: "asc" }, { nome: "asc" }],
+    select: { id: true, nome: true },
+  });
+}
+
 export async function obterProduto(ator: UsuarioAtual, id: string) {
   exigirPermissaoComercial(ator, "comercial:ver");
   const produto = await prisma.produto.findFirst({

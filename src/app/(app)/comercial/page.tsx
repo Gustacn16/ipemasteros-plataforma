@@ -5,7 +5,7 @@ import { PainelDashboard } from "@/modulos/comercial/componentes/dashboard/paine
 import { esquemaFiltrosDashboard } from "@/modulos/comercial/esquemas/dashboard";
 import { obterDashboard } from "@/modulos/comercial/servicos/dashboard";
 import { obterMidia } from "@/modulos/comercial/servicos/dashboard-midia";
-import { listarProdutosParaVenda } from "@/modulos/comercial/servicos/produtos";
+import { listarProdutosDoFiltro } from "@/modulos/comercial/servicos/produtos";
 import { listarVendedoresDoFiltro } from "@/modulos/comercial/servicos/vendas";
 
 export const metadata: Metadata = { title: "Dashboard comercial — IPEMaster OS" };
@@ -30,7 +30,7 @@ export default async function PaginaDashboard({ searchParams }: PageProps<"/come
   const naMidia = veMidia && filtros.visao === "midia";
   const [dados, produtos, vendedores, midia] = await Promise.all([
     obterDashboard(usuario, filtros),
-    listarProdutosParaVenda(),
+    listarProdutosDoFiltro(),
     listarVendedoresDoFiltro(),
     naMidia ? obterMidia(usuario, filtros) : Promise.resolve(null),
   ]);

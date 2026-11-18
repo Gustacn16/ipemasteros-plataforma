@@ -6,7 +6,7 @@ import { FiltrosVendas } from "@/modulos/comercial/componentes/filtros-vendas";
 import { TabelaVendas } from "@/modulos/comercial/componentes/tabela-vendas";
 import { esquemaFiltrosVendas } from "@/modulos/comercial/esquemas/venda";
 import { listarCanais } from "@/modulos/comercial/servicos/canais";
-import { listarProdutosParaVenda } from "@/modulos/comercial/servicos/produtos";
+import { listarProdutosDoFiltro, listarProdutosParaVenda } from "@/modulos/comercial/servicos/produtos";
 import { listarVendas, listarVendedores, listarVendedoresDoFiltro } from "@/modulos/comercial/servicos/vendas";
 import { diaEmSaoPaulo } from "@/modulos/tarefas/regras/prazo";
 
@@ -28,9 +28,10 @@ export default async function PaginaVendas({ searchParams }: PageProps<"/comerci
     canal: texto(busca.canal),
   });
 
-  const [{ vendas, total, intervalo, equipe }, produtos, vendedores, vendedoresDoFiltro, canais] = await Promise.all([
+  const [{ vendas, total, intervalo, equipe }, produtos, produtosDoFiltro, vendedores, vendedoresDoFiltro, canais] = await Promise.all([
     listarVendas(usuario, filtros),
     listarProdutosParaVenda(),
+    listarProdutosDoFiltro(),
     listarVendedores(),
     listarVendedoresDoFiltro(),
     listarCanais(),
@@ -56,7 +57,7 @@ export default async function PaginaVendas({ searchParams }: PageProps<"/comerci
           periodo={intervalo.periodo}
           primeiroDia={intervalo.primeiroDia}
           ultimoDia={intervalo.ultimoDia}
-          produtos={produtos}
+          produtos={produtosDoFiltro}
           canais={canais}
           vendedores={equipe ? vendedoresDoFiltro : null}
         />
