@@ -30,9 +30,10 @@ describe("gastos do espião", () => {
     expect(await podeGastar(AGORA)).toEqual({ ok: false, motivo: "teto_espiao" });
   });
 
-  it("limite geral da IA atingido bloqueia", async () => {
+  it("limite geral da IA atingido bloqueia o Claude, mas não serviço externo (D6)", async () => {
     gastos(0, 100, 20_000_000);
-    expect(await podeGastar(AGORA)).toEqual({ ok: false, motivo: "limite_geral" });
+    expect(await podeGastar(AGORA, "ia")).toEqual({ ok: false, motivo: "limite_geral" });
+    expect(await podeGastar(AGORA, "externo")).toEqual({ ok: true });
   });
 
   it("abaixo dos dois limites, pode gastar", async () => {

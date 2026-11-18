@@ -19,7 +19,7 @@ export function depsPadrao(): DepsColeta {
     lerPagina: (url) => lerPagina(url),
     groq: () => (process.env.GROQ_API_KEY ? criarClienteGroq(process.env.GROQ_API_KEY) : null),
     baixarVideo: (url) => baixarVideo(url),
-    podeGastar: () => podeGastar(),
+    podeGastar: (tipo) => podeGastar(new Date(), tipo),
     resumirReels,
     tituloDaMudanca,
     escreverAnalise,

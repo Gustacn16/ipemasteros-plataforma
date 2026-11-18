@@ -72,7 +72,7 @@ export type DepsColeta = {
   lerPagina: typeof LerPagina;
   groq: () => Pick<ClienteGroq, "transcrever"> | null;
   baixarVideo: typeof BaixarVideo;
-  podeGastar: () => Promise<{ ok: boolean }>;
+  podeGastar: (tipo: "ia" | "externo") => Promise<{ ok: boolean }>;
   resumirReels: typeof ResumirReels;
   tituloDaMudanca: typeof TituloDaMudanca;
   escreverAnalise: typeof EscreverAnalise;
@@ -144,8 +144,8 @@ export async function executarColeta(coletaId: string, repo: RepositorioEspiao, 
     estado.passos.concorrentes[concorrenteId] = { ...estado.passos.concorrentes[concorrenteId], [passo]: true };
     await repo.salvarProgresso(coletaId, estado, deps.agora());
   };
-  const exigirSaldo = async () => {
-    if (!(await deps.podeGastar()).ok) throw new SemSaldo();
+  const exigirSaldo = async (tipo: "ia" | "externo" = "ia") => {
+    if (!(await deps.podeGastar(tipo)).ok) throw new SemSaldo();
   };
 
   let igUserId: string | null = null;
@@ -209,7 +209,7 @@ export async function executarColeta(coletaId: string, repo: RepositorioEspiao, 
             await repo.atualizarMidia(m.id, { situacaoTranscricao: "sem_video" });
             continue;
           }
-          await exigirSaldo();
+          await exigirSaldo("externo");
           try {
             const video = await deps.baixarVideo(url);
             if (video === "grande_demais") {
