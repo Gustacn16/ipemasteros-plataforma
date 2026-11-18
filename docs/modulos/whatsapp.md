@@ -49,3 +49,5 @@ A tela nunca fala com o motor: grava comandos no banco e o motor os busca. O mot
 **Entrega 1:** motor, comandos, tela de números e conexão por QR. Verificação na tela com o motor ligado é feita no site `teste`.
 
 **Entrega 2a:** captura (histórico recente do pareamento e mensagens ao vivo), abas, grupos e conversas com as mensagens capturadas, limpeza diária. O histórico só chega na hora do pareamento: para recebê-lo, desconecte e leia o QR de novo. Responder mensagens fica para depois.
+
+**Entrega 2b (servidor):** arquivos de implantação do motor na VPS Hostinger (`motor-whatsapp/deploy/`: unidade systemd e cópia diária das sessões) e runbook `docs/runbooks/whatsapp-motor-vps.md`. A implantação em si depende do Gustavo contratar a VPS.

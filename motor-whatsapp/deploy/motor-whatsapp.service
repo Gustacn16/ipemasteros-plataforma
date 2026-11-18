@@ -1,0 +1,21 @@
+[Unit]
+Description=Motor do WhatsApp do IPEMaster OS
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=motor
+Group=motor
+WorkingDirectory=/opt/ipemaster-os/motor-whatsapp
+EnvironmentFile=/opt/ipemaster-os/motor-whatsapp/.env
+Environment=HOME=/var/lib/motor
+ExecStart=/usr/bin/npm start
+Restart=always
+RestartSec=10
+# SIGINT: o motor esvazia a fila de eventos antes de sair.
+KillSignal=SIGINT
+TimeoutStopSec=90
+
+[Install]
+WantedBy=multi-user.target

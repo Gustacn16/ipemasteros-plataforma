@@ -37,6 +37,9 @@ Para desligar, aperte `Ctrl + C`. Ele envia o que estiver pendente e sai.
 
 Se faltar `SISTEMA_URL` ou o segredo, o motor para na hora e diz o que falta.
 
+## Rodar 24 horas numa VPS
+O passo a passo (serviço systemd, cópia diária das sessões, firewall) está em `docs/runbooks/whatsapp-motor-vps.md`; os arquivos ficam em `deploy/`.
+
 ## Cuidados
 - O `.env` e a pasta `sessoes/` nunca vão para o Git (já estão no `.gitignore`). Quem tem a pasta `sessoes/` tem acesso ao WhatsApp conectado.
 - Só um motor pode usar a pasta de sessões: ao ligar, ele cria o arquivo `.motor.pid` nela; se outro motor estiver rodando, o novo para na hora avisando o pid.
