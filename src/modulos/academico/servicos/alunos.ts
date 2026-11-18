@@ -54,6 +54,7 @@ export async function obterAluno(ator: UsuarioAtual, id: string) {
   if (!aluno) throw new ErroNegocio(MENSAGEM_NAO_ENCONTRADO);
   return {
     ...aluno,
+    dataNascimento: deDia(aluno.dataNascimento),
     matriculas: aluno.matriculas.map((m) => ({
       ...m,
       dataInicio: deDia(m.dataInicio),
@@ -63,10 +64,12 @@ export async function obterAluno(ator: UsuarioAtual, id: string) {
 }
 export type AlunoDetalhe = Awaited<ReturnType<typeof obterAluno>>;
 
+const alunoParaBanco = (d: DadosAluno) => ({ ...d, nomeBusca: nomeBusca(d.nome), dataNascimento: paraDia(d.dataNascimento) });
+
 export async function criarAluno(ator: UsuarioAtual, dados: DadosAluno) {
   exigirPermissaoAcademico(ator, "academico:gerenciar");
   return prisma.$transaction(async (tx) => {
-    const aluno = await tx.aluno.create({ data: { ...dados, nomeBusca: nomeBusca(dados.nome) }, select: { id: true } });
+    const aluno = await tx.aluno.create({ data: alunoParaBanco(dados), select: { id: true } });
     await registrarAuditoria({ usuarioId: ator.id, acao: "aluno.criado", entidade: "Aluno", entidadeId: aluno.id }, tx);
     return aluno;
   });
@@ -77,7 +80,7 @@ export async function editarAluno(ator: UsuarioAtual, id: string, dados: DadosAl
   await prisma.$transaction(async (tx) => {
     const antes = await tx.aluno.findUnique({ where: { id } });
     if (!antes) throw new ErroNegocio(MENSAGEM_NAO_ENCONTRADO);
-    await tx.aluno.update({ where: { id }, data: { ...dados, nomeBusca: nomeBusca(dados.nome) } });
+    await tx.aluno.update({ where: { id }, data: alunoParaBanco(dados) });
     await registrarAuditoria(
       { usuarioId: ator.id, acao: "aluno.editado", entidade: "Aluno", entidadeId: id, diff: { campos: camposAlterados(antes, dados) } },
       tx,

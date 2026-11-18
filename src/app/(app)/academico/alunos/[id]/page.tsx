@@ -7,7 +7,7 @@ import { exigirPermissaoPagina } from "@/lib/sessao";
 import { editarAlunoAcao, matricularAlunoAcao } from "@/modulos/academico/acoes/academico";
 import { CampoSelecao, FormularioAcao, Oculto } from "@/modulos/academico/componentes/campos";
 import { Dialogo } from "@/modulos/academico/componentes/dialogo";
-import { ou404 } from "@/modulos/academico/componentes/exibicao";
+import { dataCurta, ou404 } from "@/modulos/academico/componentes/exibicao";
 import { CamposAluno, CamposMatricula } from "@/modulos/academico/componentes/formularios";
 import { TabelaMatriculas } from "@/modulos/academico/componentes/matriculas";
 import { obterAluno } from "@/modulos/academico/servicos/alunos";
@@ -86,6 +86,7 @@ export default async function PaginaAluno({ params }: PageProps<"/academico/alun
             <dl className="grid gap-3 sm:grid-cols-2">
               <Item rotulo="E-mail" valor={aluno.email} />
               <Item rotulo="Telefone" valor={aluno.telefone} />
+              <Item rotulo="Data de nascimento" valor={aluno.dataNascimento && dataCurta(aluno.dataNascimento)} />
               <Item rotulo="CRM" valor={[aluno.crm, aluno.crmUf].filter(Boolean).join(" / ")} />
               <Item rotulo="Observações" valor={aluno.observacoes} />
             </dl>

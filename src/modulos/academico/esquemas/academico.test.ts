@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { esquemaAluno, esquemaMatricula, esquemaTurma } from "./academico";
+import { esquemaAluno, esquemaMatricula, esquemaProfessor, esquemaTurma } from "./academico";
 
 describe("esquemaAluno", () => {
   it("aceita CRM sem UF e normaliza telefone", () => {
@@ -34,5 +34,15 @@ describe("esquemaTurma", () => {
 describe("esquemaMatricula", () => {
   it("recusa data impossível", () => {
     expect(esquemaMatricula.safeParse({ turmaId: "t", dataInicio: "2026-02-30" }).success).toBe(false);
+  });
+});
+
+describe("data de nascimento", () => {
+  it("aceita 29/02 em ano bissexto, recusa em ano comum, vazio vira null", () => {
+    for (const esquema of [esquemaAluno, esquemaProfessor]) {
+      expect(esquema.safeParse({ nome: "Ana", dataNascimento: "1990-02-29" }).success).toBe(false);
+      expect(esquema.parse({ nome: "Ana", dataNascimento: "1992-02-29" }).dataNascimento).toBe("1992-02-29");
+      expect(esquema.parse({ nome: "Ana", dataNascimento: "" }).dataNascimento).toBeNull();
+    }
   });
 });

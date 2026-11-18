@@ -4,7 +4,7 @@ import { ErroNegocio } from "@/lib/erros";
 import { prisma } from "@/lib/prisma";
 import type { UsuarioAtual } from "@/lib/sessao";
 import type { DadosProfessor } from "../esquemas/academico";
-import { MENSAGEM_NAO_ENCONTRADO, camposAlterados, exigirPermissaoAcademico } from "./acesso";
+import { MENSAGEM_NAO_ENCONTRADO, camposAlterados, deDia, exigirPermissaoAcademico, paraDia } from "./acesso";
 
 export async function listarProfessores(ator: UsuarioAtual) {
   exigirPermissaoAcademico(ator, "academico:ver");
@@ -18,14 +18,16 @@ export async function obterProfessor(ator: UsuarioAtual, id: string) {
   exigirPermissaoAcademico(ator, "academico:ver");
   const professor = await prisma.professor.findUnique({ where: { id } });
   if (!professor) throw new ErroNegocio(MENSAGEM_NAO_ENCONTRADO);
-  return professor;
+  return { ...professor, dataNascimento: deDia(professor.dataNascimento) };
 }
 export type ProfessorDetalhe = Awaited<ReturnType<typeof obterProfessor>>;
+
+const professorParaBanco = (d: DadosProfessor) => ({ ...d, dataNascimento: paraDia(d.dataNascimento) });
 
 export async function criarProfessor(ator: UsuarioAtual, dados: DadosProfessor) {
   exigirPermissaoAcademico(ator, "academico:gerenciar");
   return prisma.$transaction(async (tx) => {
-    const professor = await tx.professor.create({ data: dados, select: { id: true } });
+    const professor = await tx.professor.create({ data: professorParaBanco(dados), select: { id: true } });
     await registrarAuditoria({ usuarioId: ator.id, acao: "professor.criado", entidade: "Professor", entidadeId: professor.id }, tx);
     return professor;
   });
@@ -36,7 +38,7 @@ export async function editarProfessor(ator: UsuarioAtual, id: string, dados: Dad
   await prisma.$transaction(async (tx) => {
     const antes = await tx.professor.findUnique({ where: { id } });
     if (!antes) throw new ErroNegocio(MENSAGEM_NAO_ENCONTRADO);
-    await tx.professor.update({ where: { id }, data: dados });
+    await tx.professor.update({ where: { id }, data: professorParaBanco(dados) });
     await registrarAuditoria(
       { usuarioId: ator.id, acao: "professor.editado", entidade: "Professor", entidadeId: id, diff: { campos: camposAlterados(antes, dados) } },
       tx,

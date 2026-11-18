@@ -877,18 +877,19 @@ model Turma {
 }
 
 model Aluno {
-  id           String   @id @default(cuid())
-  nome         String   @db.VarChar(150)
+  id             String    @id @default(cuid())
+  nome           String    @db.VarChar(150)
   /// Nome sem acento e em minúsculas, para achar o aluno na importação.
-  nomeBusca    String   @map("nome_busca") @db.VarChar(150)
-  email        String?  @db.VarChar(150)
+  nomeBusca      String    @map("nome_busca") @db.VarChar(150)
+  email          String?   @db.VarChar(150)
   /// Só dígitos.
-  telefone     String?  @db.VarChar(20)
-  crm          String?  @db.VarChar(20)
-  crmUf        String?  @map("crm_uf") @db.Char(2)
-  observacoes  String?  @db.Text
-  criadoEm     DateTime @default(now()) @map("criado_em")
-  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+  telefone       String?   @db.VarChar(20)
+  crm            String?   @db.VarChar(20)
+  crmUf          String?   @map("crm_uf") @db.Char(2)
+  dataNascimento DateTime? @map("data_nascimento") @db.Date
+  observacoes    String?   @db.Text
+  criadoEm       DateTime  @default(now()) @map("criado_em")
+  atualizadoEm   DateTime  @updatedAt @map("atualizado_em")
 
   matriculas       Matricula[]
   contatosWhatsapp ContatoWhatsapp[]
@@ -919,17 +920,18 @@ model Matricula {
 }
 
 model Professor {
-  id            String   @id @default(cuid())
-  nome          String   @db.VarChar(150)
-  email         String?  @db.VarChar(150)
-  telefone      String?  @db.VarChar(20)
-  crm           String?  @db.VarChar(20)
-  crmUf         String?  @map("crm_uf") @db.Char(2)
-  especialidade String?  @db.VarChar(120)
-  miniCurriculo String?  @map("mini_curriculo") @db.Text
-  ativo         Boolean  @default(true)
-  criadoEm      DateTime @default(now()) @map("criado_em")
-  atualizadoEm  DateTime @updatedAt @map("atualizado_em")
+  id             String    @id @default(cuid())
+  nome           String    @db.VarChar(150)
+  email          String?   @db.VarChar(150)
+  telefone       String?   @db.VarChar(20)
+  crm            String?   @db.VarChar(20)
+  crmUf          String?   @map("crm_uf") @db.Char(2)
+  especialidade  String?   @db.VarChar(120)
+  dataNascimento DateTime? @map("data_nascimento") @db.Date
+  miniCurriculo  String?   @map("mini_curriculo") @db.Text
+  ativo          Boolean   @default(true)
+  criadoEm       DateTime  @default(now()) @map("criado_em")
+  atualizadoEm   DateTime  @updatedAt @map("atualizado_em")
 
   @@map("professores")
 }

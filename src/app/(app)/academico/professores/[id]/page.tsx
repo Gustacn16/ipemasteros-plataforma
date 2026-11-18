@@ -6,7 +6,7 @@ import { temPermissao } from "@/lib/permissoes";
 import { exigirPermissaoPagina } from "@/lib/sessao";
 import { definirAtivoProfessorAcao, editarProfessorAcao } from "@/modulos/academico/acoes/academico";
 import { BotaoAcao, FormularioAcao, Oculto } from "@/modulos/academico/componentes/campos";
-import { ou404 } from "@/modulos/academico/componentes/exibicao";
+import { dataCurta, ou404 } from "@/modulos/academico/componentes/exibicao";
 import { CamposProfessor } from "@/modulos/academico/componentes/formularios";
 import { obterProfessor } from "@/modulos/academico/servicos/professores";
 
@@ -57,6 +57,7 @@ export default async function PaginaProfessor({ params }: PageProps<"/academico/
             <dl className="grid gap-3 sm:grid-cols-2">
               <Item rotulo="E-mail" valor={professor.email} />
               <Item rotulo="Telefone" valor={professor.telefone} />
+              <Item rotulo="Data de nascimento" valor={professor.dataNascimento && dataCurta(professor.dataNascimento)} />
               <Item rotulo="CRM" valor={[professor.crm, professor.crmUf].filter(Boolean).join(" / ")} />
               <Item rotulo="Especialidade" valor={professor.especialidade} />
               <Item rotulo="Minicurrículo" valor={professor.miniCurriculo} />

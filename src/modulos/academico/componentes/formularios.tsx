@@ -35,6 +35,7 @@ export function CamposAluno({ aluno }: { aluno?: AlunoDetalhe }) {
       <CampoTexto rotulo="Telefone" name="telefone" defaultValue={aluno?.telefone} placeholder="(62) 99999-0000" />
       <CampoTexto rotulo="CRM" name="crm" defaultValue={aluno?.crm} />
       <CampoSelecao rotulo="UF do CRM" name="crmUf" opcoes={OPCOES_UF} defaultValue={aluno?.crmUf} vazio="—" />
+      <CampoTexto rotulo="Data de nascimento" name="dataNascimento" type="date" defaultValue={aluno?.dataNascimento} />
       <CampoAreaTexto rotulo="Observações" name="observacoes" defaultValue={aluno?.observacoes} />
     </>
   );
@@ -48,6 +49,7 @@ export function CamposProfessor({ professor }: { professor?: ProfessorDetalhe })
       <CampoTexto rotulo="Telefone" name="telefone" defaultValue={professor?.telefone} />
       <CampoTexto rotulo="CRM" name="crm" defaultValue={professor?.crm} />
       <CampoSelecao rotulo="UF do CRM" name="crmUf" opcoes={OPCOES_UF} defaultValue={professor?.crmUf} vazio="—" />
+      <CampoTexto rotulo="Data de nascimento" name="dataNascimento" type="date" defaultValue={professor?.dataNascimento} />
       <CampoTexto rotulo="Especialidade" name="especialidade" defaultValue={professor?.especialidade} largo />
       <CampoAreaTexto rotulo="Minicurrículo" name="miniCurriculo" defaultValue={professor?.miniCurriculo} />
     </>

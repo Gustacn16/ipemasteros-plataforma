@@ -95,6 +95,7 @@ export const esquemaAluno = z.object({
   telefone,
   crm: textoOpcional(20),
   crmUf,
+  dataNascimento: diaOpcional,
   observacoes: textoOpcional(5000),
 });
 export type DadosAluno = z.infer<typeof esquemaAluno>;
@@ -121,6 +122,7 @@ export const esquemaProfessor = z.object({
   telefone,
   crm: textoOpcional(20),
   crmUf,
+  dataNascimento: diaOpcional,
   especialidade: textoOpcional(120),
   miniCurriculo: textoOpcional(10000),
 });
