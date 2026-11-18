@@ -1,0 +1,20 @@
+{
+  "business_discovery": {
+    "username": "concorrente.x",
+    "name": "Concorrente X Pós",
+    "biography": "Pós-graduação médica. Matrículas abertas.",
+    "website": "https://concorrentex.com.br/pos",
+    "followers_count": 15230,
+    "media_count": 812,
+    "media": {
+      "data": [
+        { "id": "m1", "caption": "Reels sobre residência", "media_type": "VIDEO", "media_product_type": "REELS", "permalink": "https://www.instagram.com/reel/AAA/", "timestamp": "2026-11-16T15:00:00+0000", "like_count": 900, "comments_count": 40, "view_count": 52000, "media_url": "https://scontent.cdninstagram.com/v/m1.mp4" },
+        { "id": "m2", "caption": "Carrossel", "media_type": "CAROUSEL_ALBUM", "media_product_type": "FEED", "permalink": "https://www.instagram.com/p/BBB/", "timestamp": "2026-11-15T12:00:00+0000", "like_count": 300, "comments_count": 12 },
+        { "id": "m3", "media_type": "VIDEO", "media_product_type": "REELS", "permalink": "https://www.instagram.com/reel/CCC/", "timestamp": "2026-11-14T12:00:00+0000", "like_count": 120, "comments_count": 3, "view_count": 8000 },
+        { "id": "m4", "caption": "Foto", "media_type": "IMAGE", "media_product_type": "FEED", "permalink": "https://www.instagram.com/p/DDD/", "timestamp": "2026-11-13T12:00:00+0000", "comments_count": 5 }
+      ]
+    },
+    "id": "17841400000000001"
+  },
+  "id": "17841499999999999"
+}

@@ -54,7 +54,9 @@ export type Permissao =
   | "whatsapp:ver_equipe"
   | "whatsapp:ver_proprio"
   | "nexu:usar"
-  | "nexu:configurar";
+  | "nexu:configurar"
+  | "espiao:ver"
+  | "espiao:configurar";
 
 // Colaborador e professor têm regras por registro (membro do espaço, tarefas
 // atribuídas) em src/modulos/tarefas/servicos/acesso.ts.
@@ -124,6 +126,9 @@ const PERMISSOES_POR_PAPEL: Record<Papel, readonly Permissao[]> = {
     "nexu:usar",
     // Só o admin escolhe o modelo e os limites do Nexu.
     "nexu:configurar",
+    // Espião de concorrentes: ver vale para gestão e comercial; lista, teto e coleta manual só o admin.
+    "espiao:ver",
+    "espiao:configurar",
     // Só o admin apaga produtos do catálogo.
     "comercial:excluir_produtos",
     // Só o admin mexe na integração com a Meta (chave e importação).
@@ -144,6 +149,7 @@ const PERMISSOES_POR_PAPEL: Record<Papel, readonly Permissao[]> = {
     ...ACADEMICO_GESTAO,
     ...WHATSAPP_GESTAO,
     "nexu:usar",
+    "espiao:ver",
   ],
   colaborador: PERMISSOES_COLABORADOR,
   comercial: [
@@ -154,6 +160,8 @@ const PERMISSOES_POR_PAPEL: Record<Papel, readonly Permissao[]> = {
     "whatsapp:conectar_proprio",
     // ...e só as conversas individuais dos próprios números.
     "whatsapp:ver_proprio",
+    // O comercial usa o espião para argumentar com o lead.
+    "espiao:ver",
   ],
   professor: ["tarefas:usar", "agenda:usar", "agenda:ver_institucional_professor"],
   aluno: [],

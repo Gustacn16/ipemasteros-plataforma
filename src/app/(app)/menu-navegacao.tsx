@@ -5,6 +5,7 @@ import {
   BriefcaseBusinessIcon,
   CalendarIcon,
   ClapperboardIcon,
+  CrosshairIcon,
   GraduationCapIcon,
   HeartPulseIcon,
   HouseIcon,
@@ -36,6 +37,7 @@ const ICONES = {
   usuarios: <UsersIcon />,
   auditoria: <ShieldCheckIcon />,
   nexu: <SparklesIcon />,
+  espiao: <CrosshairIcon />,
   saude: <HeartPulseIcon />,
 };
 

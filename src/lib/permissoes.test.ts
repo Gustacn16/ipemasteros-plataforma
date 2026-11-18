@@ -321,3 +321,16 @@ describe("permissões do Nexu", () => {
     }
   });
 });
+
+describe("permissões do Espião", () => {
+  it("espiao:ver vale para admin, gestor e comercial", () => {
+    for (const papel of ["admin", "gestor", "comercial"] as const) expect(temPermissao(papel, "espiao:ver")).toBe(true);
+    for (const papel of ["colaborador", "professor", "aluno"] as const) expect(temPermissao(papel, "espiao:ver")).toBe(false);
+  });
+
+  it("espiao:configurar vale só para admin", () => {
+    expect(temPermissao("admin", "espiao:configurar")).toBe(true);
+    for (const papel of ["gestor", "comercial", "colaborador", "professor", "aluno"] as const)
+      expect(temPermissao(papel, "espiao:configurar")).toBe(false);
+  });
+});
