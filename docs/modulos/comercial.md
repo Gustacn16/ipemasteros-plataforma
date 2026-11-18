@@ -59,8 +59,8 @@ A exportação de 18/11/2026 (pacote `dados-comerciais-ipemaster-2026-11-18.zip`
 |---|---|
 | `sales.id` | `Venda.id` = `lovable-<id antigo>` (é isso que impede duplicar) |
 | `sale_date`, `lead_entry_date`, `delivery_date`, `first_due_date` | `dataVenda`, `dataEntradaLead`, `dataEntrega`, `primeiroVencimento` |
-| `product_id` | `produtoId`, pelo nome do produto antigo no catálogo (os 12 são os mesmos). As vendas "Pós-Graduação em Psiquiatria" apontam para a EAD |
-| `seller_id` / `created_by` (= `profiles.user_id`) | `vendedorId` / `criadoPorId`, pelo nome ou apelido do usuário (nome inteiro ou todas as palavras dele; empate não casa). Sem usuário: cria um vendedor **inativo**, sem senha, id `lovable-<user_id>`, e-mail `…@historico.invalid`, cargo "Vendedor (plataforma antiga)" |
+| `product_id` | `produtoId`, pelo nome do produto antigo no catálogo (os 12 são os mesmos). As vendas "Pós-Graduação em Psiquiatria" apontam para a EAD. Produto excluído na tela que tem venda ou meta antiga (no teste: Tratamento Capilar, Transplante de Barba e Master FUE) volta como **inativo**, porque produto com venda não pode ficar excluído (regra 3) |
+| `seller_id` / `created_by` (= `profiles.user_id`) | `vendedorId` / `criadoPorId`, pelo nome ou apelido do usuário, nesta ordem: igual; igual sem espaços ("PedroPrado"); todas as palavras do antigo no novo; todas as palavras do novo no antigo ("Luisa" ↔ "Luisa Santos"). Empate não casa. Sem usuário: cria um vendedor **inativo**, sem senha, id `lovable-<user_id>`, e-mail `…@historico.invalid`, cargo "Vendedor (plataforma antiga)" |
 | `customer_name`, `whatsapp` | `nomeCliente`, `whatsappCliente` (só dígitos, sem o 55; fora de 10–11 dígitos fica vazio) |
 | `channel` | `canalId`, pelo nome sem acento e maiúscula; o que falta é criado (Meta Ads, Orgânico, Indicação, ChatGPT Ads) |
 | `payment_method` | Pix → `pix`, Boleto → `boleto`, Cartão de Crédito → `cartao`. Vazio (4 vendas) → `pix` com a observação "Forma de pagamento não informada na plataforma antiga." |

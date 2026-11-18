@@ -15,7 +15,8 @@ export const chaveMeta = (mes: string, produtoId: string, vendedorId: string) =>
 export type Metodo = "pix" | "cartao" | "boleto" | "transferencia";
 
 export type Contexto = {
-  produtos: { id: string; nome: string }[];
+  /** Inclui os excluídos: venda antiga de produto excluído volta a apontar para ele. */
+  produtos: { id: string; nome: string; excluido?: boolean }[];
   usuarios: { id: string; nome: string; apelido: string | null }[];
   canais: { id: string; nome: string }[];
   /** Vendas que já vieram de uma importação anterior (id com o prefixo). */
@@ -53,6 +54,8 @@ export type MetaPlanejada = { id: string; mes: string; produtoId: string; vended
 
 export type Plano = {
   erros: string[];
+  /** Produtos excluídos que têm vendas ou metas antigas: voltam como inativos (regras 2 e 3). */
+  produtosRestaurar: { id: string; nome: string }[];
   vendedores: { nomeAntigo: string; id: string; nomeNovo: string; novo: boolean }[];
   canaisNovos: { id: string; nome: string }[];
   vendas: VendaPlanejada[];
@@ -106,19 +109,29 @@ export function whatsappDe(texto: string | null): string | null {
 const centavos = (v: number) => Math.round(v * 100);
 const reais = (c: number) => (c / 100).toFixed(2);
 
-/** Acha o usuário do sistema novo pelo nome (ou apelido) do vendedor antigo; sem candidato único, `null`. */
+/**
+ * Acha o usuário do sistema novo pelo nome (ou apelido) do vendedor antigo, nesta ordem:
+ * nome igual; igual sem espaços ("PedroPrado"); todas as palavras do antigo no novo;
+ * todas as palavras do novo no antigo ("Luisa" ↔ "Luisa Santos"). Sem candidato único, `null`.
+ */
 export function acharUsuario(nomeAntigo: string, usuarios: Contexto["usuarios"]): Contexto["usuarios"][number] | null {
   const alvo = normalizar(nomeAntigo);
   if (!alvo) return null;
-  const exatos = usuarios.filter((u) => normalizar(u.nome) === alvo || (u.apelido && normalizar(u.apelido) === alvo));
-  if (exatos.length === 1) return exatos[0];
-  if (exatos.length > 1) return null;
+  const nomes = (u: Contexto["usuarios"][number]) => [u.nome, u.apelido ?? ""].filter((n) => normalizar(n));
+  const compacto = (t: string) => normalizar(t).replace(/[^a-z0-9]/g, "");
   const procurados = tokens(nomeAntigo);
-  const contem = usuarios.filter((u) => {
-    const deles = new Set([...tokens(u.nome), ...tokens(u.apelido ?? "")]);
-    return procurados.every((t) => deles.has(t));
-  });
-  return contem.length === 1 ? contem[0] : null;
+  const criterios: ((u: Contexto["usuarios"][number]) => boolean)[] = [
+    (u) => nomes(u).some((n) => normalizar(n) === alvo),
+    (u) => nomes(u).some((n) => compacto(n) === compacto(nomeAntigo)),
+    (u) => nomes(u).some((n) => procurados.every((t) => tokens(n).includes(t))),
+    (u) => nomes(u).some((n) => tokens(n).every((t) => procurados.includes(t))),
+  ];
+  for (const criterio of criterios) {
+    const achados = usuarios.filter(criterio);
+    if (achados.length === 1) return achados[0];
+    if (achados.length > 1) return null;
+  }
+  return null;
 }
 
 export function planejarImportacao(dados: ExportacaoLovable, ctx: Contexto): Plano {
@@ -126,10 +139,12 @@ export function planejarImportacao(dados: ExportacaoLovable, ctx: Contexto): Pla
   const avisos: string[] = [];
 
   // Produtos: pelo nome do produto antigo (as vendas guardam o id).
-  const produtoNovo = new Map<string, string>();
+  // Prefere o produto não excluído quando houver dois com o mesmo nome.
+  const produtoNovo = new Map<string, Contexto["produtos"][number]>();
   for (const p of dados.products) {
-    const achado = ctx.produtos.find((n) => normalizar(n.nome) === normalizar(p.name));
-    if (achado) produtoNovo.set(p.id, achado.id);
+    const mesmos = ctx.produtos.filter((n) => normalizar(n.nome) === normalizar(p.name));
+    const achado = mesmos.find((n) => !n.excluido) ?? mesmos[0];
+    if (achado) produtoNovo.set(p.id, achado);
   }
   const usados = new Set([...dados.sales.map((v) => v.product_id), ...dados.sales_seller_product_targets.map((m) => m.product_id)]);
   for (const id of usados) {
@@ -181,7 +196,7 @@ export function planejarImportacao(dados: ExportacaoLovable, ctx: Contexto): Pla
   let totalDiferente = 0;
   const vendas: VendaPlanejada[] = [];
   for (const v of dados.sales) {
-    const produtoId = produtoNovo.get(v.product_id);
+    const produtoId = produtoNovo.get(v.product_id)?.id;
     if (!produtoId) continue;
     if (normalizar(v.status).startsWith("cancel")) {
       contagens.vendasCanceladas++;
@@ -230,7 +245,7 @@ export function planejarImportacao(dados: ExportacaoLovable, ctx: Contexto): Pla
   const metas: MetaPlanejada[] = [];
   const vistas = new Set<string>();
   for (const m of dados.sales_seller_product_targets) {
-    const produtoId = produtoNovo.get(m.product_id);
+    const produtoId = produtoNovo.get(m.product_id)?.id;
     if (!produtoId) continue;
     if (m.sales_count === 0) {
       contagens.metasZeradas++;
@@ -249,8 +264,12 @@ export function planejarImportacao(dados: ExportacaoLovable, ctx: Contexto): Pla
     metas.push({ id: idMeta(m.id), mes, produtoId, vendedorId, quantidadeAlvo: m.sales_count, valorAlvo: valorDaMeta(ticket, m.sales_count) });
   }
 
+  const comHistorico = new Set([...vendas.map((v) => v.produtoId), ...metas.map((m) => m.produtoId)]);
+  const produtosRestaurar = [...new Map([...produtoNovo.values()].filter((p) => p.excluido && comHistorico.has(p.id)).map((p) => [p.id, { id: p.id, nome: p.nome }])).values()];
+
   return {
     erros,
+    produtosRestaurar,
     vendedores: [...vendedores.values()],
     canaisNovos: [...canaisNovos.values()],
     vendas,

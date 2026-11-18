@@ -33,8 +33,7 @@ type Cliente = Pick<typeof prisma, "produto" | "usuario" | "canalVenda" | "venda
 async function contexto(db: Cliente) {
   const [produtos, usuarios, canais, vendas, metas] = await Promise.all([
     db.produto.findMany({
-      where: { excluidoEm: null },
-      select: { id: true, nome: true, ofertas: { select: { padrao: true, ordem: true, precoCheio: true } } },
+      select: { id: true, nome: true, excluidoEm: true, ofertas: { select: { padrao: true, ordem: true, precoCheio: true } } },
     }),
     db.usuario.findMany({ select: { id: true, nome: true, apelido: true } }),
     db.canalVenda.findMany({ select: { id: true, nome: true } }),
@@ -43,7 +42,7 @@ async function contexto(db: Cliente) {
     db.metaVenda.findMany({ select: { id: true, mes: true, produtoId: true, vendedorId: true } }),
   ]);
   return {
-    produtos: produtos.map(({ id, nome }) => ({ id, nome })),
+    produtos: produtos.map(({ id, nome, excluidoEm }) => ({ id, nome, excluido: excluidoEm !== null })),
     usuarios,
     canais,
     idsVendasImportadas: new Set(vendas.filter((v) => v.id.startsWith(PREFIXO)).map((v) => v.id)),
@@ -66,6 +65,7 @@ export type ResumoImportacao = {
   valorNovo: string;
   metasNovas: number;
   canaisNovos: string[];
+  produtosRestaurados: string[];
   vendedores: { nomeAntigo: string; nomeNovo: string; novo: boolean }[];
   porMes: { mes: string; vendas: number; valor: string }[];
 };
@@ -88,6 +88,7 @@ function resumir(plano: Plano): ResumoImportacao {
     valorNovo: (total / 100).toFixed(2),
     metasNovas: plano.metas.length,
     canaisNovos: plano.canaisNovos.map((c) => c.nome),
+    produtosRestaurados: plano.produtosRestaurar.map((p) => p.nome),
     vendedores: plano.vendedores.map(({ nomeAntigo, nomeNovo, novo }) => ({ nomeAntigo, nomeNovo, novo })),
     porMes: [...porMes.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
@@ -111,6 +112,13 @@ export async function importarHistorico(ator: UsuarioAtual, texto: string): Prom
       const plano = planejarImportacao(dados, await contexto(tx));
       if (plano.erros.length > 0) throw new ErroNegocio(`Nada foi importado: ${plano.erros[0]}`);
 
+      if (plano.produtosRestaurar.length > 0) {
+        // Produto com venda não pode ficar excluído (regra 3): volta inativo, fora dos campos de escolha.
+        await tx.produto.updateMany({
+          where: { id: { in: plano.produtosRestaurar.map((p) => p.id) } },
+          data: { excluidoEm: null, ativo: false },
+        });
+      }
       const novos = plano.vendedores.filter((v) => v.novo);
       if (novos.length > 0) {
         // Vendedor que só existia na plataforma antiga: fica inativo, sem senha e sem acesso.
@@ -162,6 +170,7 @@ export async function importarHistorico(ator: UsuarioAtual, texto: string): Prom
             metas: resumo.metasNovas,
             vendedoresNovos: novos.length,
             canaisNovos: plano.canaisNovos.length,
+            produtosRestaurados: plano.produtosRestaurar.length,
           },
         },
         tx,

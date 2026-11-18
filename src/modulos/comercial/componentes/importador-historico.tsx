@@ -49,6 +49,9 @@ function Resumo({ r }: { r: ResumoImportacao }) {
         {c.metasJaExistentes > 0 && <li>Metas que já existiam no mês (mantidas como estão): {c.metasJaExistentes}</li>}
         {c.metasZeradas > 0 && <li>Metas zeradas, ignoradas: {c.metasZeradas}</li>}
         {r.canaisNovos.length > 0 && <li>Canais novos: {r.canaisNovos.join(", ")}</li>}
+        {r.produtosRestaurados.length > 0 && (
+          <li>Produtos excluídos que têm histórico e voltam como inativos: {r.produtosRestaurados.join(", ")}</li>
+        )}
       </ul>
       {r.porMes.length > 0 && (
         <Table>

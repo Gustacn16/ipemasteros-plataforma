@@ -81,6 +81,20 @@ describe("conversões", () => {
     expect(acharUsuario("Pedro", usuarios)).toBeNull();
     expect(acharUsuario("", usuarios)).toBeNull();
   });
+
+  it("casa nome sem espaço e nome mais curto no sistema novo", () => {
+    const usuarios = [
+      { id: "p", nome: "PedroPrado", apelido: null },
+      { id: "l", nome: "Luisa", apelido: null },
+      { id: "g", nome: "Gustavo teste", apelido: null },
+      { id: "s", nome: "Gustavo Silva", apelido: null },
+    ];
+    expect(acharUsuario("Pedro Prado", usuarios)?.id).toBe("p");
+    expect(acharUsuario("Luisa Santos", usuarios)?.id).toBe("l");
+    expect(acharUsuario("Gustavo Silva", usuarios)?.id).toBe("s");
+    expect(acharUsuario("Giovanna Santana", usuarios)).toBeNull();
+    expect(acharUsuario("Gustavo", usuarios)).toBeNull();
+  });
 });
 
 describe("planejarImportacao", () => {
@@ -160,6 +174,19 @@ describe("planejarImportacao", () => {
     );
     expect(p.vendas[0].valorTotal).toBe("0.70");
     expect(p.avisos.some((a) => a.includes("valor recalculado"))).toBe(true);
+  });
+
+  it("produto excluído com venda antiga volta a ser usado e é restaurado; o ativo de mesmo nome tem preferência", () => {
+    const excluido = planejarImportacao(dados(), ctx({ produtos: [{ id: "prod_x", nome: "Transplante Capilar", excluido: true }] }));
+    expect(excluido.erros).toEqual([]);
+    expect(excluido.vendas[0].produtoId).toBe("prod_x");
+    expect(excluido.produtosRestaurar).toEqual([{ id: "prod_x", nome: "Transplante Capilar" }]);
+    const ambos = planejarImportacao(
+      dados(),
+      ctx({ produtos: [{ id: "prod_x", nome: "Transplante Capilar", excluido: true }, { id: "prod_tc", nome: "Transplante Capilar" }] }),
+    );
+    expect(ambos.vendas[0].produtoId).toBe("prod_tc");
+    expect(ambos.produtosRestaurar).toEqual([]);
   });
 
   it("produto que não existe no catálogo novo bloqueia", () => {
