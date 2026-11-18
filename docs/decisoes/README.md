@@ -12,6 +12,7 @@ Cada decisão relevante de arquitetura vira um arquivo `NNNN-titulo-curto.md`. U
 | 0005 | [Cifra dos links de agenda pessoal](0005-cifra-de-links-de-agenda.md) | Aceito |
 | 0006 | [Motor de WhatsApp por QR (Baileys)](0006-motor-whatsapp-por-qr.md) | Aceito |
 | 0007 | [Claude dentro do sistema (Nexu)](0007-ia-claude-no-sistema.md) | Aceito |
+| 0008 | [Download de páginas externas pelo servidor (Espião)](0008-download-de-urls-externas.md) | Aceito |
 
 ## Pendentes (a escrever)
 - Storage de arquivos (anexos e mídias): R2 vs. Hostinger Object Storage (antes da F1)
