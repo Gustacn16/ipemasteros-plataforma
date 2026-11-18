@@ -1,10 +1,14 @@
 import "server-only";
+import { iaConfigurada } from "@/lib/ia/cliente";
+import { gastoMesMicroUsd } from "@/lib/ia/uso";
 import { prisma } from "@/lib/prisma";
+import { obterConfiguracaoWhatsapp } from "./configuracao";
 import { MOTOR_SEM_SINAL_MS, ROTULO_ESTADO, estadoNaTela } from "../regras/conexao";
 
 const DIA_MS = 24 * 60 * 60_000;
 
 export type SaudeWhatsapp = {
+  ia: { configurada: boolean; gastoMesMicroUsd: number; limiteMensalMicroUsd: number };
   motorVivo: boolean;
   ultimoSinalEm: Date | null;
   numeros: {
@@ -35,7 +39,10 @@ export async function saudeWhatsapp(agora: Date = new Date()): Promise<SaudeWhat
   const sinais = numeros.map((n) => n.ultimoSinalEm).filter((d): d is Date => d !== null);
   const ultimoSinalEm = sinais.length ? new Date(Math.max(...sinais.map((d) => d.getTime()))) : null;
 
+  const [gasto, config] = await Promise.all([gastoMesMicroUsd("whatsapp", agora), obterConfiguracaoWhatsapp()]);
+
   return {
+    ia: { configurada: iaConfigurada(), gastoMesMicroUsd: gasto, limiteMensalMicroUsd: config.limiteMensalMicroUsd },
     motorVivo: ultimoSinalEm !== null && agora.getTime() - ultimoSinalEm.getTime() <= MOTOR_SEM_SINAL_MS,
     ultimoSinalEm,
     numeros: numeros.map((n) => {

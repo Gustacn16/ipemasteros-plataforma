@@ -6,6 +6,8 @@ const banco = vi.hoisted(() => {
   const estado = {
     numeros: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
     mensagens: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
+    usos: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
+    config: null as Record<string, any> | null, // eslint-disable-line @typescript-eslint/no-explicit-any
   };
   // Como no mock de captura.test.ts: o LIKE do MySQL da Hostinger não pode ser usado.
   const semLike = (where: unknown) => {
@@ -13,6 +15,16 @@ const banco = vi.hoisted(() => {
     for (const op of ["contains", "startsWith", "endsWith"]) if (json.includes(`"${op}"`)) throw new Error(`operador ${op} proibido`);
   };
   const prisma = {
+    usoIa: {
+      aggregate: async ({ where }: { where: Linha }) => {
+        semLike(where);
+        const soma = estado.usos
+          .filter((u) => u.origem === where.origem && u.criadoEm >= where.criadoEm.gte)
+          .reduce((t, u) => t + u.custoMicroUsd, 0);
+        return { _sum: { custoMicroUsd: soma || null } };
+      },
+    },
+    configuracaoWhatsapp: { findUnique: async () => estado.config },
     numeroWhatsapp: {
       findMany: async ({ where }: { where: Linha }) => {
         semLike(where);
@@ -60,6 +72,8 @@ const num = (id: string, extra: Linha = {}) => ({
 beforeEach(() => {
   banco.estado.numeros = [];
   banco.estado.mensagens = [];
+  banco.estado.usos = [];
+  banco.estado.config = null;
 });
 
 describe("saudeWhatsapp", () => {
@@ -105,5 +119,25 @@ describe("saudeWhatsapp", () => {
   it("número excluído não aparece", async () => {
     banco.estado.numeros = [num("a"), num("x", { excluidoEm: min(100) })];
     expect((await saudeWhatsapp(agora)).numeros.map((n) => n.id)).toEqual(["a"]);
+  });
+});
+
+describe("saudeWhatsapp: IA", () => {
+  it("saúde traz gasto do mês só da origem whatsapp e o limite", async () => {
+    banco.estado.config = { id: "unica", modelo: "claude-opus-5-5", limiteMensalMicroUsd: 50_000_000 };
+    banco.estado.usos = [
+      { origem: "whatsapp", custoMicroUsd: 3_000_000, criadoEm: new Date("2026-11-05T12:00:00Z") },
+      { origem: "whatsapp", custoMicroUsd: 2_000_000, criadoEm: new Date("2026-11-10T12:00:00Z") },
+      { origem: "whatsapp", custoMicroUsd: 9_000_000, criadoEm: new Date("2026-10-31T12:00:00Z") },
+      { origem: "nexu", custoMicroUsd: 7_000_000, criadoEm: new Date("2026-11-06T12:00:00Z") },
+    ];
+    const { ia } = await saudeWhatsapp(agora);
+    expect(ia.gastoMesMicroUsd).toBe(5_000_000);
+    expect(ia.limiteMensalMicroUsd).toBe(50_000_000);
+  });
+
+  it("sem configuração usa o limite padrão de US$ 80 e sem gasto soma zero", async () => {
+    const { ia } = await saudeWhatsapp(agora);
+    expect(ia).toMatchObject({ gastoMesMicroUsd: 0, limiteMensalMicroUsd: 80_000_000 });
   });
 });

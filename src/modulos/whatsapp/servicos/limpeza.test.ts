@@ -10,6 +10,7 @@ const banco = vi.hoisted(() => {
     contatos: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
     alunos: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
     usuarios: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
+    resumos: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
   };
   // Como no mock de captura.test.ts: o LIKE do MySQL da Hostinger não pode ser usado.
   const semLike = (where: unknown) => {
@@ -59,6 +60,14 @@ const banco = vi.hoisted(() => {
   };
   const prisma = {
     $transaction: async (ops: Promise<unknown>[]) => Promise.all(ops),
+    resumoGrupo: {
+      deleteMany: async ({ where }: { where: Linha }) => {
+        semLike(where);
+        const antes = estado.resumos.length;
+        estado.resumos = estado.resumos.filter((r) => !(r.dia < where.dia.lt));
+        return { count: antes - estado.resumos.length };
+      },
+    },
     aluno: { findMany: async () => estado.alunos },
     usuario: { findMany: async () => estado.usuarios },
     contatoWhatsapp: {
@@ -149,6 +158,7 @@ describe("limparWhatsapp", () => {
     banco.estado.contatos = [];
     banco.estado.alunos = [];
     banco.estado.usuarios = [];
+    banco.estado.resumos = [];
     esquecerTelefonesCadastrados();
   });
 
@@ -275,6 +285,17 @@ describe("limparWhatsapp", () => {
     banco.estado.usuarios.push({ id: "u1", whatsapp: "11987654321" });
     individual("i1", { contatoId: "c1", ultimaMensagemEm: dias(-100) });
     const r = await limparWhatsapp(AGORA);
-    expect(r).toEqual({ provisorias: 0, antigas: 0, religados: 1, conversasVazias: 1, contatosVazios: 0 });
+    expect(r).toEqual({ provisorias: 0, antigas: 0, resumosAntigos: 0, religados: 1, conversasVazias: 1, contatosVazios: 0 });
+  });
+
+  it("limpeza apaga resumos com dia anterior a 365 dias e conta resumosAntigos", async () => {
+    banco.estado.resumos = [
+      { id: "r1", dia: new Date("2025-11-16T00:00:00.000Z") },
+      { id: "r2", dia: new Date("2025-11-18T00:00:00.000Z") },
+      { id: "r3", dia: new Date("2026-11-16T00:00:00.000Z") },
+    ];
+    const r = await limparWhatsapp(AGORA);
+    expect(r.resumosAntigos).toBe(1);
+    expect(banco.estado.resumos.map((x) => x.id)).toEqual(["r2", "r3"]);
   });
 });

@@ -6,13 +6,17 @@ import { ErroNegocio } from "@/lib/erros";
 import { ErroPermissao } from "@/lib/permissoes";
 import { exigirUsuario } from "@/lib/sessao";
 import { MensagensConversa } from "@/modulos/whatsapp/componentes/mensagens-conversa";
-import { mensagensDaConversa } from "@/modulos/whatsapp/servicos/conversas";
+import { ResumoGrupo } from "@/modulos/whatsapp/componentes/resumo-grupo";
+import { diaEmSaoPaulo } from "@/modulos/tarefas/regras/prazo";
+import { diaDaConsulta } from "@/modulos/whatsapp/regras/dia";
+import { mensagensDaConversa, resumoDoGrupo } from "@/modulos/whatsapp/servicos/conversas";
 
 export const metadata: Metadata = { title: "Conversa do WhatsApp — IPEMaster OS" };
 
-export default async function PaginaConversa({ params }: { params: Promise<{ id: string }> }) {
+export default async function PaginaConversa({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ dia?: string | string[] }> }) {
   const usuario = await exigirUsuario();
   const { id } = await params;
+  const { dia: diaParam } = await searchParams;
   let conversa;
   try {
     conversa = await mensagensDaConversa(usuario, id);
@@ -24,6 +28,9 @@ export default async function PaginaConversa({ params }: { params: Promise<{ id:
 
   // Grupo volta para a lista de grupos; individual, para as conversas.
   const grupo = conversa.tipo === "grupo";
+  const agora = new Date();
+  const dia = diaDaConsulta(typeof diaParam === "string" ? diaParam : undefined, agora);
+  const resumo = grupo ? await resumoDoGrupo(id, dia.dia) : null;
 
   return (
     <div className="grid max-w-3xl gap-6">
@@ -36,6 +43,7 @@ export default async function PaginaConversa({ params }: { params: Promise<{ id:
           </Link>
         }
       />
+      {grupo && <ResumoGrupo resumo={resumo} dia={dia.texto} ate={diaEmSaoPaulo(agora)} />}
       <MensagensConversa mensagens={conversa.mensagens} />
     </div>
   );

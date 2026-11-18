@@ -11,3 +11,13 @@ export function janelaDeOntem(agora: Date): { dia: Date; inicio: Date; fim: Date
   const dia = new Date(`${diaEmSaoPaulo(inicio)}T00:00:00.000Z`);
   return { dia, inicio, fim };
 }
+
+/** Lê `?dia=AAAA-MM-DD`; vazio ou inválido (formato ou data que não existe) vira ontem. Devolve a data de São Paulo e a meia-noite UTC dela. */
+export function diaDaConsulta(valor: string | undefined, agora: Date): { texto: string; dia: Date } {
+  if (valor && /^\d{4}-\d{2}-\d{2}$/.test(valor)) {
+    const dia = new Date(`${valor}T00:00:00.000Z`);
+    if (!Number.isNaN(dia.getTime()) && dia.toISOString().slice(0, 10) === valor) return { texto: valor, dia };
+  }
+  const { dia } = janelaDeOntem(agora);
+  return { texto: dia.toISOString().slice(0, 10), dia };
+}

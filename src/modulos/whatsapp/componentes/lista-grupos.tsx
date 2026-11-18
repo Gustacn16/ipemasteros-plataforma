@@ -45,6 +45,7 @@ export function ListaGrupos({ grupos, turmas }: { grupos: LinhaGrupo[]; turmas: 
             <TableHead>Grupo</TableHead>
             <TableHead>Números da empresa</TableHead>
             <TableHead>Mensagens (7 dias)</TableHead>
+            <TableHead>Pendências de ontem</TableHead>
             <TableHead>Turma</TableHead>
             <TableHead>Acompanhar</TableHead>
           </TableRow>
@@ -64,6 +65,7 @@ export function ListaGrupos({ grupos, turmas }: { grupos: LinhaGrupo[]; turmas: 
               </TableCell>
               <TableCell>{g.numeros.length > 0 ? g.numeros.join(", ") : "—"}</TableCell>
               <TableCell>{g.totalMensagens7d}</TableCell>
+              <TableCell>{g.pendenciasOntem ?? "—"}</TableCell>
               <TableCell>
                 <select
                   aria-label={`Turma do grupo ${g.nome}`}

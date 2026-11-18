@@ -14,6 +14,7 @@ import {
   solicitarConexao,
   solicitarDesconexao,
 } from "../servicos/numeros";
+import { salvarConfiguracaoWhatsapp } from "../servicos/configuracao";
 import { apagarDadosDoTelefone } from "../servicos/titular";
 
 const idNumero = z.string().min(1).max(40);
@@ -88,6 +89,19 @@ export async function apagarDadosTelefoneAcao(dados: unknown): Promise<EstadoAca
       mensagem: r.encontrado ? `Dados apagados: ${r.mensagens} mensagens e ${r.conversas} conversas.` : "Nenhum contato com este telefone.",
       dados: r,
     };
+  } catch (erro) {
+    return tratarErroAcao(erro);
+  }
+}
+
+/** Limite mensal da IA do WhatsApp, digitado em dólares (até 2 casas) e gravado em micro-dólares. */
+export async function salvarLimiteIaWhatsappAcao(dados: unknown): Promise<EstadoAcao> {
+  try {
+    const ator = await exigirPermissao("whatsapp:gerenciar_numeros");
+    const { limiteUsd } = z.object({ limiteUsd: z.number().finite().min(0).max(500) }).parse(dados);
+    await salvarConfiguracaoWhatsapp({ limiteMensalMicroUsd: Math.round(limiteUsd * 1_000_000) }, ator.id);
+    revalidatePath("/admin/saude");
+    return { ok: true, mensagem: "Limite salvo." };
   } catch (erro) {
     return tratarErroAcao(erro);
   }

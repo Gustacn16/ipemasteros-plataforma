@@ -173,3 +173,13 @@ Use se a pasta de sessões se perder ou estragar.
    systemctl start motor-whatsapp
    ```
 3. Confira na tela do WhatsApp. Se os números voltaram, apague a pasta `sessoes.velha`. Se uma sessão já tinha sido encerrada no celular, será preciso ler o QR de novo (passo 13).
+
+## 18. Crons da IA
+O resumo diário dos grupos usa dois crons, criados no hPanel (**Avançado → Cron Jobs**). O servidor está em UTC: `30 7 * * *` é 4h30 em São Paulo. Troque `<CRON_SECRET>` pelo valor guardado nas variáveis de ambiente do site.
+
+```
+30 7 * * * curl -fsS -H "Authorization: Bearer <CRON_SECRET>" https://teste.plataformaipemaster.com.br/api/cron/ia-whatsapp
+*/15 * * * * curl -fsS -H "Authorization: Bearer <CRON_SECRET>" https://teste.plataformaipemaster.com.br/api/cron/coletar-ia-whatsapp
+```
+
+O primeiro envia o pedido do dia; o segundo recolhe as respostas a cada 15 minutos. Sem a variável `ANTHROPIC_API_KEY`, nada é enviado (a tela **Saúde** mostra "IA não configurada").
