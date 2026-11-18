@@ -1,13 +1,19 @@
 # Módulo: WhatsApp
 
 ## Objetivo
-Conectar os números de WhatsApp da escola e dos vendedores ao IPEMaster OS. Esta entrega (1) cria o motor de conexão (projeto à parte, `motor-whatsapp/`, com a Baileys) e a tela para cadastrar vagas de número e ler o QR. Conversas, mensagens e atendimento vêm nas próximas entregas.
+Conectar os números de WhatsApp da escola e dos vendedores ao IPEMaster OS e guardar o que acontece nos grupos e nas conversas. A entrega 1 criou o motor de conexão (projeto à parte, `motor-whatsapp/`, com a Baileys) e a tela de números com o QR. A entrega 2a captura grupos, contatos e mensagens e mostra as telas Grupos e Conversas. Resumos, SLA, qualidade e disparo vêm nas próximas entregas.
 
 ## Entidades
 | Entidade | Campos principais |
 |---|---|
 | `NumeroWhatsapp` | id, nome, finalidade (`escola`/`vendedor`), usuarioId? (dono; só vendedor), telefone?, situacao (`desconectado`/`aguardando_qr`/`conectado`/`erro`), qrAtual?, qrEm?, conectadoEm?, ultimoSinalEm?, erro?, excluidoEm |
 | `ComandoWhatsapp` | id, numeroId, tipo (`conectar`/`desconectar`), situacao (`pendente`/`em_andamento`/`concluido`/`falhou`), tentativas |
+| `ContatoWhatsapp` | id, telefone? (chave canônica com o 9, única), lid? (único), nomeExibido?, alunoId?, usuarioId? |
+| `ConversaWhatsapp` | id, jid, tipo (`grupo`/`individual`), chaveGrupo? (= jid nos grupos, único), numeroId? (só individuais), nome?, contatoId?, turmaId?, numeroEnvioId? (sem uso ainda), categoria (padrão `outro`; `pessoal` descarta), monitorada, provisoriaAte?, ultimaMensagemEm? |
+| `NumeroNoGrupo` | numeroId + conversaId: quais números da empresa estão em cada grupo |
+| `MensagemWhatsapp` | id, conversaId, idExterno (único por conversa), numeroId (quem capturou primeiro), contatoId? (autor), deMim, tipo, texto?, respondeAIdExterno?, enviadaEm |
+
+Grupo é único pelo jid, mesmo que vários números da empresa estejam nele. Conversa individual é única por número + jid. A mesma mensagem capturada por dois números não duplica (`conversaId` + `idExterno`).
 
 A tela nunca fala com o motor: grava comandos no banco e o motor os busca. O motor também grava o QR, a situação e o sinal de vida (`ultimoSinalEm`).
 
@@ -42,4 +48,4 @@ A tela nunca fala com o motor: grava comandos no banco e o motor os busca. O mot
 ## Situação da implementação
 **Entrega 1:** motor, comandos, tela de números e conexão por QR. Verificação na tela com o motor ligado é feita no site `teste`.
 
-**Entrega 2a (tela):** abas, grupos e conversas com as mensagens capturadas. Responder mensagens fica para depois.
+**Entrega 2a:** captura (histórico recente do pareamento e mensagens ao vivo), abas, grupos e conversas com as mensagens capturadas, limpeza diária. O histórico só chega na hora do pareamento: para recebê-lo, desconecte e leia o QR de novo. Responder mensagens fica para depois.

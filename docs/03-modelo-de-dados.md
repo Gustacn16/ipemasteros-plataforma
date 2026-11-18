@@ -23,6 +23,7 @@ Visão geral das entidades e de como os módulos se relacionam. Os campos detalh
 | Acadêmico | `Curso`, `Turma`, `Disciplina`, `Aula`, `Professor`, `Aluno`, `Matricula`, `Presenca`, `Fornecedor`, `TurmaFornecedor`, `ModeloAvaliacao`, `PerguntaAvaliacao`, `RespostaAvaliacao` |
 | Conteúdo | `Canal`, `Campanha`, `Publicacao`, `PublicacaoCanal`, `MidiaPublicacao` |
 | Comercial | `Produto`, `OfertaProduto`, `LinkProduto`, `CanalVenda`, `Venda`, `MetaVenda` (Kommo e Meta Ads depois) |
+| WhatsApp | `NumeroWhatsapp`, `ComandoWhatsapp`, `ContatoWhatsapp`, `ConversaWhatsapp`, `NumeroNoGrupo`, `MensagemWhatsapp` |
 
 ## Diagrama (relações principais)
 ```mermaid
@@ -65,6 +66,18 @@ erDiagram
   Curso ||--o{ NegocioKommo : "venda de"
   LeadKommo ||--o{ NegocioKommo : ""
 
+  Usuario ||--o{ NumeroWhatsapp : "dono (vendedor)"
+  NumeroWhatsapp ||--o{ ComandoWhatsapp : ""
+  NumeroWhatsapp ||--o{ ConversaWhatsapp : "individuais"
+  NumeroWhatsapp ||--o{ NumeroNoGrupo : ""
+  ConversaWhatsapp ||--o{ NumeroNoGrupo : "grupo com"
+  ConversaWhatsapp ||--o{ MensagemWhatsapp : contem
+  ContatoWhatsapp ||--o{ MensagemWhatsapp : "autor de"
+  ContatoWhatsapp ||--o{ ConversaWhatsapp : "conversa com"
+  Turma ||--o{ ConversaWhatsapp : "grupo da turma"
+  Aluno ||--o{ ContatoWhatsapp : "telefone de"
+  Usuario ||--o{ ContatoWhatsapp : "telefone de"
+
 ```
 
 ## Vínculos entre módulos
@@ -72,6 +85,7 @@ erDiagram
 - **Agenda ↔ entidades:** a Agenda não grava nada nas tabelas de outros módulos. A camada de tarefas lê as entregas de `Tarefa` na hora. Os eventos da agenda pessoal (`AgendaExterna`, link iCal cifrado) são lidos do Google ou do Outlook e nunca vão para o banco. `AssinaturaAgenda` guarda só o hash do token do link `.ics`. Detalhes em `modulos/agenda.md`.
 - **Professor ↔ Usuario:** `Professor.usuarioId?` é opcional. Um professor pode ser cadastrado antes de receber acesso.
 - **Comercial ↔ Acadêmico:** o `Produto` do Comercial é o catálogo único; as turmas do Acadêmico vão apontar para ele (ver `modulos/comercial.md`).
+- **WhatsApp ↔ Acadêmico e Core:** `ContatoWhatsapp` liga-se a `Aluno` ou `Usuario` pelo telefone (`alunoId?`, `usuarioId?`, `SetNull` ao apagar). O grupo (`ConversaWhatsapp` com `tipo = grupo`) pode apontar para uma `Turma` (`turmaId?`). O WhatsApp nunca grava nas tabelas desses módulos. Detalhes em `modulos/whatsapp.md`.
 
 ## Seed
 `prisma/seed.ts` cria um admin de desenvolvimento, papéis de exemplo, um espaço de tarefas e uma turma fictícia com alunos **fictícios**. Nunca usar dados reais no seed.
