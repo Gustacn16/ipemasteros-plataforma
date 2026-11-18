@@ -11,6 +11,13 @@ import {
   ferramentaProporRegistrarVenda,
 } from "./acoes";
 import { ferramentaVerAgenda } from "./agenda";
+import {
+  ferramentaEspiaoBuscarConteudo,
+  ferramentaEspiaoConcorrente,
+  ferramentaEspiaoPaginaAgora,
+  ferramentaEspiaoPerfilAgora,
+  ferramentaEspiaoSinais,
+} from "./espiao";
 import { ferramentaProdutos, ferramentaVendasEMetas } from "./comercial";
 import { ferramentaCalendarioConteudo, ferramentaMetricasInstagram } from "./conteudo";
 import { ferramentaBuscarPessoas } from "./pessoas";
@@ -31,6 +38,11 @@ export const TODAS_FERRAMENTAS: FerramentaNexu[] = [
   ferramentaVendasEMetas,
   ferramentaProdutos,
   ferramentaBuscarPessoas,
+  ferramentaEspiaoSinais,
+  ferramentaEspiaoConcorrente,
+  ferramentaEspiaoBuscarConteudo,
+  ferramentaEspiaoPerfilAgora,
+  ferramentaEspiaoPaginaAgora,
   // Ações (propostas) no fim, para não mexer no prefixo das consultas.
   ferramentaProporCriarTarefa,
   ferramentaProporMudarStatusTarefa,
