@@ -17,6 +17,8 @@ export type LinhaImportada = {
   situacao: { situacao: SituacaoMatricula; nota: string | null } | null;
   crm: string | null;
   telefone: string | null;
+  /** "aaaa-mm-dd"; vazio se a célula não tem uma data de nascimento válida. */
+  dataNascimento: string | null;
   /** "aaaa-mm-dd" */
   dataInicio: string | null;
   dataFormatura: string | null;
@@ -36,6 +38,7 @@ const COLUNAS = {
   situacao: ["formacao", "status", "situacao"],
   crm: ["crm"],
   telefone: ["telefone"],
+  dataNascimento: ["aniversario", "data de nascimento", "nascimento"],
   dataInicio: ["data de inicio"],
   dataFormatura: ["data de formatura"],
   vigencia: ["vigencia"],
@@ -79,6 +82,16 @@ export function lerDia(v: unknown): string | null | undefined {
   const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(v).trim());
   if (iso) return ISO(Number(iso[1]), Number(iso[2]), Number(iso[3])) ?? undefined;
   return undefined;
+}
+
+/** Data de nascimento: aceita também séries antigas do Excel; fora de 1900..hoje vira vazio. */
+export function lerNascimento(v: unknown): string | null {
+  const dia =
+    typeof v === "number" && v >= 1 && v <= 20000
+      ? new Date(Date.UTC(1899, 11, 30) + Math.round(v) * 86_400_000).toISOString().slice(0, 10)
+      : lerDia(v);
+  if (!dia || dia < "1900-01-01" || dia > new Date().toISOString().slice(0, 10)) return null;
+  return dia;
 }
 
 export function lerAbas(abas: readonly Aba[]) {
@@ -125,6 +138,7 @@ export function lerAbas(abas: readonly Aba[]) {
         situacao,
         crm: normalizarCrm(celula(linha, "crm")),
         telefone: soDigitos(celula(linha, "telefone"))?.slice(0, 20) ?? null,
+        dataNascimento: lerNascimento(celula(linha, "dataNascimento")),
         dataInicio: dataInicio ?? null,
         dataFormatura: dataFormatura ?? null,
         vigencia: texto(celula(linha, "vigencia"), 40),

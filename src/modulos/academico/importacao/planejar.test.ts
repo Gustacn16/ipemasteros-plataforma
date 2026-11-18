@@ -12,6 +12,7 @@ const linha = (parcial: Partial<LinhaImportada> & { nome: string }): LinhaImport
   situacao: { situacao: "ativa", nota: null },
   crm: null,
   telefone: null,
+  dataNascimento: null,
   dataInicio: null,
   dataFormatura: null,
   vigencia: null,
@@ -125,5 +126,22 @@ describe("sugerirProduto", () => {
     expect(sugerirProduto("pg001tct", produtos)).toBe("tct");
     expect(sugerirProduto("CURSO LIVRE", produtos)).toBeNull();
     expect(sugerirProduto("PÓS - PSQ", produtos)).toBeNull();
+  });
+
+  it("aniversário só preenche quem está sem data", () => {
+    const existentes: Existentes = {
+      ...vazio,
+      alunos: [
+        { id: "a1", nomeBusca: "ana", telefone: null, crm: null, dataNascimento: "1980-01-01" },
+        { id: "a2", nomeBusca: "bia", telefone: null, crm: null, dataNascimento: null },
+      ],
+    };
+    const p = planejarImportacao(
+      [linha({ nome: "Ana", dataNascimento: "1990-05-05" }), linha({ nome: "Bia", dataNascimento: "1991-06-06" }), linha({ nome: "Caio", dataNascimento: "1992-07-07" })],
+      mapa,
+      existentes,
+    );
+    expect(p.alunosCompletar).toEqual([{ id: "a2", dataNascimento: "1991-06-06" }]);
+    expect(p.alunosNovos[0]).toMatchObject({ nome: "Caio", dataNascimento: "1992-07-07" });
   });
 });

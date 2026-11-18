@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { lerAbas, lerDia } from "./ler";
+import { lerAbas, lerDia, lerNascimento } from "./ler";
 
 const CABECALHO = ["ID", "Nome", "CURSO", "CRM ", "Formação", "Turma", "Telefone", "Data de Início", "Data de Formatura", "Vigência", "OBS", "Plano da pós-graduação"];
 
@@ -54,5 +54,25 @@ describe("lerDia", () => {
     expect(lerDia(45658)).toBe("2025-01-01");
     expect(lerDia("")).toBeNull();
     expect(lerDia("amanhã")).toBeUndefined();
+  });
+});
+
+describe("aniversário", () => {
+  const cab = ["Nome", "Curso", "Turma", "Formação", "Aniversário"];
+  const ler = (v: unknown) => lerAbas([{ nome: "A", linhas: [cab, ["Pessoa", "C", "1ª turma", "Ativo", v]] }]).linhas[0];
+
+  it("lê data, série antiga do Excel e texto; lixo vira vazio sem erro", () => {
+    expect(ler(new Date("1985-03-10T00:00:00Z")).dataNascimento).toBe("1985-03-10");
+    expect(ler(31116).dataNascimento).toBe("1985-03-10");
+    expect(ler(18264).dataNascimento).toBe("1950-01-01");
+    expect(ler("10/03/1985").dataNascimento).toBe("1985-03-10");
+    const lixo = ler("março");
+    expect(lixo.dataNascimento).toBeNull();
+    expect(lixo.erros).toEqual([]);
+  });
+
+  it("lerNascimento recusa datas futuras e anteriores a 1900", () => {
+    expect(lerNascimento("01/01/1899")).toBeNull();
+    expect(lerNascimento(new Date("2999-01-01T00:00:00Z"))).toBeNull();
   });
 });

@@ -7,7 +7,7 @@ import { lerAbas, type ErroLinha } from "../importacao/ler";
 import { IGNORAR, planejarImportacao, sugerirProduto, type Mapeamento, type Ref } from "../importacao/planejar";
 import { lerArquivoXlsx } from "../importacao/xlsx";
 import type { SituacaoMatricula } from "../esquemas/academico";
-import { exigirPermissaoAcademico, paraDia } from "./acesso";
+import { deDia, exigirPermissaoAcademico, paraDia } from "./acesso";
 
 // Importação da planilha de alunos (spec Acadêmico 1, §6). Nada de dado
 // pessoal sai daqui para a tela além de contagens e números de linha.
@@ -73,7 +73,9 @@ export async function importarPlanilha(ator: UsuarioAtual, conteudo: ArrayBuffer
     async (tx) => {
       const [turmas, alunos, matriculas] = await Promise.all([
         tx.turma.findMany({ where: { excluidoEm: null }, select: { id: true, produtoId: true, nome: true } }),
-        tx.aluno.findMany({ select: { id: true, nomeBusca: true, telefone: true, crm: true } }),
+        tx.aluno
+          .findMany({ select: { id: true, nomeBusca: true, telefone: true, crm: true, dataNascimento: true } })
+          .then((as) => as.map((a) => ({ ...a, dataNascimento: deDia(a.dataNascimento) }))),
         tx.matricula.findMany({ select: { id: true, alunoId: true, turmaId: true } }),
       ]);
       const plano = planejarImportacao(linhas, mapeamento, { turmas, alunos, matriculas });
@@ -95,12 +97,14 @@ export async function importarPlanilha(ator: UsuarioAtual, conteudo: ArrayBuffer
       const idAluno = new Map<string, string>();
       for (const a of plano.alunosNovos) {
         const criado = await tx.aluno.create({
-          data: { nome: a.nome, nomeBusca: a.nomeBusca, telefone: a.telefone, crm: a.crm },
+          data: { nome: a.nome, nomeBusca: a.nomeBusca, telefone: a.telefone, crm: a.crm, dataNascimento: paraDia(a.dataNascimento) },
           select: { id: true },
         });
         idAluno.set(a.chave, criado.id);
       }
-      for (const { id, ...dados } of plano.alunosCompletar) await tx.aluno.update({ where: { id }, data: dados });
+      for (const { id, dataNascimento, ...dados } of plano.alunosCompletar) {
+        await tx.aluno.update({ where: { id }, data: { ...dados, ...(dataNascimento && { dataNascimento: paraDia(dataNascimento) }) } });
+      }
 
       const resolver = (r: Ref, mapa: Map<string, string>) => ("id" in r ? r.id : mapa.get(r.chave)!);
       let criadas = 0;

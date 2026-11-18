@@ -11,7 +11,7 @@ export type Mapeamento = Record<string, string>;
 
 export type Existentes = {
   turmas: { id: string; produtoId: string; nome: string }[];
-  alunos: { id: string; nomeBusca: string; telefone: string | null; crm: string | null }[];
+  alunos: { id: string; nomeBusca: string; telefone: string | null; crm: string | null; dataNascimento?: string | null }[];
   matriculas: { id: string; alunoId: string; turmaId: string }[];
 };
 
@@ -31,15 +31,17 @@ export type Plano = {
   erros: ErroLinha[];
   avisos: ErroLinha[];
   turmasNovas: { chave: string; produtoId: string; nome: string; ciclica: boolean; situacao: SituacaoTurma; dataInicio: string | null }[];
-  alunosNovos: { chave: string; nome: string; nomeBusca: string; telefone: string | null; crm: string | null }[];
-  /** Alunos existentes que ganham telefone ou CRM que estavam vazios. */
-  alunosCompletar: { id: string; telefone?: string; crm?: string }[];
+  alunosNovos: { chave: string; nome: string; nomeBusca: string; telefone: string | null; crm: string | null; dataNascimento: string | null }[];
+  /** Alunos existentes que ganham telefone, CRM ou nascimento que estavam vazios. */
+  alunosCompletar: Completar[];
   alunosExistentes: number;
   matriculas: { id?: string; aluno: Ref; turma: Ref; dados: DadosMatriculaImportada }[];
   ignoradas: number;
 };
 
-type AlunoConhecido = { ref: Ref; nomeBusca: string; telefone: string | null; crm: string | null };
+type Completar = { id: string; telefone?: string; crm?: string; dataNascimento?: string };
+type AlunoConhecido = { ref: Ref; nomeBusca: string; telefone: string | null; crm: string | null; dataNascimento: string | null };
+const CAMPOS_COMPLETAR = ["telefone", "crm", "dataNascimento"] as const;
 
 const chaveRef = (r: Ref) => ("id" in r ? `id:${r.id}` : `nova:${r.chave}`);
 
@@ -81,8 +83,14 @@ export function planejarImportacao(linhas: readonly LinhaImportada[], mapeamento
   const novas = new Map<string, Plano["turmasNovas"][number]>();
 
   // Alunos: o mesmo nome com telefones diferentes é outra pessoa.
-  const alunos: AlunoConhecido[] = existentes.alunos.map((a) => ({ ref: { id: a.id }, nomeBusca: a.nomeBusca, telefone: a.telefone, crm: a.crm }));
-  const completar = new Map<string, { id: string; telefone?: string; crm?: string }>();
+  const alunos: AlunoConhecido[] = existentes.alunos.map((a) => ({
+    ref: { id: a.id },
+    nomeBusca: a.nomeBusca,
+    telefone: a.telefone,
+    crm: a.crm,
+    dataNascimento: a.dataNascimento ?? null,
+  }));
+  const completar = new Map<string, Completar>();
   const existentesUsados = new Set<string>();
 
   const matriculasExistentes = new Map(existentes.matriculas.map((m) => [`id:${m.alunoId}|id:${m.turmaId}`, m.id]));
@@ -113,14 +121,14 @@ export function planejarImportacao(linhas: readonly LinhaImportada[], mapeamento
     let aluno = alunos.find((a) => a.nomeBusca === l.nomeBusca && !(a.telefone && l.telefone && a.telefone !== l.telefone));
     if (!aluno) {
       const chave = `aluno${plano.alunosNovos.length + 1}`;
-      plano.alunosNovos.push({ chave, nome: l.nome, nomeBusca: l.nomeBusca, telefone: l.telefone, crm: l.crm });
-      aluno = { ref: { chave }, nomeBusca: l.nomeBusca, telefone: l.telefone, crm: l.crm };
+      plano.alunosNovos.push({ chave, nome: l.nome, nomeBusca: l.nomeBusca, telefone: l.telefone, crm: l.crm, dataNascimento: l.dataNascimento });
+      aluno = { ref: { chave }, nomeBusca: l.nomeBusca, telefone: l.telefone, crm: l.crm, dataNascimento: l.dataNascimento };
       alunos.push(aluno);
     } else {
       const novo = "chave" in aluno.ref ? plano.alunosNovos.find((a) => a.chave === (aluno!.ref as { chave: string }).chave)! : null;
       if ("id" in aluno.ref) existentesUsados.add(aluno.ref.id);
       // Só preenche o que estava vazio; nunca sobrescreve.
-      for (const campo of ["telefone", "crm"] as const) {
+      for (const campo of CAMPOS_COMPLETAR) {
         const valor = l[campo];
         if (!valor || aluno[campo]) continue;
         aluno[campo] = valor;
