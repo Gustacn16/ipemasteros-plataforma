@@ -45,7 +45,7 @@ export default async function PaginaAtendimento({ searchParams }: { searchParams
       <Card>
         <CardHeader>
           <CardTitle>Semana de {semana.rotulo}</CardTitle>
-          <CardDescription>Tempos contados só dentro do horário de atendimento. &quot;Sem resposta agora&quot; é a situação deste momento.</CardDescription>
+          <CardDescription>Tempos contados só dentro do horário de atendimento. &quot;Sem resposta agora&quot; é a situação deste momento. Conversas-dia: uma conversa com mensagem do cliente em 3 dias conta 3.</CardDescription>
           <nav aria-label="Escolher semana" className="flex flex-wrap gap-3 text-sm">
             <Link href={comNumero(anterior)} className="underline-offset-4 hover:underline">
               ← Semana anterior

@@ -11,10 +11,18 @@ import { DIAS_DA_SEMANA, horaParaMinutos, minutosParaHora } from "../regras/hora
 
 type Dia = { aberto: boolean; inicio: string; fim: string };
 
+// O campo de hora não mostra "24:00": o fim do dia aparece como 23:59 e volta a ser 1440 ao salvar.
+const FIM_DO_DIA = 1440;
+const horaDoCampo = (minutos: number) => minutosParaHora(minutos >= FIM_DO_DIA ? FIM_DO_DIA - 1 : minutos);
+const minutosDoFim = (hora: string) => {
+  const m = horaParaMinutos(hora);
+  return m === FIM_DO_DIA - 1 ? FIM_DO_DIA : m;
+};
+
 /** Formulário do admin: horário de cada dia, SLA e follow-up. Converte HH:MM em minutos; o servidor valida o resto. */
 export function RegrasAtendimentoForm({ regras }: { regras: RegrasAtendimento }) {
   const [dias, setDias] = useState<Dia[]>(() =>
-    regras.horario.map((f) => (f ? { aberto: true, inicio: minutosParaHora(f.inicioMin), fim: minutosParaHora(f.fimMin) } : { aberto: false, inicio: "08:00", fim: "18:00" })),
+    regras.horario.map((f) => (f ? { aberto: true, inicio: horaDoCampo(f.inicioMin), fim: horaDoCampo(f.fimMin) } : { aberto: false, inicio: "08:00", fim: "18:00" })),
   );
   const [sla, setSla] = useState(String(regras.slaMinutos));
   const [horas, setHoras] = useState(String(regras.followupHoras));
@@ -32,7 +40,7 @@ export function RegrasAtendimentoForm({ regras }: { regras: RegrasAtendimento })
         continue;
       }
       const inicioMin = horaParaMinutos(d.inicio);
-      const fimMin = horaParaMinutos(d.fim);
+      const fimMin = minutosDoFim(d.fim);
       if (inicioMin === null || fimMin === null) {
         toast.error(`Informe o horário de ${DIAS_DA_SEMANA[i]} no formato HH:MM.`);
         return;

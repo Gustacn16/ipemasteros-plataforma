@@ -169,6 +169,8 @@ export async function semRespostaAgora(ator: UsuarioAtual, agora: Date = new Dat
   for (const c of conversas) {
     const mensagens = porConversa.get(c.id);
     if (!mensagens?.length || !c.numeroId) continue;
+    // Só as mensagens da janela de 7 dias entram: uma espera que começou antes dela conta
+    // a partir da primeira mensagem do cliente dentro da janela (e `desde` mostra esse instante).
     const { vezes } = eventosDaConversa(mensagens, agora, regras);
     const ultima = vezes[vezes.length - 1];
     if (!ultima || ultima.respondidaEm || ultima.segundos <= sla) continue;

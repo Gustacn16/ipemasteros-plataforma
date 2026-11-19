@@ -25,7 +25,7 @@ export function TabelaAtendimento({
         <TableRow>
           <TableHead>Número</TableHead>
           <TableHead>Time</TableHead>
-          <TableHead className="text-right">Conversas</TableHead>
+          <TableHead className="text-right">Conversas-dia</TableHead>
           <TableHead className="text-right">1ª resposta</TableHead>
           <TableHead className="text-right">Resposta</TableHead>
           <TableHead className="text-right">No SLA</TableHead>
