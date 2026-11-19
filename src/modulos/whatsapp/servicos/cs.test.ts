@@ -202,6 +202,33 @@ describe("listarVendasCs", () => {
     expect(r.vendas.find((v) => v.id === "sem-whats")!.conversaId).toBeNull();
   });
 
+  it("duas vendas para o mesmo contato: cada uma pega o primeiro envio depois dela", async () => {
+    const base = h(20);
+    const mais = (horas: number) => new Date(base.getTime() + horas * 3_600_000);
+    venda("B", base, "11999887766");
+    msg("c-cs", mais(1));
+    venda("A", mais(5), "11999887766");
+    msg("c-cs", mais(6));
+    const r = await listarVendasCs(gestor, inicio, fim, agora);
+    const a = r.vendas.find((v) => v.id === "A")!;
+    const b = r.vendas.find((v) => v.id === "B")!;
+    expect(b).toMatchObject({ situacao: "contatada", segundos: 3600, primeiroContatoEm: mais(1) });
+    expect(a).toMatchObject({ situacao: "contatada", segundos: 3600, primeiroContatoEm: mais(6) });
+  });
+
+  it('whatsappCliente "99887766" (8 dígitos) → sem_whatsapp', async () => {
+    venda("v1", h(5), "99887766");
+    const r = await listarVendasCs(gestor, inicio, fim, agora);
+    expect(r.vendas[0]).toMatchObject({ situacao: "sem_whatsapp", segundos: null, primeiroContatoEm: null, conversaId: null });
+  });
+
+  it("venda com criadoEm igual ao fim fica de fora", async () => {
+    venda("no-fim", fim, "11999887766");
+    venda("antes", new Date(fim.getTime() - 1), "11999887766");
+    const r = await listarVendasCs(gestor, inicio, fim, new Date(fim.getTime() + 60_000));
+    expect(r.vendas.map((v) => v.id)).toEqual(["antes"]);
+  });
+
   it("sem número cs → semNumeroCs true", async () => {
     banco.estado.numeros = [{ id: "pm1", time: "paciente_modelo", timeDesde: null, excluidoEm: null }];
     venda("v1", h(5), "11999887766");
