@@ -153,6 +153,16 @@ describe("metricasDoDia", () => {
   });
 });
 
+describe("metricasDoDia: follow-up perto da meia-noite", () => {
+  it("E às 22h de São Paulo: o follow-up conta no dia de São Paulo do devidoEm, não no dia UTC", () => {
+    // segunda 22h SP = terça 01h UTC; devidoEm = terça 22h SP = quarta 01h UTC
+    const conversas = [{ mensagens: [emp("2026-11-16T22:00:00"), emp("2026-11-18T10:00:00")] }];
+    const agora = d("2026-11-20T12:00:00");
+    expect(metricasDoDia(conversas, "2026-11-17", agora, r).followupsFeitos).toBe(1);
+    expect(metricasDoDia(conversas, "2026-11-18", agora, r).followupsFeitos).toBe(0);
+  });
+});
+
 describe("mediana e percentual", () => {
   it("mediana", () => {
     expect(mediana([])).toBeNull();
@@ -162,5 +172,6 @@ describe("mediana e percentual", () => {
   it("percentual", () => {
     expect(percentual(0, 0)).toBeNull();
     expect(percentual(9, 10)).toBe(90);
+    expect(percentual(57, 200)).toBe(29);
   });
 });

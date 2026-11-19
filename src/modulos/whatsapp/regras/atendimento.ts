@@ -116,5 +116,5 @@ export function mediana(valores: number[]): number | null {
 /** Inteiro de 0 a 100; null se não há total. */
 export function percentual(parte: number, total: number): number | null {
   if (total === 0) return null;
-  return Math.min(100, Math.max(0, Math.round((parte / total) * 100)));
+  return Math.min(100, Math.max(0, Math.round((parte * 100) / total)));
 }
