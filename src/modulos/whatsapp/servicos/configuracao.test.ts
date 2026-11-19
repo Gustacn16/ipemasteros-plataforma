@@ -24,7 +24,9 @@ vi.mock("@/lib/auditoria", () => ({
   },
 }));
 
-const { obterConfiguracaoWhatsapp, salvarConfiguracaoWhatsapp } = await import("./configuracao");
+const { obterConfiguracaoWhatsapp, salvarConfiguracaoWhatsapp, obterRegrasAtendimento, salvarRegrasAtendimento } = await import("./configuracao");
+const { REGRAS_PADRAO } = await import("../esquemas/regras-atendimento");
+const { ErroNegocio } = await import("@/lib/erros");
 
 describe("configuração do WhatsApp", () => {
   beforeEach(() => {
@@ -61,5 +63,31 @@ describe("configuração do WhatsApp", () => {
         diff: { limiteMensalMicroUsd: 10_000_000 },
       },
     ]);
+  });
+
+  it("obterRegrasAtendimento sem linha devolve REGRAS_PADRAO", async () => {
+    expect(await obterRegrasAtendimento()).toEqual(REGRAS_PADRAO);
+  });
+
+  it("obterRegrasAtendimento com Json inválido devolve REGRAS_PADRAO", async () => {
+    banco.estado.linha = { id: "unica", modelo: "x", limiteMensalMicroUsd: 1, regrasAtendimento: { slaMinutos: 0 } };
+    expect(await obterRegrasAtendimento()).toEqual(REGRAS_PADRAO);
+  });
+
+  it("salvarRegrasAtendimento grava e audita", async () => {
+    const regras = { ...REGRAS_PADRAO, slaMinutos: 30 };
+    await salvarRegrasAtendimento(regras, "u1");
+    expect(banco.estado.linha?.modelo).toBe("claude-opus-5-5");
+    expect(banco.estado.linha?.limiteMensalMicroUsd).toBe(80_000_000);
+    expect(await obterRegrasAtendimento()).toEqual(regras);
+    expect(banco.estado.auditorias).toEqual([
+      { usuarioId: "u1", acao: "whatsapp.regras_atendimento_alteradas", entidade: "ConfiguracaoWhatsapp", entidadeId: "unica", diff: regras },
+    ]);
+  });
+
+  it("salvarRegrasAtendimento com SLA 0 lança ErroNegocio e não grava", async () => {
+    await expect(salvarRegrasAtendimento({ ...REGRAS_PADRAO, slaMinutos: 0 }, "u1")).rejects.toBeInstanceOf(ErroNegocio);
+    expect(banco.estado.linha).toBeNull();
+    expect(banco.estado.auditorias).toEqual([]);
   });
 });

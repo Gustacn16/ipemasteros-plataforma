@@ -1346,6 +1346,13 @@ enum SituacaoComandoWhatsapp {
   falhou
 }
 
+enum TimeNumeroWhatsapp {
+  cs
+  paciente_modelo
+  comercial
+  outro
+}
+
 /// Vaga de número de WhatsApp (da escola ou de um vendedor). A sessão fica no motor, nunca aqui.
 model NumeroWhatsapp {
   id            String                   @id @default(cuid())
@@ -1357,17 +1364,20 @@ model NumeroWhatsapp {
   qrAtual       String?                  @map("qr_atual") @db.Text
   qrEm          DateTime?                @map("qr_em")
   conectadoEm   DateTime?                @map("conectado_em")
+  time          TimeNumeroWhatsapp       @default(outro)
+  timeDesde     DateTime?                @map("time_desde")
   ultimoSinalEm DateTime?                @map("ultimo_sinal_em")
   erro          String?                  @db.VarChar(255)
   excluidoEm    DateTime?                @map("excluido_em")
   criadoEm      DateTime                 @default(now()) @map("criado_em")
   atualizadoEm  DateTime                 @updatedAt @map("atualizado_em")
 
-  usuario   Usuario?           @relation(fields: [usuarioId], references: [id])
+  usuario   Usuario?                @relation(fields: [usuarioId], references: [id])
   comandos  ComandoWhatsapp[]
   conversas ConversaWhatsapp[]
   nosGrupos NumeroNoGrupo[]
   mensagens MensagemWhatsapp[]
+  metricas  MetricaAtendimentoDia[]
 
   @@index([usuarioId])
   @@map("numeros_whatsapp")
@@ -1515,12 +1525,36 @@ model ConfiguracaoWhatsapp {
   id                   String   @id
   modelo               String   @db.VarChar(60)
   limiteMensalMicroUsd Int      @map("limite_mensal_micro_usd")
+  regrasAtendimento    Json?    @map("regras_atendimento")
   atualizadoPorId      String?  @map("atualizado_por_id")
   atualizadoEm         DateTime @updatedAt @map("atualizado_em")
 
   atualizadoPor Usuario? @relation(fields: [atualizadoPorId], references: [id], onDelete: SetNull)
 
   @@map("configuracoes_whatsapp")
+}
+
+/// Métricas de atendimento de um número em um dia (calendário de São Paulo); recalculada pelo cron.
+model MetricaAtendimentoDia {
+  id                    String             @id @default(cuid())
+  numeroId              String             @map("numero_id")
+  dia                   DateTime           @db.Date
+  time                  TimeNumeroWhatsapp
+  conversasComCliente   Int                @map("conversas_com_cliente")
+  primeirasRespostasSeg Json               @map("primeiras_respostas_seg")
+  respostasSeg          Json               @map("respostas_seg")
+  respostasNoSla        Int                @map("respostas_no_sla")
+  semResposta           Int                @map("sem_resposta")
+  followupsFeitos       Int                @map("followups_feitos")
+  followupsPerdidos     Int                @map("followups_perdidos")
+  criadoEm              DateTime           @default(now()) @map("criado_em")
+  atualizadoEm          DateTime           @updatedAt @map("atualizado_em")
+
+  numero NumeroWhatsapp @relation(fields: [numeroId], references: [id])
+
+  @@unique([numeroId, dia])
+  @@index([dia])
+  @@map("metricas_atendimento_dia")
 }
 
 enum TipoLoteIa {
