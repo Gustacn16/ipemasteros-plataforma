@@ -40,91 +40,98 @@ export function ListaNumeros({ numeros, podeExcluir, podeEditarTime }: { numeros
   }
 
   return (
-    <div className="bg-card overflow-x-auto rounded-xl border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Nome</TableHead>
-            <TableHead>Finalidade</TableHead>
-            <TableHead>Time</TableHead>
-            <TableHead>Dono</TableHead>
-            <TableHead>Telefone</TableHead>
-            <TableHead>Situação</TableHead>
-            <TableHead>Conectado em</TableHead>
-            <TableHead>Último sinal</TableHead>
-            <TableHead className="text-right">Ações</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {numeros.map((n) => (
-            <TableRow key={n.id}>
-              <TableCell className="font-medium">{n.nome}</TableCell>
-              <TableCell>{ROTULO_FINALIDADE[n.finalidade]}</TableCell>
-              <TableCell>
-                {podeEditarTime ? (
-                  <Select
-                    value={n.time}
-                    disabled={pendente}
-                    onValueChange={(time) => rodar(() => alterarTimeNumeroAcao({ numeroId: n.id, time }))}
-                  >
-                    <SelectTrigger size="sm" aria-label={`Time do número ${n.nome}`} className="w-40">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {TIMES.map((t) => (
-                        <SelectItem key={t} value={t}>
-                          {ROTULO_TIME[t]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  ROTULO_TIME[n.time]
-                )}
-              </TableCell>
-              <TableCell>{n.dono ?? "—"}</TableCell>
-              <TableCell>{n.telefone ?? "—"}</TableCell>
-              <TableCell>
-                {n.rotulo}
-                {n.detalhe && <span className="text-muted-foreground block text-xs">{n.detalhe}</span>}
-              </TableCell>
-              <TableCell>{data(n.conectadoEm)}</TableCell>
-              <TableCell>{data(n.ultimoSinalEm)}</TableCell>
-              <TableCell>
-                <div className="flex justify-end gap-2">
-                  {n.estado !== "conectado" && <ConectarNumero numeroId={n.id} nome={n.nome} />}
-                  {n.estado === "conectado" && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={pendente}
-                      onClick={() => {
-                        if (!confirm("Desconectar este número? Para voltar, será preciso ler o QR de novo.")) return;
-                        rodar(() => desconectarNumeroAcao(n.id));
-                      }}
-                    >
-                      Desconectar
-                    </Button>
-                  )}
-                  {podeExcluir && n.estado !== "conectado" && (
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      disabled={pendente}
-                      onClick={() => {
-                        if (!confirm(`Excluir o número "${n.nome}"?`)) return;
-                        rodar(() => excluirNumeroAcao(n.id));
-                      }}
-                    >
-                      Excluir
-                    </Button>
-                  )}
-                </div>
-              </TableCell>
+    <div className="grid gap-2">
+      {podeEditarTime && (
+        <p className="text-muted-foreground text-sm">
+          O tempo da CS conta a partir de quando o número é marcado como CS. Trocar o time muda o que aparece na aba CS.
+        </p>
+      )}
+      <div className="bg-card overflow-x-auto rounded-xl border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Nome</TableHead>
+              <TableHead>Finalidade</TableHead>
+              <TableHead>Time</TableHead>
+              <TableHead>Dono</TableHead>
+              <TableHead>Telefone</TableHead>
+              <TableHead>Situação</TableHead>
+              <TableHead>Conectado em</TableHead>
+              <TableHead>Último sinal</TableHead>
+              <TableHead className="text-right">Ações</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {numeros.map((n) => (
+              <TableRow key={n.id}>
+                <TableCell className="font-medium">{n.nome}</TableCell>
+                <TableCell>{ROTULO_FINALIDADE[n.finalidade]}</TableCell>
+                <TableCell>
+                  {podeEditarTime ? (
+                    <Select
+                      value={n.time}
+                      disabled={pendente}
+                      onValueChange={(time) => rodar(() => alterarTimeNumeroAcao({ numeroId: n.id, time }))}
+                    >
+                      <SelectTrigger size="sm" aria-label={`Time do número ${n.nome}`} className="w-40">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TIMES.map((t) => (
+                          <SelectItem key={t} value={t}>
+                            {ROTULO_TIME[t]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    ROTULO_TIME[n.time]
+                  )}
+                </TableCell>
+                <TableCell>{n.dono ?? "—"}</TableCell>
+                <TableCell>{n.telefone ?? "—"}</TableCell>
+                <TableCell>
+                  {n.rotulo}
+                  {n.detalhe && <span className="text-muted-foreground block text-xs">{n.detalhe}</span>}
+                </TableCell>
+                <TableCell>{data(n.conectadoEm)}</TableCell>
+                <TableCell>{data(n.ultimoSinalEm)}</TableCell>
+                <TableCell>
+                  <div className="flex justify-end gap-2">
+                    {n.estado !== "conectado" && <ConectarNumero numeroId={n.id} nome={n.nome} />}
+                    {n.estado === "conectado" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={pendente}
+                        onClick={() => {
+                          if (!confirm("Desconectar este número? Para voltar, será preciso ler o QR de novo.")) return;
+                          rodar(() => desconectarNumeroAcao(n.id));
+                        }}
+                      >
+                        Desconectar
+                      </Button>
+                    )}
+                    {podeExcluir && n.estado !== "conectado" && (
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        disabled={pendente}
+                        onClick={() => {
+                          if (!confirm(`Excluir o número "${n.nome}"?`)) return;
+                          rodar(() => excluirNumeroAcao(n.id));
+                        }}
+                      >
+                        Excluir
+                      </Button>
+                    )}
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
