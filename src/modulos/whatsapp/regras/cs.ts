@@ -1,3 +1,5 @@
+import { formatarDuracao } from "./horario";
+
 /** Depois de 7 dias sem envio da CS, a venda passa de "aguardando" para "sem contato". */
 export const DIAS_SEM_CONTATO = 7;
 
@@ -23,4 +25,12 @@ export function situacaoVendaCs(
     return { situacao: "aguardando", primeiroContatoEm: null, segundos: Math.max(0, Math.round(passados / 1000)) };
   }
   return { situacao: "sem_contato", primeiroContatoEm: null, segundos: null };
+}
+
+/** Texto do tempo na tabela da CS, conforme a situação da venda. */
+export function rotuloSituacaoCs(situacao: SituacaoVendaCs, segundos: number | null): string {
+  if (situacao === "contatada") return formatarDuracao(segundos);
+  if (situacao === "aguardando") return `aguardando · ${formatarDuracao(segundos)}`;
+  if (situacao === "sem_contato") return `sem contato em ${DIAS_SEM_CONTATO} dias`;
+  return "sem WhatsApp na venda";
 }
