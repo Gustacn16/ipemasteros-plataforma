@@ -65,7 +65,7 @@
 
 ---
 
-### Tarefa 1: Esquema, migration e regras do atendimento na configuração
+### Task 1: Esquema, migration e regras do atendimento na configuração
 
 **Arquivos:**
 - Modificar: `prisma/schema.prisma`
@@ -109,7 +109,7 @@
 - [ ] **Passo 4:** rodar os testes de novo (esperado: passam) e depois `npx tsc --noEmit`.
 - [ ] **Passo 5:** commit `feat(whatsapp): time do número, métricas diárias e regras do atendimento`.
 
-### Tarefa 2: Tempo dentro do horário comercial
+### Task 2: Tempo dentro do horário comercial
 
 **Arquivos:**
 - Criar: `src/modulos/whatsapp/regras/horario.ts`
@@ -134,7 +134,7 @@
 - [ ] **Passo 4:** rodar e ver passar.
 - [ ] **Passo 5:** commit `feat(whatsapp): tempo dentro do horário comercial`.
 
-### Tarefa 3: Vezes do cliente, follow-up e métricas de um dia (regra pura)
+### Task 3: Vezes do cliente, follow-up e métricas de um dia (regra pura)
 
 **Arquivos:**
 - Criar: `src/modulos/whatsapp/regras/atendimento.ts`
@@ -182,7 +182,7 @@
 - [ ] **Passo 4:** rodar e ver passar.
 - [ ] **Passo 5:** commit `feat(whatsapp): vezes do cliente, follow-up e métricas do dia`.
 
-### Tarefa 4: Recálculo das métricas, cron e limpeza
+### Task 4: Recálculo das métricas, cron e limpeza
 
 **Arquivos:**
 - Criar: `src/modulos/whatsapp/servicos/metricas.ts`
@@ -214,7 +214,7 @@
 - [ ] **Passo 4:** rodar os testes de novo (esperado: passam) e depois `npx tsc --noEmit`.
 - [ ] **Passo 5:** commit `feat(whatsapp): cron de métricas do atendimento`.
 
-### Tarefa 5: Time do número na tela Números
+### Task 5: Time do número na tela Números
 
 **Arquivos:**
 - Modificar: `src/modulos/whatsapp/servicos/numeros.ts`, `src/modulos/whatsapp/acoes/numeros.ts`, `src/modulos/whatsapp/componentes/lista-numeros.tsx`, `src/app/(app)/whatsapp/numeros/page.tsx`
@@ -243,7 +243,7 @@
 - [ ] **Passo 4:** rodar os testes de novo (esperado: passam) e depois `npx tsc --noEmit`.
 - [ ] **Passo 5:** commit `feat(whatsapp): time do número na tela Números`.
 
-### Tarefa 6: Tempo da CS (regra e serviço)
+### Task 6: Tempo da CS (regra e serviço)
 
 **Arquivos:**
 - Criar: `src/modulos/whatsapp/regras/cs.ts`, `src/modulos/whatsapp/servicos/cs.ts`
@@ -288,7 +288,7 @@
 - [ ] **Passo 4:** rodar os testes de novo (esperado: passam) e depois `npx tsc --noEmit`.
 - [ ] **Passo 5:** commit `feat(whatsapp): tempo da venda até o primeiro contato da CS`.
 
-### Tarefa 7: Aba Atendimento
+### Task 7: Aba Atendimento
 
 **Arquivos:**
 - Modificar: `src/modulos/whatsapp/regras/dia.ts` (semanas)
@@ -342,7 +342,7 @@
 - [ ] **Passo 4:** rodar os testes de novo (esperado: passam), depois `npx tsc --noEmit` e `npx next build --webpack`. Esperado: o build termina, e a rota `/whatsapp/atendimento` aparece na lista.
 - [ ] **Passo 5:** commit `feat(whatsapp): aba Atendimento com tempos e evolução semanal`.
 
-### Tarefa 8: Aba CS
+### Task 8: Aba CS
 
 **Arquivos:**
 - Criar: `src/app/(app)/whatsapp/cs/page.tsx`, `src/modulos/whatsapp/componentes/tabela-cs.tsx`
