@@ -23,13 +23,15 @@ const EIXO = { fill: "var(--muted-foreground)", fontSize: 12 };
 
 const valor = (v: number | null, unidade: string) => (v === null ? "—" : `${String(v).replace(".", ",")}${unidade}`);
 
-function Dica({ active, payload }: { active?: boolean; payload?: { payload: Ponto }[] }) {
+type Serie = (typeof SERIES)[number];
+
+function Dica({ active, payload, series }: { active?: boolean; payload?: { payload: Ponto }[]; series: Serie[] }) {
   const p = payload?.[0]?.payload;
   if (!active || !p) return null;
   return (
     <div className="bg-popover text-popover-foreground rounded-lg border px-3 py-2 text-xs shadow-md tabular-nums">
       <p className="mb-1 font-medium">{p.rotulo}</p>
-      {SERIES.map((s) => (
+      {series.map((s) => (
         <p key={s.chave} className="flex items-center gap-1.5">
           <span aria-hidden className="size-2.5 rounded-sm" style={{ backgroundColor: s.cor }} />
           {s.nome}: <span className="font-medium">{valor(p[s.chave], s.unidade)}</span>
@@ -39,10 +41,14 @@ function Dica({ active, payload }: { active?: boolean; payload?: { payload: Pont
   );
 }
 
-/** Evolução semanal de um número: tempos em minutos (eixo da esquerda) e percentuais (eixo da direita). Semana sem dado vira lacuna. */
-export function GraficoAtendimento({ dados }: { dados: Ponto[] }) {
+/**
+ * Evolução semanal de um número: tempos em minutos (eixo da esquerda) e percentuais (eixo da direita). Semana sem dado vira lacuna.
+ * `comFollowup` falso (números fora dos times de venda) tira a série de follow-up.
+ */
+export function GraficoAtendimento({ dados, comFollowup }: { dados: Ponto[]; comFollowup: boolean }) {
+  const series = comFollowup ? SERIES : SERIES.filter((s) => s.chave !== "followupPct");
   const resumo = dados
-    .map((d) => `${d.rotulo}: ${SERIES.map((s) => `${s.nome} ${valor(d[s.chave], s.unidade)}`).join(", ")}`)
+    .map((d) => `${d.rotulo}: ${series.map((s) => `${s.nome} ${valor(d[s.chave], s.unidade)}`).join(", ")}`)
     .join("; ");
   return (
     <div className="grid gap-3">
@@ -53,8 +59,8 @@ export function GraficoAtendimento({ dados }: { dados: Ponto[] }) {
             <XAxis dataKey="rotulo" tick={EIXO} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={8} />
             <YAxis yAxisId="min" tick={EIXO} tickLine={false} axisLine={false} width={48} unit=" min" allowDecimals={false} />
             <YAxis yAxisId="pct" orientation="right" domain={[0, 100]} tick={EIXO} tickLine={false} axisLine={false} width={40} unit="%" />
-            <Tooltip content={<Dica />} cursor={{ stroke: "var(--border)" }} />
-            {SERIES.map((s) => (
+            <Tooltip content={<Dica series={series} />} cursor={{ stroke: "var(--border)" }} />
+            {series.map((s) => (
               <Line
                 key={s.chave}
                 yAxisId={s.eixo}
@@ -72,7 +78,7 @@ export function GraficoAtendimento({ dados }: { dados: Ponto[] }) {
         </ResponsiveContainer>
       </div>
       <ul className="text-muted-foreground flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs">
-        {SERIES.map((s) => (
+        {series.map((s) => (
           <li key={s.chave} className="flex items-center gap-1.5">
             <span aria-hidden className="size-2.5 rounded-sm" style={{ backgroundColor: s.cor }} />
             {s.nome} ({s.eixo === "min" ? "min" : "%"})

@@ -6,10 +6,11 @@ import type { UsuarioAtual } from "@/lib/sessao";
 import { somarDias } from "@/modulos/tarefas/regras/prazo";
 import { eventosDaConversa, mediana, percentual, type MensagemTempo } from "../regras/atendimento";
 import type { Semana } from "../regras/dia";
+import { temFollowup } from "../regras/time";
 import { obterRegrasAtendimento } from "./configuracao";
 
 const ESCOPO = "whatsapp:ver_equipe";
-const JANELA_AO_VIVO_MS = 7 * 86_400_000;
+const JANELA_AO_VIVO_MS = 30 * 86_400_000;
 const LOTE_CONVERSAS = 1000;
 
 export type LinhaAtendimento = {
@@ -99,24 +100,36 @@ export async function resumoDaSemana(
   ]);
   const porNumero = new Map<string, LinhaDiaria[]>();
   for (const l of linhas) porNumero.set(l.numeroId, [...(porNumero.get(l.numeroId) ?? []), l]);
-  return numeros.map((n) => ({
-    numeroId: n.id,
-    nome: n.nome,
-    dono: n.usuario ? (n.usuario.apelido ?? n.usuario.nome) : null,
-    time: n.time,
-    ...agregar(porNumero.get(n.id) ?? []),
-    semRespostaAgora: aoVivo.filter((i) => i.numeroId === n.id).length,
-  }));
+  return numeros.map((n) => {
+    const a = agregar(porNumero.get(n.id) ?? []);
+    return {
+      numeroId: n.id,
+      nome: n.nome,
+      dono: n.usuario ? (n.usuario.apelido ?? n.usuario.nome) : null,
+      time: n.time,
+      ...a,
+      // Follow-up só vale nos times de venda (pelo time atual do número).
+      followupPct: temFollowup(n.time) ? a.followupPct : null,
+      semRespostaAgora: aoVivo.filter((i) => i.numeroId === n.id).length,
+    };
+  });
 }
 
 const emMinutos = (seg: number | null) => (seg === null ? null : Math.round(seg / 6) / 10);
 
-/** Para cada semana (da lista, em ordem), os tempos em minutos e os percentuais; null onde não há dado. */
+/**
+ * Para cada semana (da lista, em ordem), os tempos em minutos e os percentuais; null onde não há dado.
+ * O follow-up fica null em todas as semanas quando o time atual do número não é de venda.
+ */
 export async function evolucaoDoNumero(ator: UsuarioAtual, numeroId: string, semanas: Semana[]): Promise<PontoEvolucao[]> {
   exigirPermissao(ator);
   if (semanas.length === 0) return [];
   const textos = semanas.map((s) => s.texto).sort();
-  const linhas = await linhasDaSemana({ numeroId }, textos[0]!, somarDias(textos[textos.length - 1]!, 7));
+  const [numeros, linhas] = await Promise.all([
+    prisma.numeroWhatsapp.findMany({ where: { id: numeroId }, select: { time: true } }),
+    linhasDaSemana({ numeroId }, textos[0]!, somarDias(textos[textos.length - 1]!, 7)),
+  ]);
+  const comFollowup = numeros[0] ? temFollowup(numeros[0].time) : false;
   return semanas.map((s) => {
     const fim = somarDias(s.texto, 7);
     const daSemana = linhas.filter((l) => l.dia >= diaDb(s.texto) && l.dia < diaDb(fim));
@@ -126,14 +139,14 @@ export async function evolucaoDoNumero(ator: UsuarioAtual, numeroId: string, sem
       primeiraRespostaMin: emMinutos(a.primeiraRespostaSeg),
       respostaMin: emMinutos(a.respostaSeg),
       noSlaPct: a.noSlaPct,
-      followupPct: a.followupPct,
+      followupPct: comFollowup ? a.followupPct : null,
     };
   });
 }
 
 /**
  * Conversas `lead`/`aluno` cuja última vez do cliente está aberta e já passou do SLA, da maior espera para a menor.
- * Lê só as conversas com mensagem nos últimos 7 dias; mensagens em lote, nunca uma consulta por conversa.
+ * Lê só as conversas com mensagem nos últimos 30 dias; mensagens em lote, nunca uma consulta por conversa.
  */
 export async function semRespostaAgora(ator: UsuarioAtual, agora: Date = new Date()): Promise<ItemSemResposta[]> {
   exigirPermissao(ator);
@@ -169,8 +182,9 @@ export async function semRespostaAgora(ator: UsuarioAtual, agora: Date = new Dat
   for (const c of conversas) {
     const mensagens = porConversa.get(c.id);
     if (!mensagens?.length || !c.numeroId) continue;
-    // Só as mensagens da janela de 7 dias entram: uma espera que começou antes dela conta
-    // a partir da primeira mensagem do cliente dentro da janela (e `desde` mostra esse instante).
+    // Conversas e mensagens usam a mesma janela de 30 dias: assim uma conversa cuja última mensagem
+    // tem, por exemplo, 10 dias ainda tem as mensagens dela. Uma espera que começou antes da janela
+    // conta a partir da primeira mensagem do cliente dentro dela (e `desde` mostra esse instante).
     const { vezes } = eventosDaConversa(mensagens, agora, regras);
     const ultima = vezes[vezes.length - 1];
     if (!ultima || ultima.respondidaEm || ultima.segundos <= sla) continue;

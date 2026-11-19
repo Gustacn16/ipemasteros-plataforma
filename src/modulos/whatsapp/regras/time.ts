@@ -8,3 +8,8 @@ export const ROTULO_TIME: Record<TimeNumeroWhatsapp, string> = {
   comercial: "Comercial",
   outro: "Outro",
 };
+
+/** Times de venda: só neles o follow-up vale. A CS e "outro" não cobram o cliente. */
+export const TIMES_COM_FOLLOWUP: readonly TimeNumeroWhatsapp[] = ["paciente_modelo", "comercial"];
+
+export const temFollowup = (time: TimeNumeroWhatsapp) => TIMES_COM_FOLLOWUP.includes(time);

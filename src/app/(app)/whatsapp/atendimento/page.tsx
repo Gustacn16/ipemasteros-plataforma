@@ -9,6 +9,7 @@ import { GraficoAtendimento } from "@/modulos/whatsapp/componentes/grafico-atend
 import { RegrasAtendimentoForm } from "@/modulos/whatsapp/componentes/regras-atendimento";
 import { ListaSemResposta, TabelaAtendimento, TextoRegras } from "@/modulos/whatsapp/componentes/tabela-atendimento";
 import { semanaDaConsulta, ultimasSemanas } from "@/modulos/whatsapp/regras/dia";
+import { temFollowup } from "@/modulos/whatsapp/regras/time";
 import { obterRegrasAtendimento } from "@/modulos/whatsapp/servicos/configuracao";
 import { evolucaoDoNumero, resumoDaSemana, semRespostaAgora } from "@/modulos/whatsapp/servicos/painel-atendimento";
 
@@ -45,7 +46,7 @@ export default async function PaginaAtendimento({ searchParams }: { searchParams
       <Card>
         <CardHeader>
           <CardTitle>Semana de {semana.rotulo}</CardTitle>
-          <CardDescription>Tempos contados só dentro do horário de atendimento. &quot;Sem resposta agora&quot; é a situação deste momento. Conversas-dia: uma conversa com mensagem do cliente em 3 dias conta 3.</CardDescription>
+          <CardDescription>Tempos contados só dentro do horário de atendimento. &quot;Sem resposta agora&quot; é a situação deste momento. Conversas-dia: uma conversa com mensagem do cliente em 3 dias conta 3. Follow-up só nos números de paciente modelo e comercial.</CardDescription>
           <nav aria-label="Escolher semana" className="flex flex-wrap gap-3 text-sm">
             <Link href={comNumero(anterior)} className="underline-offset-4 hover:underline">
               ← Semana anterior
@@ -78,7 +79,7 @@ export default async function PaginaAtendimento({ searchParams }: { searchParams
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <GraficoAtendimento dados={evolucao} />
+            <GraficoAtendimento dados={evolucao} comFollowup={temFollowup(selecionado.time)} />
           </CardContent>
         </Card>
       )}
@@ -86,7 +87,9 @@ export default async function PaginaAtendimento({ searchParams }: { searchParams
       <Card>
         <CardHeader>
           <CardTitle>Sem resposta agora{selecionado ? ` — ${selecionado.nome}` : ""}</CardTitle>
-          <CardDescription>Conversas em que o cliente espera além do prazo de resposta, da maior espera para a menor.</CardDescription>
+          <CardDescription>
+            Conversas com mensagem nos últimos 30 dias em que o cliente espera além do prazo de resposta, da maior espera para a menor.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <ListaSemResposta itens={itens} mostrarNumero={!selecionado} />

@@ -173,6 +173,23 @@ describe("resumoDaSemana", () => {
     expect(linha.followupPct).toBe(75);
   });
 
+  it("followupPct só para números de venda: cs dá null, comercial dá o valor", async () => {
+    banco.estado.numeros = [numero("n1", { time: "cs" }), numero("n2", { time: "comercial" }), numero("n3", { time: "outro" })];
+    banco.estado.metricas = [
+      metrica("n1", "2026-11-16", { followupsFeitos: 3, followupsPerdidos: 1 }),
+      metrica("n2", "2026-11-16", { followupsFeitos: 3, followupsPerdidos: 1 }),
+      metrica("n3", "2026-11-16", { followupsFeitos: 3, followupsPerdidos: 1 }),
+    ];
+    banco.estado.conversas = [conversa("c1", "n1")];
+    banco.estado.mensagens = [msg("c1", false, min(40))];
+    const linhas = await resumoDaSemana(gestor, semana, { agora });
+    expect(linhas.map((l) => [l.numeroId, l.followupPct, l.semRespostaAgora])).toEqual([
+      ["n1", null, 1],
+      ["n2", 75, 0],
+      ["n3", null, 0],
+    ]);
+  });
+
   it("semRespostaAgora da linha é a contagem ao vivo do número", async () => {
     banco.estado.numeros = [numero("n1"), numero("n2")];
     banco.estado.conversas = [conversa("c1", "n1"), conversa("c2", "n1"), conversa("c3", "n2")];
@@ -196,7 +213,7 @@ describe("semRespostaAgora", () => {
       conversa("equipe", "n1", { categoria: "equipe" }),
       conversa("grupo", "n1", { tipo: "grupo" }),
       conversa("excluido", "n9"),
-      conversa("velha", "n1", { ultimaMensagemEm: new Date(agora.getTime() - 8 * 86_400_000) }),
+      conversa("velha", "n1", { ultimaMensagemEm: new Date(agora.getTime() - 31 * 86_400_000) }),
     ];
     banco.estado.mensagens = [
       msg("aberta", true, min(60)),
@@ -223,6 +240,19 @@ describe("semRespostaAgora", () => {
     });
     expect(lista[1]).toMatchObject({ contatoNome: "Maria", desde: min(30), segundos: 30 * 60 });
     expect(banco.estado.consultasMensagens).toBe(1);
+  });
+
+  it("conversa com a última mensagem do cliente há 10 dias e sem resposta aparece", async () => {
+    banco.estado.numeros = [numero("n1")];
+    const dezDias = new Date(agora.getTime() - 10 * 86_400_000);
+    banco.estado.conversas = [
+      conversa("antiga", "n1", { ultimaMensagemEm: dezDias }),
+      conversa("fora", "n1", { ultimaMensagemEm: new Date(agora.getTime() - 31 * 86_400_000) }),
+    ];
+    banco.estado.mensagens = [msg("antiga", false, dezDias), msg("fora", false, new Date(agora.getTime() - 31 * 86_400_000))];
+    const lista = await semRespostaAgora(gestor, agora);
+    expect(lista.map((i) => i.conversaId)).toEqual(["antiga"]);
+    expect(lista[0]!.desde).toEqual(dezDias);
   });
 
   it("sem conversas não consulta mensagens", async () => {
@@ -252,5 +282,12 @@ describe("evolucaoDoNumero", () => {
       { rotulo: "09/11 a 15/11", primeiraRespostaMin: null, respostaMin: null, noSlaPct: 0, followupPct: null },
       { rotulo: "16/11 a 22/11", primeiraRespostaMin: 3, respostaMin: 1.5, noSlaPct: 100, followupPct: 100 },
     ]);
+  });
+
+  it("número cs não tem follow-up na evolução", async () => {
+    banco.estado.numeros = [numero("n1", { time: "cs" })];
+    banco.estado.metricas = [metrica("n1", "2026-11-16", { respostasSeg: [90], respostasNoSla: 1, followupsFeitos: 1 })];
+    const pontos = await evolucaoDoNumero(gestor, "n1", ultimasSemanas(agora, 1));
+    expect(pontos).toEqual([{ rotulo: "16/11 a 22/11", primeiraRespostaMin: null, respostaMin: 1.5, noSlaPct: 100, followupPct: null }]);
   });
 });
