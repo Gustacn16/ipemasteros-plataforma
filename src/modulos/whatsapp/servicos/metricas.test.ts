@@ -46,7 +46,7 @@ const banco = vi.hoisted(() => {
       },
     },
     metricaAtendimentoDia: {
-      findMany: async (args: { distinct?: string[]; select: Linha }) => {
+      findMany: async () => {
         const ids = [...new Set(estado.metricas.map((m) => m.numeroId))];
         return ids.map((numeroId) => ({ numeroId }));
       },
