@@ -26,7 +26,8 @@ export default async function PaginaCs({ searchParams }: { searchParams: Promise
   const atual = semanaDaConsulta(undefined, agora);
 
   const [resumo, evolucao] = await Promise.all([
-    listarVendasCs(usuario, semana.inicio, semana.fim, agora),
+    // Na semana atual entram também as vendas de antes da segunda que ainda aguardam contato.
+    listarVendasCs(usuario, semana.inicio, semana.fim, agora, { incluirAguardandoAnteriores: semana.texto === atual.texto }),
     evolucaoCs(usuario, ultimasSemanas(agora, SEMANAS_NO_GRAFICO), agora),
   ]);
   const pontos = evolucao.map((e) => ({
@@ -61,7 +62,10 @@ export default async function PaginaCs({ searchParams }: { searchParams: Promise
           <Card>
             <CardHeader>
               <CardTitle>Semana de {semana.rotulo}</CardTitle>
-              <CardDescription>Tempo em horas corridas, da venda até a primeira mensagem de um número da CS.</CardDescription>
+              <CardDescription>
+                Tempo em horas corridas, da venda até a primeira mensagem de um número da CS.
+                {semana.texto === atual.texto && " Vendas de antes desta semana que ainda aguardam contato também aparecem no topo."}
+              </CardDescription>
               <nav aria-label="Escolher semana" className="flex flex-wrap gap-3 text-sm">
                 <Link href={`/whatsapp/cs?semana=${anterior}`} className="underline-offset-4 hover:underline">
                   ← Semana anterior

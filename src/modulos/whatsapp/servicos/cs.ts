@@ -4,7 +4,7 @@ import { ErroPermissao, temPermissao } from "@/lib/permissoes";
 import type { UsuarioAtual } from "@/lib/sessao";
 import { mediana } from "../regras/atendimento";
 import { chaveTelefone, variantesTelefone } from "../regras/captura";
-import { situacaoVendaCs, type SituacaoVendaCs } from "../regras/cs";
+import { DIAS_SEM_CONTATO, situacaoVendaCs, type SituacaoVendaCs } from "../regras/cs";
 
 const ESCOPO = "whatsapp:ver_equipe";
 
@@ -124,20 +124,30 @@ function medianaContatadas(vendas: VendaCs[]): number | null {
   return mediana(vendas.filter((v) => v.situacao === "contatada").map((v) => v.segundos!));
 }
 
-/** Vendas do período com o tempo até o primeiro contato da CS. Exige `whatsapp:ver_equipe`. */
+/**
+ * Vendas do período com o tempo até o primeiro contato da CS. Exige `whatsapp:ver_equipe`.
+ * Com `incluirAguardandoAnteriores` (a página liga só na semana atual), entram também as vendas
+ * de até `DIAS_SEM_CONTATO` dias antes de `inicio` (e a partir do início da CS) que ainda
+ * aguardam o primeiro contato. Elas entram na lista e na contagem "aguardando", não na mediana.
+ */
 export async function listarVendasCs(
   ator: UsuarioAtual,
   inicio: Date,
   fim: Date,
   agora: Date = new Date(),
+  opcoes: { incluirAguardandoAnteriores?: boolean } = {},
 ): Promise<{ semNumeroCs: boolean; vendas: VendaCs[]; medianaSeg: number | null; aguardando: number }> {
   exigirPermissao(ator);
-  const vendas = await carregarVendasCs(inicio, fim, agora);
-  if (!vendas) return { semNumeroCs: true, vendas: [], medianaSeg: null, aguardando: 0 };
+  const desde = opcoes.incluirAguardandoAnteriores ? new Date(inicio.getTime() - DIAS_SEM_CONTATO * 86_400_000) : inicio;
+  const carregadas = await carregarVendasCs(desde, fim, agora);
+  if (!carregadas) return { semNumeroCs: true, vendas: [], medianaSeg: null, aguardando: 0 };
+  const daSemana = carregadas.filter((v) => v.criadoEm >= inicio);
+  const anteriores = carregadas.filter((v) => v.criadoEm < inicio && v.situacao === "aguardando");
+  const vendas = [...anteriores, ...daSemana];
   return {
     semNumeroCs: false,
     vendas: ordenar(vendas),
-    medianaSeg: medianaContatadas(vendas),
+    medianaSeg: medianaContatadas(daSemana),
     aguardando: vendas.filter((v) => v.situacao === "aguardando").length,
   };
 }

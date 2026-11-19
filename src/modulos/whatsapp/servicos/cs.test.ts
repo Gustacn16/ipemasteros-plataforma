@@ -124,6 +124,46 @@ beforeEach(() => {
 });
 
 describe("listarVendasCs", () => {
+  describe("incluirAguardandoAnteriores", () => {
+    // Semana atual: segunda 16/11 0h SP (03h UTC) a segunda 23/11.
+    const inicioSemana = new Date("2026-11-16T03:00:00Z");
+    const fimSemana = new Date("2026-11-23T03:00:00Z");
+    const domingo21h = new Date("2026-11-16T00:00:00Z"); // domingo 15/11, 21h em SP
+
+    beforeEach(() => {
+      banco.estado.contatos.push({ id: "k2", telefone: "5511988887777" }, { id: "k3", telefone: "5511977776666" });
+      banco.estado.conversas.push({ id: "c-cs2", tipo: "individual", numeroId: "cs1", contatoId: "k2", ultimaMensagemEm: h(2) });
+      venda("domingo", domingo21h, "11999887766");
+      venda("anterior-contatada", new Date("2026-11-14T15:00:00Z"), "11988887777");
+      msg("c-cs2", new Date("2026-11-14T16:00:00Z"));
+      venda("velha", h(24 * 8), "11977776666");
+      venda("semana", h(3), "11988887777");
+      msg("c-cs2", h(1));
+    });
+
+    it("venda de domingo 21h sem contato aparece na semana seguinte com a opção ligada", async () => {
+      const r = await listarVendasCs(gestor, inicioSemana, fimSemana, agora, { incluirAguardandoAnteriores: true });
+      expect(r.vendas.map((v) => [v.id, v.situacao])).toEqual([
+        ["domingo", "aguardando"],
+        ["semana", "contatada"],
+      ]);
+      expect(r.aguardando).toBe(1);
+      expect(r.medianaSeg).toBe(2 * 3600);
+    });
+
+    it("com a opção desligada só entram as vendas da semana", async () => {
+      const r = await listarVendasCs(gestor, inicioSemana, fimSemana, agora);
+      expect(r.vendas.map((v) => v.id)).toEqual(["semana"]);
+      expect(r.aguardando).toBe(0);
+    });
+
+    it("não traz venda anterior ao início da CS", async () => {
+      banco.estado.numeros[0]!.timeDesde = new Date("2026-11-16T01:00:00Z");
+      const r = await listarVendasCs(gestor, inicioSemana, fimSemana, agora, { incluirAguardandoAnteriores: true });
+      expect(r.vendas.map((v) => v.id)).toEqual(["semana"]);
+    });
+  });
+
   it('venda "1199887766" acha contato "5511999887766"', async () => {
     venda("v1", h(5), "1199887766");
     msg("c-cs", h(4));
