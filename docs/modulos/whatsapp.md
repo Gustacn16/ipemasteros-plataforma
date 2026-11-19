@@ -6,14 +6,15 @@ Conectar os números de WhatsApp da escola e dos vendedores ao IPEMaster OS e gu
 ## Entidades
 | Entidade | Campos principais |
 |---|---|
-| `NumeroWhatsapp` | id, nome, finalidade (`escola`/`vendedor`), usuarioId? (dono; só vendedor), telefone?, situacao (`desconectado`/`aguardando_qr`/`conectado`/`erro`), qrAtual?, qrEm?, conectadoEm?, ultimoSinalEm?, erro?, excluidoEm |
+| `NumeroWhatsapp` | id, nome, finalidade (`escola`/`vendedor`), usuarioId? (dono; só vendedor), telefone?, situacao (`desconectado`/`aguardando_qr`/`conectado`/`erro`), qrAtual?, qrEm?, conectadoEm?, ultimoSinalEm?, erro?, time (`TimeNumeroWhatsapp`: `cs`/`paciente_modelo`/`comercial`/`outro`, padrão `outro`), timeDesde? (quando a gestão mudou o time), excluidoEm |
 | `ComandoWhatsapp` | id, numeroId, tipo (`conectar`/`desconectar`), situacao (`pendente`/`em_andamento`/`concluido`/`falhou`), tentativas |
 | `ContatoWhatsapp` | id, telefone? (chave canônica com o 9, única), lid? (único), nomeExibido?, alunoId?, usuarioId? |
 | `ConversaWhatsapp` | id, jid, tipo (`grupo`/`individual`), chaveGrupo? (= jid nos grupos, único), numeroId? (só individuais), nome?, contatoId?, turmaId?, numeroEnvioId? (sem uso ainda), categoria (padrão `outro`; `pessoal` descarta), monitorada, provisoriaAte?, ultimaMensagemEm? |
 | `NumeroNoGrupo` | numeroId + conversaId: quais números da empresa estão em cada grupo |
 | `MensagemWhatsapp` | id, conversaId, idExterno (único por conversa), numeroId (quem capturou primeiro), contatoId? (autor), deMim, tipo, texto?, respondeAIdExterno?, enviadaEm |
-| `ConfiguracaoWhatsapp` | id (`unica`), modelo (padrão `claude-opus-5-5`), limiteMensalMicroUsd (padrão US$ 80), atualizadoPorId? |
+| `ConfiguracaoWhatsapp` | id (`unica`), modelo (padrão `claude-opus-5-5`), limiteMensalMicroUsd (padrão US$ 80), regrasAtendimento? (JSON: horário por dia da semana, SLA, follow-up; vazio = padrão), atualizadoPorId? |
 | `LoteIa` | id, idExterno (único), tipo (`resumo_grupo`/`avaliacao`), dia, situacao (`aberto`/`concluido`/`falhou`), erro?, concluidoEm? |
+| `MetricaAtendimentoDia` | id, numeroId, dia (data de São Paulo), time (o do número no dia), conversasComCliente, primeirasRespostasSeg e respostasSeg (listas de segundos, JSON), respostasNoSla, semResposta, followupsFeitos, followupsPerdidos; única por número + dia. Sem dado pessoal |
 | `ResumoGrupo` | id, conversaId, dia (data de São Paulo), loteId?, resumo?, temas?, pendencias?, destaques?, participacao, totalMensagens, modelo, situacao (`pendente`/`pronto`/`falhou`), erro?; único por conversa + dia |
 
 Grupo é único pelo jid, mesmo que vários números da empresa estejam nele. Conversa individual é única por número + jid. A mesma mensagem capturada por dois números não duplica (`conversaId` + `idExterno`).
@@ -26,12 +27,16 @@ A tela nunca fala com o motor: grava comandos no banco e o motor os busca. O mot
 - `whatsapp:ver_grupos` (admin e gestor): vê os grupos, liga turma e escolhe quais acompanhar. Só a gestão enxerga grupos.
 - `whatsapp:ver_equipe` (admin e gestor): vê todas as conversas individuais e muda a categoria delas.
 - `whatsapp:ver_proprio` (papel `comercial`): vê e categoriza só as conversas dos números dos quais é dono.
+- Abas **Atendimento** e **CS**: só `whatsapp:ver_equipe`. Mudar o time de um número: `whatsapp:gerenciar_numeros`. Editar as regras do atendimento: só o papel `admin`.
 
 ## Telas
-- `/whatsapp` redireciona para a primeira aba que a pessoa pode ver. As abas no topo são **Grupos · Conversas · Números**, cada uma só para quem pode. O item "WhatsApp" do menu aparece para quem tem qualquer uma das permissões do módulo.
+- `/whatsapp` redireciona para a primeira aba que a pessoa pode ver. As abas no topo são **Grupos · Atendimento · CS · Conversas · Números**, cada uma só para quem pode. O item "WhatsApp" do menu aparece para quem tem qualquer uma das permissões do módulo.
 - `/whatsapp/grupos`: tabela com nome, números da empresa no grupo, mensagens nos últimos 7 dias, turma (seletor) e o interruptor "Acompanhar". Grupo provisório mostra "Histórico guardado até <data>". Ao desmarcar, confirma "As mensagens guardadas deste grupo serão apagadas."
 - `/whatsapp/conversas`: filtro por número e categoria; categoria editável por linha (marcar "pessoal" pede confirmação). O clique abre `/whatsapp/conversas/[id]` com as últimas 200 mensagens (texto, ou "[áudio]", "[imagem]" etc.).
 - `/whatsapp/numeros`: tabela com nome, finalidade, dono, telefone, situação, conectado em e último sinal. Por linha: **Conectar** (quando não conectado), **Desconectar** (conectado; pede confirmação) e **Excluir** (qualquer situação menos conectado, só gestão). Em erro, a linha mostra o detalhe enviado pelo motor abaixo da situação. **Novo número** (só gestão): nome, finalidade e, para vendedor, o dono entre os usuários ativos com papel `comercial`.
+- `/whatsapp/atendimento` (entrega 4): semana de segunda a domingo (`?semana=AAAA-MM-DD`, a segunda; padrão a semana atual). Tabela por número: time, conversas-dia, 1ª resposta e resposta (medianas), % no SLA, % de follow-up ("—" fora dos times de venda) e "Sem resposta agora". Clicar no número (`&numero=`) mostra o gráfico das 8 últimas semanas (sem a série de follow-up para números fora dos times de venda). Card "Sem resposta agora" (conversas com mensagem nos últimos 30 dias) e card "Regras do atendimento", editável só pelo admin; os outros veem as regras em texto.
+- `/whatsapp/cs` (entrega 4): vendas da semana com o tempo até o primeiro contato da CS; as que aguardam ficam no topo. Na semana atual, entram também as vendas de antes da segunda que ainda aguardam. Cabeçalho com a mediana e quantas aguardam; gráfico das 8 últimas semanas. Sem número `cs`, mostra "Nenhum número de CS".
+- Na tela Números, a coluna **Time** é um seletor para a gestão, com a ajuda "O tempo da CS conta a partir de quando o número é marcado como CS. Trocar o time muda o que aparece na aba CS."
 - **Diálogo Conectar:** pede a conexão e consulta a situação a cada 2 s enquanto aberto. Mostra o QR com a instrução "No celular: WhatsApp › Aparelhos conectados › Conectar um aparelho". Ao conectar, mostra "Conectado!" e fecha em 2 s. Em QR expirado, erro, desconectado, removido no celular ou motor sem resposta, para de consultar e oferece "Tentar de novo". Em erro, mostra o detalhe enviado pelo motor (ex.: "Acesso recusado pelo WhatsApp.", "Não foi possível abrir a conexão (status 405).").
 
 ## Regras de negócio
@@ -57,10 +62,19 @@ A tela nunca fala com o motor: grava comandos no banco e o motor os busca. O mot
 16. **Resumo diário dos grupos (entrega 3):** todo dia o cron `ia-whatsapp` (07:30 UTC) pede à IA, em lote, o resumo de ontem (dia de São Paulo) de cada grupo monitorado com mensagens; o cron `coletar-ia-whatsapp` (a cada 15 min) recolhe os resultados. O resumo traz resumo, temas, pendências (mensagens sem resposta), destaques e quem mais falou. Situação `pendente`, `pronto` ou `falhou`. A IA recebe só texto e nome do contato, nunca telefone nem JID. Gasto do mês limitado por `ConfiguracaoWhatsapp.limiteMensalMicroUsd` (padrão US$ 80), somando só a origem `whatsapp`.
 17. **Telas do resumo:** em `/whatsapp/conversas/[id]` de um grupo, painel acima das mensagens com seletor de dia (`?dia=AAAA-MM-DD`, padrão ontem; valor inválido vira ontem), mostrando Resumo, Temas, Sem resposta, Destaques e Quem mais falou. Resumo pendente mostra "O resumo deste dia ainda está sendo preparado."; falhou ou inexistente, "Sem resumo neste dia.". A lista de grupos ganha a coluna "Pendências de ontem" (número, ou "—" sem resumo pronto). `/admin/saude` ganha o cartão "IA do WhatsApp" com o gasto do mês e o limite; só o admin edita o limite (ação `salvarLimiteIaWhatsappAcao`, permissão `whatsapp:gerenciar_numeros`, entre US$ 0 e US$ 500).
 18. **Retenção dos resumos:** 365 dias. A limpeza diária apaga `ResumoGrupo` com `dia` anterior a 365 dias e devolve `resumosAntigos` na resposta.
+19. **Vez do cliente (entrega 4):** conversas individuais `lead`/`aluno` de números não excluídos. Uma vez começa na primeira mensagem do cliente sem resposta e termina na próxima mensagem `deMim` (toda mensagem `deMim` é resposta humana). A 1ª resposta do dia é a da primeira vez do dia. A vez conta no dia em que começou.
+20. **SLA em horário comercial:** o tempo de resposta conta só dentro do horário (padrão: segunda a sexta 8h–18h, sábado 8h–12h, domingo fechado; fuso de São Paulo fixo em UTC-3). Cliente que escreve sexta 19h e recebe resposta segunda 8h05 conta 5 min. % no SLA = respostas em até o SLA (padrão 15 min) ÷ (respostas + vezes abertas que já passaram do SLA).
+21. **Follow-up (só `paciente_modelo` e `comercial`):** uma mensagem da empresa sem nenhuma mensagem nas 24 h seguintes cria um follow-up devido. A próxima mensagem da empresa em até 3 dias conta como feito; se o cliente responder antes, é cancelado e não conta; passados 3 dias sem mensagem, é perdido. Conta no dia em que venceu. Os outros times mostram "—".
+22. **Tempo da CS:** horas corridas de `Venda.criadoEm` até a primeira mensagem `deMim` de um número `cs` para o contato da venda (telefone achado em qualquer formato, sem LIKE). Só entram vendas a partir do menor `timeDesde` dos números `cs`. Sem envio em 7 dias, a venda fica "sem contato"; antes disso, "aguardando". Venda sem WhatsApp aparece como "sem WhatsApp na venda". A CS é calculada na hora, sem tabela própria.
+23. **Cron `metricas-whatsapp` (de hora em hora):** refaz a `MetricaAtendimentoDia` de hoje e dos 4 dias anteriores (o follow-up se decide em até 3 dias). Número sem nenhuma linha recebe 35 dias, para carregar o histórico. Linhas de dias anteriores mantêm o `time` gravado; só a de hoje (ou uma nova) recebe o time atual. A resposta traz só contagens.
+24. **Retenção das métricas:** 365 dias. A limpeza diária apaga `MetricaAtendimentoDia` antigas e devolve `metricasAntigas`.
+25. **Auditoria da entrega 4:** `whatsapp.time_alterado` (de/para) e `whatsapp.regras_atendimento_alteradas`.
 
 ## Situação da implementação
 **Entrega 1:** motor, comandos, tela de números e conexão por QR. Verificação na tela com o motor ligado é feita no site `teste`.
 
 **Entrega 2a:** captura (histórico recente do pareamento e mensagens ao vivo), abas, grupos e conversas com as mensagens capturadas, limpeza diária. O histórico só chega na hora do pareamento: para recebê-lo, desconecte e leia o QR de novo. Responder mensagens fica para depois.
+
+**Entrega 4:** abas Atendimento e CS, time dos números, regras do atendimento e cron `metricas-whatsapp` (ver itens 19–25).
 
 **Entrega 2b (servidor):** arquivos de implantação do motor na VPS Hostinger (`motor-whatsapp/deploy/`: unidade systemd e cópia diária das sessões) e runbook `docs/runbooks/whatsapp-motor-vps.md`. A implantação em si depende do Gustavo contratar a VPS.

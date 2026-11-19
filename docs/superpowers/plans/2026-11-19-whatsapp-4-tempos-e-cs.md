@@ -365,6 +365,6 @@
 - [ ] **Passo 5:** commit `feat(whatsapp): aba CS com tempo até o primeiro contato`.
 
 ## Depois do envio (com o Gustavo)
-1. Criar o cron `10 * * * *` `metricas-whatsapp` no hPanel, copiando o comando de um cron que já existe.
-2. Na tela Números, marcar o time de cada número (CS, Paciente modelo, Comercial). O tempo da CS conta a partir desse momento.
+1. Na tela Números, marcar o time de cada número (CS, Paciente modelo, Comercial). O tempo da CS conta a partir desse momento. Faça isso **antes** do cron, para o histórico já sair com o time certo.
+2. Criar o cron `10 * * * *` `metricas-whatsapp` no hPanel, copiando o comando de um cron que já existe.
 3. Conferir à mão três conversas contra a tela Atendimento. Esse é o critério de pronto da entrega 4 no spec base.
