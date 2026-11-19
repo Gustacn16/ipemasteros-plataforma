@@ -1,5 +1,5 @@
 import "server-only";
-import type { FinalidadeNumeroWhatsapp } from "@/generated/prisma/client";
+import type { FinalidadeNumeroWhatsapp, TimeNumeroWhatsapp } from "@/generated/prisma/client";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { ErroNegocio } from "@/lib/erros";
 import { prisma } from "@/lib/prisma";
@@ -12,6 +12,7 @@ export type NumeroNaTela = {
   id: string;
   nome: string;
   finalidade: FinalidadeNumeroWhatsapp;
+  time: TimeNumeroWhatsapp;
   dono: string | null;
   telefone: string | null;
   estado: EstadoTela;
@@ -50,6 +51,7 @@ export async function listarNumeros(ator: UsuarioAtual): Promise<NumeroNaTela[]>
       id: n.id,
       nome: n.nome,
       finalidade: n.finalidade,
+      time: n.time,
       dono: n.usuario ? (n.usuario.apelido ?? n.usuario.nome) : null,
       telefone: n.telefone,
       estado,
@@ -87,6 +89,26 @@ export async function criarNumero(ator: UsuarioAtual, dados: unknown): Promise<{
       tx,
     );
     return { id: criado.id };
+  });
+}
+
+export async function alterarTimeNumero(ator: UsuarioAtual, numeroId: string, time: TimeNumeroWhatsapp): Promise<void> {
+  if (!temPermissao(ator.papel, ESCOPO_GESTAO)) throw new ErroPermissao(ESCOPO_GESTAO);
+  const numero = await vagaDoAtor(ator, numeroId);
+  const de = numero.time;
+  if (de === time) return;
+  await prisma.$transaction(async (tx) => {
+    await tx.numeroWhatsapp.update({ where: { id: numero.id }, data: { time, timeDesde: new Date() } });
+    await registrarAuditoria(
+      {
+        usuarioId: ator.id,
+        acao: "whatsapp.time_alterado",
+        entidade: "NumeroWhatsapp",
+        entidadeId: numero.id,
+        diff: { de, para: time },
+      },
+      tx,
+    );
   });
 }
 

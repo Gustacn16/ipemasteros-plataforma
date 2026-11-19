@@ -38,6 +38,7 @@ export type AcaoAuditoria =
   | "professor.editado"
   | "whatsapp.numero_criado"
   | "whatsapp.numero_excluido"
+  | "whatsapp.time_alterado"
   | "whatsapp.conexao_solicitada"
   | "whatsapp.desconexao_solicitada"
   | "whatsapp.grupo_monitorado"

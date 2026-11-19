@@ -8,7 +8,9 @@ import { ErroPermissao } from "@/lib/permissoes";
 import { exigirPermissao, exigirUsuario } from "@/lib/sessao";
 import { esquemaApagarDadosTelefone } from "../esquemas/titular";
 import type { EstadoTela } from "../regras/conexao";
+import { TIMES } from "../regras/time";
 import {
+  alterarTimeNumero,
   criarNumero,
   excluirNumero,
   situacaoParaTela,
@@ -26,6 +28,20 @@ export async function criarNumeroAcao(dados: unknown): Promise<EstadoAcao<{ id: 
     const criado = await criarNumero(ator, dados);
     revalidatePath("/whatsapp/numeros");
     return { ok: true, mensagem: "Número criado.", dados: criado };
+  } catch (erro) {
+    return tratarErroAcao(erro);
+  }
+}
+
+const esquemaTimeNumero = z.object({ numeroId: idNumero, time: z.enum(TIMES) });
+
+export async function alterarTimeNumeroAcao(dados: unknown): Promise<EstadoAcao> {
+  try {
+    const ator = await exigirPermissao("whatsapp:gerenciar_numeros");
+    const { numeroId, time } = esquemaTimeNumero.parse(dados);
+    await alterarTimeNumero(ator, numeroId, time);
+    revalidatePath("/whatsapp/numeros");
+    return { ok: true, mensagem: "Time alterado." };
   } catch (erro) {
     return tratarErroAcao(erro);
   }

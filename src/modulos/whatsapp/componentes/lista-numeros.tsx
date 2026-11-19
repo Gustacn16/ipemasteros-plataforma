@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { EstadoVazio } from "@/componentes/estado-vazio";
 import { Button } from "@/componentes/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/componentes/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/componentes/ui/table";
 import { formatarDataHora } from "@/lib/datas";
 import { avisar } from "@/modulos/tarefas/componentes/avisar";
-import { desconectarNumeroAcao, excluirNumeroAcao } from "../acoes/numeros";
+import { alterarTimeNumeroAcao, desconectarNumeroAcao, excluirNumeroAcao } from "../acoes/numeros";
+import { ROTULO_TIME, TIMES } from "../regras/time";
 import type { NumeroNaTela } from "../servicos/numeros";
 import { ConectarNumero } from "./conectar-numero";
 
@@ -23,7 +25,7 @@ function data(valor: string | null) {
   return valor ? formatarDataHora(new Date(valor)) : "—";
 }
 
-export function ListaNumeros({ numeros, podeExcluir }: { numeros: Linha[]; podeExcluir: boolean }) {
+export function ListaNumeros({ numeros, podeExcluir, podeEditarTime }: { numeros: Linha[]; podeExcluir: boolean; podeEditarTime: boolean }) {
   const router = useRouter();
   const [pendente, executar] = useTransition();
 
@@ -44,6 +46,7 @@ export function ListaNumeros({ numeros, podeExcluir }: { numeros: Linha[]; podeE
           <TableRow>
             <TableHead>Nome</TableHead>
             <TableHead>Finalidade</TableHead>
+            <TableHead>Time</TableHead>
             <TableHead>Dono</TableHead>
             <TableHead>Telefone</TableHead>
             <TableHead>Situação</TableHead>
@@ -57,6 +60,28 @@ export function ListaNumeros({ numeros, podeExcluir }: { numeros: Linha[]; podeE
             <TableRow key={n.id}>
               <TableCell className="font-medium">{n.nome}</TableCell>
               <TableCell>{ROTULO_FINALIDADE[n.finalidade]}</TableCell>
+              <TableCell>
+                {podeEditarTime ? (
+                  <Select
+                    value={n.time}
+                    disabled={pendente}
+                    onValueChange={(time) => rodar(() => alterarTimeNumeroAcao({ numeroId: n.id, time }))}
+                  >
+                    <SelectTrigger size="sm" aria-label={`Time do número ${n.nome}`} className="w-40">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TIMES.map((t) => (
+                        <SelectItem key={t} value={t}>
+                          {ROTULO_TIME[t]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  ROTULO_TIME[n.time]
+                )}
+              </TableCell>
               <TableCell>{n.dono ?? "—"}</TableCell>
               <TableCell>{n.telefone ?? "—"}</TableCell>
               <TableCell>
