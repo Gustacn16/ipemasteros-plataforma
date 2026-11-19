@@ -181,6 +181,9 @@ O resumo diário dos grupos usa dois crons, criados no hPanel (**Avançado → C
 30 7 * * * curl -fsS --max-time 600 -H "Authorization: Bearer <CRON_SECRET>" https://teste.plataformaipemaster.com.br/api/cron/ia-whatsapp
 0 8 * * * curl -fsS --max-time 600 -H "Authorization: Bearer <CRON_SECRET>" https://teste.plataformaipemaster.com.br/api/cron/ia-whatsapp
 */15 * * * * curl -fsS --max-time 600 -H "Authorization: Bearer <CRON_SECRET>" https://teste.plataformaipemaster.com.br/api/cron/coletar-ia-whatsapp
+10 * * * * curl -fsS --max-time 600 -H "Authorization: Bearer <CRON_SECRET>" https://teste.plataformaipemaster.com.br/api/cron/metricas-whatsapp
 ```
 
 O primeiro envia o pedido do dia; o segundo recolhe as respostas a cada 15 minutos. A linha das 8h é uma segunda execução de segurança, para o caso de a das 7h30 não rodar: é inofensiva, porque se o lote do dia já existe ela só responde `ja_existe`. O `--max-time 600` dá até 10 minutos para o envio, que pode demorar com muitos grupos. Sem a variável `ANTHROPIC_API_KEY`, nada é enviado (a tela **Saúde** mostra "IA não configurada").
+
+A linha `metricas-whatsapp` roda a cada hora, no minuto 10, e recalcula as métricas de tempo de resposta e de follow-up do atendimento (hoje e os 4 dias anteriores; na primeira vez, 35 dias). Os tempos e a aba CS se alimentam dela.
