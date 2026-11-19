@@ -11,6 +11,7 @@ const banco = vi.hoisted(() => {
     alunos: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
     usuarios: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
     resumos: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
+    metricas: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
   };
   // Como no mock de captura.test.ts: o LIKE do MySQL da Hostinger não pode ser usado.
   const semLike = (where: unknown) => {
@@ -66,6 +67,14 @@ const banco = vi.hoisted(() => {
         const antes = estado.resumos.length;
         estado.resumos = estado.resumos.filter((r) => !(r.dia < where.dia.lt));
         return { count: antes - estado.resumos.length };
+      },
+    },
+    metricaAtendimentoDia: {
+      deleteMany: async ({ where }: { where: Linha }) => {
+        semLike(where);
+        const antes = estado.metricas.length;
+        estado.metricas = estado.metricas.filter((r) => !(r.dia < where.dia.lt));
+        return { count: antes - estado.metricas.length };
       },
     },
     aluno: { findMany: async () => estado.alunos },
@@ -159,6 +168,7 @@ describe("limparWhatsapp", () => {
     banco.estado.alunos = [];
     banco.estado.usuarios = [];
     banco.estado.resumos = [];
+    banco.estado.metricas = [];
     esquecerTelefonesCadastrados();
   });
 
@@ -285,7 +295,18 @@ describe("limparWhatsapp", () => {
     banco.estado.usuarios.push({ id: "u1", whatsapp: "11987654321" });
     individual("i1", { contatoId: "c1", ultimaMensagemEm: dias(-100) });
     const r = await limparWhatsapp(AGORA);
-    expect(r).toEqual({ provisorias: 0, antigas: 0, resumosAntigos: 0, religados: 1, conversasVazias: 1, contatosVazios: 0 });
+    expect(r).toEqual({ provisorias: 0, antigas: 0, resumosAntigos: 0, metricasAntigas: 0, religados: 1, conversasVazias: 1, contatosVazios: 0 });
+  });
+
+  it("limparWhatsapp apaga métrica de 366 dias e mantém a de 364", async () => {
+    const dia = (n: number) => new Date(`${new Date(AGORA.getTime() - n * 86_400_000).toISOString().slice(0, 10)}T00:00:00.000Z`);
+    banco.estado.metricas = [
+      { id: "velha", dia: dia(366) },
+      { id: "nova", dia: dia(364) },
+    ];
+    const r = await limparWhatsapp(AGORA);
+    expect(r.metricasAntigas).toBe(1);
+    expect(banco.estado.metricas.map((x) => x.id)).toEqual(["nova"]);
   });
 
   it("limpeza apaga resumos com dia anterior a 365 dias e conta resumosAntigos", async () => {

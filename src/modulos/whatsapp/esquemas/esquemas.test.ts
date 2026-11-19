@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { esquemaNovoNumero } from "./numero";
 import { esquemaEventoMotor, esquemaLoteEventos } from "./motor";
+import { REGRAS_PADRAO, esquemaRegrasAtendimento } from "./regras-atendimento";
 
 describe("esquemaNovoNumero", () => {
   it("escola sem usuário passa com usuarioId null", () => {
@@ -97,5 +98,43 @@ describe("eventos conversas e mensagens", () => {
   });
   it("tipo de mensagem desconhecido falha", () => {
     expect(evMsg([{ ...msg, tipo: "reacao" }]).success).toBe(false);
+  });
+});
+
+describe("esquemaRegrasAtendimento", () => {
+  it("toda mensagem de número fora da faixa ou quebrado sai em português", () => {
+    const faixa = (f: Record<string, number>) => [{ ...REGRAS_PADRAO.horario[1]!, ...f }, ...REGRAS_PADRAO.horario.slice(1)];
+    const casos = [
+      { horario: faixa({ inicioMin: 1.5 }) },
+      { horario: faixa({ inicioMin: 2000 }) },
+      { horario: faixa({ fimMin: 600.5 }) },
+      { horario: faixa({ fimMin: -1 }) },
+      { slaMinutos: 1.5 },
+      { followupHoras: 1.5 },
+      { followupDias: 1.5 },
+    ];
+    for (const caso of casos) {
+      const r = esquemaRegrasAtendimento.safeParse({ ...REGRAS_PADRAO, ...caso });
+      expect(r.success, JSON.stringify(caso)).toBe(false);
+      for (const issue of r.error!.issues) expect(issue.message, JSON.stringify(caso)).toMatch(/^(O|A|Informe) /);
+    }
+  });
+
+  it("aceita REGRAS_PADRAO", () => {
+    expect(esquemaRegrasAtendimento.safeParse(REGRAS_PADRAO).success).toBe(true);
+  });
+  it("recusa faixa com inicioMin >= fimMin", () => {
+    const horario = [...REGRAS_PADRAO.horario];
+    horario[1] = { inicioMin: 600, fimMin: 600 };
+    expect(esquemaRegrasAtendimento.safeParse({ ...REGRAS_PADRAO, horario }).success).toBe(false);
+  });
+  it("recusa horario com 6 posições", () => {
+    expect(esquemaRegrasAtendimento.safeParse({ ...REGRAS_PADRAO, horario: REGRAS_PADRAO.horario.slice(0, 6) }).success).toBe(false);
+  });
+  it("recusa slaMinutos 0", () => {
+    expect(esquemaRegrasAtendimento.safeParse({ ...REGRAS_PADRAO, slaMinutos: 0 }).success).toBe(false);
+  });
+  it("recusa followupDias 1 com followupHoras 24", () => {
+    expect(esquemaRegrasAtendimento.safeParse({ ...REGRAS_PADRAO, followupDias: 1, followupHoras: 24 }).success).toBe(false);
   });
 });

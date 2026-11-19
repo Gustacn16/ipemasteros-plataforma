@@ -3,6 +3,7 @@ import { registrarAuditoria } from "@/lib/auditoria";
 import { ErroNegocio } from "@/lib/erros";
 import { MODELOS_IA, type ModeloIa } from "@/lib/ia/precos";
 import { prisma } from "@/lib/prisma";
+import { REGRAS_PADRAO, esquemaRegrasAtendimento, type RegrasAtendimento } from "../esquemas/regras-atendimento";
 
 export type ConfiguracaoWhatsapp = { modelo: ModeloIa; limiteMensalMicroUsd: number };
 
@@ -35,5 +36,31 @@ export async function salvarConfiguracaoWhatsapp(dados: { limiteMensalMicroUsd: 
     entidade: "ConfiguracaoWhatsapp",
     entidadeId: "unica",
     diff: { limiteMensalMicroUsd: limite },
+  });
+}
+
+/** Regras do atendimento (horário, SLA, follow-up). Sem linha ou com Json inválido, valem as padrões. */
+export async function obterRegrasAtendimento(): Promise<RegrasAtendimento> {
+  const linha = await prisma.configuracaoWhatsapp.findUnique({ where: { id: "unica" } });
+  const lidas = esquemaRegrasAtendimento.safeParse(linha?.regrasAtendimento);
+  return lidas.success ? lidas.data : REGRAS_PADRAO;
+}
+
+/** Valida e grava as regras na linha "unica" (criando-a com modelo e limite padrão); audita com as regras no diff. */
+export async function salvarRegrasAtendimento(dados: unknown, atorId: string): Promise<void> {
+  const lidas = esquemaRegrasAtendimento.safeParse(dados);
+  if (!lidas.success) throw new ErroNegocio(lidas.error.issues[0]?.message ?? "Regras do atendimento inválidas.");
+  const regras = lidas.data;
+  await prisma.configuracaoWhatsapp.upsert({
+    where: { id: "unica" },
+    create: { id: "unica", modelo: MODELO_PADRAO, limiteMensalMicroUsd: LIMITE_PADRAO_MICRO_USD, regrasAtendimento: regras, atualizadoPorId: atorId },
+    update: { regrasAtendimento: regras, atualizadoPorId: atorId },
+  });
+  await registrarAuditoria({
+    usuarioId: atorId,
+    acao: "whatsapp.regras_atendimento_alteradas",
+    entidade: "ConfiguracaoWhatsapp",
+    entidadeId: "unica",
+    diff: regras,
   });
 }

@@ -38,6 +38,7 @@ export type AcaoAuditoria =
   | "professor.editado"
   | "whatsapp.numero_criado"
   | "whatsapp.numero_excluido"
+  | "whatsapp.time_alterado"
   | "whatsapp.conexao_solicitada"
   | "whatsapp.desconexao_solicitada"
   | "whatsapp.grupo_monitorado"
@@ -45,6 +46,7 @@ export type AcaoAuditoria =
   | "whatsapp.conversa_aberta"
   | "whatsapp.dados_telefone_apagados"
   | "whatsapp.configuracao_alterada"
+  | "whatsapp.regras_atendimento_alteradas"
   | "nexu.configuracao_alterada"
   | "nexu.proposta_confirmada"
   | "espiao.concorrente_criado"
@@ -52,7 +54,14 @@ export type AcaoAuditoria =
   | "espiao.concorrente_excluido"
   | "espiao.pagina_alterada"
   | "espiao.teto_alterado"
-  | "espiao.coleta_manual";
+  | "espiao.coleta_manual"
+  | "processos.documento_publicado"
+  | "processos.versao_restaurada"
+  | "processos.documento_excluido"
+  | "processos.categoria_excluida"
+  | "processos.area_excluida"
+  | "processos.indicador_excluido"
+  | "processos.medicao_excluida";
 
 type DadosAuditoria = {
   usuarioId: string | null;

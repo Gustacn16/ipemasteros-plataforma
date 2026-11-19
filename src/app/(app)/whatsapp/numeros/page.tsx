@@ -38,7 +38,7 @@ export default async function PaginaNumeros() {
         }
       />
       <AbasWhatsapp papel={usuario.papel} ativa="numeros" />
-      <ListaNumeros numeros={linhas} podeExcluir={gestao} />
+      <ListaNumeros numeros={linhas} podeExcluir={gestao} podeEditarTime={gestao} />
     </div>
   );
 }

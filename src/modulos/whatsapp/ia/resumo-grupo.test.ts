@@ -75,7 +75,7 @@ describe("pedidoResumo", () => {
     expect(json).not.toMatch(/\d{10,}/);
     expect(json).not.toContain("@s.whatsapp.net");
     expect(json).not.toContain("@g.us");
-    expect(pedido.params.max_tokens).toBe(8000);
+    expect(pedido.params.max_tokens).toBe(16_000);
     expect(pedido.params.output_config.effort).toBe("medium");
     expect("thinking" in pedido.params).toBe(false);
   });

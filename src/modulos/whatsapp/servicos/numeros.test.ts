@@ -64,7 +64,7 @@ vi.mock("@/lib/auditoria", () => ({
   },
 }));
 
-const { criarNumero, excluirNumero, listarNumeros, situacaoParaTela, solicitarConexao, solicitarDesconexao } =
+const { alterarTimeNumero, criarNumero, excluirNumero, listarNumeros, situacaoParaTela, solicitarConexao, solicitarDesconexao } =
   await import("./numeros");
 
 const gestor = { id: "g1", papel: "gestor" } as UsuarioAtual;
@@ -85,12 +85,45 @@ beforeEach(() => {
     { id: "u3", nome: "Caio", apelido: null, papel: "comercial", ativo: false },
     { id: "u4", nome: "Dora", apelido: null, papel: "gestor", ativo: true },
   ];
-  const base = { telefone: null, qrAtual: null, qrEm: null, conectadoEm: null, erro: null, excluidoEm: null };
+  const base = { telefone: null, qrAtual: null, qrEm: null, conectadoEm: null, erro: null, excluidoEm: null, time: "outro", timeDesde: null };
   e.numeros = [
     { id: "esc", nome: "Escola", finalidade: "escola", usuarioId: null, situacao: "desconectado", ultimoSinalEm: agora(), ...base },
     { id: "va", nome: "Ana", finalidade: "vendedor", usuarioId: "u1", situacao: "desconectado", ultimoSinalEm: agora(), ...base },
     { id: "vb", nome: "Beto", finalidade: "vendedor", usuarioId: "u2", situacao: "desconectado", ultimoSinalEm: agora(), ...base },
   ];
+});
+
+describe("alterarTimeNumero", () => {
+  it("grava time, timeDesde e auditoria", async () => {
+    const antes = Date.now();
+    await alterarTimeNumero(gestor, "va", "cs");
+    const n = banco.estado.numeros[1]!;
+    expect(n.time).toBe("cs");
+    expect(n.timeDesde.getTime()).toBeGreaterThanOrEqual(antes);
+    expect(banco.estado.auditorias).toHaveLength(1);
+    expect(banco.estado.auditorias[0]).toMatchObject({
+      acao: "whatsapp.time_alterado",
+      entidadeId: "va",
+      diff: { de: "outro", para: "cs" },
+    });
+  });
+
+  it("mesmo time não grava nem audita", async () => {
+    await alterarTimeNumero(gestor, "va", "outro");
+    expect(banco.estado.numeros[1]!.timeDesde).toBeNull();
+    expect(banco.estado.chamadas).not.toContain("numero.update");
+    expect(banco.estado.auditorias).toHaveLength(0);
+  });
+
+  it("comercial não altera (ErroPermissao)", async () => {
+    await expect(alterarTimeNumero(ana, "va", "cs")).rejects.toBeInstanceOf(ErroPermissao);
+    expect(banco.estado.numeros[1]!.time).toBe("outro");
+  });
+
+  it("número excluído lança Número não encontrado", async () => {
+    banco.estado.numeros[1]!.excluidoEm = new Date();
+    await expect(alterarTimeNumero(gestor, "va", "cs")).rejects.toThrow("Número não encontrado.");
+  });
 });
 
 describe("solicitarConexao", () => {

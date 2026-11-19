@@ -3,6 +3,8 @@ import { cn } from "@/lib/utils";
 import type { DadosDashboard } from "../../servicos/dashboard";
 import type { CategoriaCampanha } from "../../regras/midia";
 import type { DadosMidia } from "../../servicos/dashboard-midia";
+import type { DadosProjecao } from "../../servicos/projecao";
+import { CartaoProjecao } from "./cartao-projecao";
 import { CartoesNumeros } from "./cartoes-numeros";
 import { FiltrosDashboard } from "./filtros-dashboard";
 import { GraficoVendas } from "./grafico-vendas";
@@ -17,6 +19,8 @@ type Opcao = { id: string; nome: string };
  */
 type Props = {
   dados: DadosDashboard;
+  /** `null` na visão Mídia. */
+  projecao: DadosProjecao | null;
   produtos: Opcao[];
   vendedores: Opcao[];
   /** Só chega preenchido para quem tem `comercial:ver_marketing` e está na visão Mídia. */
@@ -30,7 +34,7 @@ type Props = {
   } | null;
 };
 
-export function PainelDashboard({ dados, produtos, vendedores, midia, links }: Props) {
+export function PainelDashboard({ dados, projecao, produtos, vendedores, midia, links }: Props) {
   const pilulaVisao = (ativa: boolean) =>
     cn("rounded-full px-4 py-1.5 text-sm", ativa ? "bg-white/15 font-medium text-white" : "text-white/60 hover:text-white");
   return (
@@ -61,17 +65,18 @@ export function PainelDashboard({ dados, produtos, vendedores, midia, links }: P
         {midia && links ? (
           <PainelMidia dados={midia} hrefCampanha={links.campanha} hrefCategoria={links.categoria} />
         ) : (
-          <ConteudoVendas dados={dados} />
+          <ConteudoVendas dados={dados} projecao={projecao} />
         )}
       </div>
     </div>
   );
 }
 
-function ConteudoVendas({ dados }: { dados: DadosDashboard }) {
+function ConteudoVendas({ dados, projecao }: { dados: DadosDashboard; projecao: DadosProjecao | null }) {
   return (
     <>
       <CartoesNumeros numeros={dados.numeros} />
+      {projecao && <CartaoProjecao projecao={projecao} />}
       <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <GraficoVendas serie={dados.serie} />
         <div className="grid content-start gap-4">

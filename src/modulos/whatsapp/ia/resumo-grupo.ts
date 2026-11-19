@@ -137,12 +137,15 @@ export type PedidoResumo = {
   };
 };
 
+/** Teto de saída do pedido. O raciocínio do Opus 5.5 (sempre ligado) conta nele, então fica folgado. */
+export const MAX_TOKENS_RESUMO = 16_000;
+
 export function pedidoResumo(customId: string, modelo: ModeloIa, entrada: string): PedidoResumo {
   return {
     custom_id: customId,
     params: {
       model: modelo,
-      max_tokens: 8000,
+      max_tokens: MAX_TOKENS_RESUMO,
       system: INSTRUCOES_RESUMO,
       messages: [{ role: "user", content: entrada }],
       output_config: { effort: "medium", format: { type: "json_schema", schema: ESQUEMA_RESUMO } },

@@ -8,14 +8,16 @@ import { ErroPermissao } from "@/lib/permissoes";
 import { exigirPermissao, exigirUsuario } from "@/lib/sessao";
 import { esquemaApagarDadosTelefone } from "../esquemas/titular";
 import type { EstadoTela } from "../regras/conexao";
+import { TIMES } from "../regras/time";
 import {
+  alterarTimeNumero,
   criarNumero,
   excluirNumero,
   situacaoParaTela,
   solicitarConexao,
   solicitarDesconexao,
 } from "../servicos/numeros";
-import { salvarConfiguracaoWhatsapp } from "../servicos/configuracao";
+import { salvarConfiguracaoWhatsapp, salvarRegrasAtendimento } from "../servicos/configuracao";
 import { apagarDadosDoTelefone } from "../servicos/titular";
 
 const idNumero = z.string().min(1).max(40);
@@ -26,6 +28,20 @@ export async function criarNumeroAcao(dados: unknown): Promise<EstadoAcao<{ id: 
     const criado = await criarNumero(ator, dados);
     revalidatePath("/whatsapp/numeros");
     return { ok: true, mensagem: "Número criado.", dados: criado };
+  } catch (erro) {
+    return tratarErroAcao(erro);
+  }
+}
+
+const esquemaTimeNumero = z.object({ numeroId: idNumero, time: z.enum(TIMES) });
+
+export async function alterarTimeNumeroAcao(dados: unknown): Promise<EstadoAcao> {
+  try {
+    const ator = await exigirPermissao("whatsapp:gerenciar_numeros");
+    const { numeroId, time } = esquemaTimeNumero.parse(dados);
+    await alterarTimeNumero(ator, numeroId, time);
+    revalidatePath("/whatsapp/numeros");
+    return { ok: true, mensagem: "Time alterado." };
   } catch (erro) {
     return tratarErroAcao(erro);
   }
@@ -113,6 +129,19 @@ export async function salvarLimiteIaWhatsappAcao(dados: unknown): Promise<Estado
     await salvarConfiguracaoWhatsapp({ limiteMensalMicroUsd: Math.round(limiteUsd * 1_000_000) }, ator.id);
     revalidatePath("/admin/saude");
     return { ok: true, mensagem: "Limite salvo." };
+  } catch (erro) {
+    return tratarErroAcao(erro);
+  }
+}
+
+/** Regras do atendimento (horário, SLA e follow-up). Só o admin edita; o serviço valida os dados. */
+export async function salvarRegrasAtendimentoAcao(dados: unknown): Promise<EstadoAcao> {
+  try {
+    const ator = await exigirPermissao("whatsapp:ver_equipe");
+    if (ator.papel !== "admin") throw new ErroPermissao("whatsapp:ver_equipe");
+    await salvarRegrasAtendimento(dados, ator.id);
+    revalidatePath("/whatsapp/atendimento");
+    return { ok: true, mensagem: "Regras salvas." };
   } catch (erro) {
     return tratarErroAcao(erro);
   }

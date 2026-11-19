@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { segredoValido } from "@/lib/cron";
 import { importarMetaAds } from "@/modulos/comercial/servicos/importacao-meta";
 import { atualizarInstagram } from "@/modulos/conteudo/servicos/atualizacao-instagram";
+import { recalcularMetricas } from "@/modulos/whatsapp/servicos/metricas";
 import { limparWhatsapp } from "@/modulos/whatsapp/servicos/limpeza";
 import { coletarLotes, criarLoteDoDia } from "@/modulos/whatsapp/servicos/lote-ia";
 import { limparConversasAntigas } from "@/modulos/nexu/servicos/limpeza";
@@ -44,6 +45,7 @@ const TAREFAS: Record<string, () => Promise<Record<string, unknown>>> = {
       ok: true,
       provisorias: r.provisorias,
       antigas: r.antigas,
+      metricasAntigas: r.metricasAntigas,
       religados: r.religados,
       conversasVazias: r.conversasVazias,
       contatosVazios: r.contatosVazios,
@@ -62,6 +64,7 @@ const TAREFAS: Record<string, () => Promise<Record<string, unknown>>> = {
     }
   },
   // Só contagens na resposta.
+  "metricas-whatsapp": async () => ({ ok: true, ...(await recalcularMetricas()) }),
   "ia-whatsapp": async () => ({ ok: true, ...(await criarLoteDoDia()) }),
   "coletar-ia-whatsapp": async () => ({ ok: true, ...(await coletarLotes()) }),
   "importar-stories-instagram": async () => {
