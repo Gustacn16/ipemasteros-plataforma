@@ -14,6 +14,7 @@ import {
   ShieldCheckIcon,
   SparklesIcon,
   UsersIcon,
+  WorkflowIcon,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -37,6 +38,7 @@ const ICONES = {
   auditoria: <ShieldCheckIcon />,
   nexu: <SparklesIcon />,
   saude: <HeartPulseIcon />,
+  processos: <WorkflowIcon />,
 };
 
 export type ItemMenu = { href: string; rotulo: string; icone: keyof typeof ICONES; emBreve?: boolean };

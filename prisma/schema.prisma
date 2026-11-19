@@ -74,6 +74,13 @@ model Usuario {
   configuracoesIaAlteradas       ConfiguracaoIa[]
   configuracoesWhatsappAlteradas ConfiguracaoWhatsapp[]
 
+  documentosProcessoDono         DocumentoProcesso[]       @relation("DocumentoProcessoDono")
+  documentosProcessoCriados      DocumentoProcesso[]       @relation("DocumentoProcessoCriadoPor")
+  documentosProcessoAtualizados  DocumentoProcesso[]       @relation("DocumentoProcessoAtualizadoPor")
+  versoesProcessoPublicadas      VersaoDocumentoProcesso[] @relation("VersaoProcessoPublicadaPor")
+  indicadoresProcessoResponsavel IndicadorProcesso[]       @relation("IndicadorProcessoResponsavel")
+  medicoesIndicadorRegistradas   MedicaoIndicador[]        @relation("MedicaoRegistradaPor")
+
   @@map("usuarios")
 }
 
@@ -1617,4 +1624,174 @@ model ResumoGrupo {
   @@unique([conversaId, dia])
   @@index([dia])
   @@map("resumos_grupo")
+}
+
+// ─── Processos internos ──────────────────────────────────────────────────────
+// Documentação viva da empresa: Categoria → Área → Documento (spec 2026-11-19).
+
+enum TipoDocumentoProcesso {
+  texto
+  processo
+}
+
+enum SentidoIndicador {
+  maior_melhor
+  menor_melhor
+}
+
+enum FrequenciaIndicador {
+  semanal
+  mensal
+  trimestral
+}
+
+model CategoriaProcesso {
+  id           String    @id @default(cuid())
+  nome         String    @db.VarChar(80)
+  descricao    String?   @db.VarChar(300)
+  icone        String    @default("pasta") @db.VarChar(30)
+  ordem        Int       @default(0)
+  excluidoEm   DateTime? @map("excluido_em")
+  criadoEm     DateTime  @default(now()) @map("criado_em")
+  atualizadoEm DateTime  @updatedAt @map("atualizado_em")
+
+  areas AreaProcesso[]
+
+  @@map("categorias_processo")
+}
+
+model AreaProcesso {
+  id           String    @id @default(cuid())
+  categoriaId  String    @map("categoria_id")
+  nome         String    @db.VarChar(80)
+  descricao    String?   @db.VarChar(300)
+  ordem        Int       @default(0)
+  excluidoEm   DateTime? @map("excluido_em")
+  criadoEm     DateTime  @default(now()) @map("criado_em")
+  atualizadoEm DateTime  @updatedAt @map("atualizado_em")
+
+  categoria  CategoriaProcesso   @relation(fields: [categoriaId], references: [id])
+  documentos DocumentoProcesso[]
+
+  @@index([categoriaId])
+  @@map("areas_processo")
+}
+
+/// Cópia de trabalho do documento. Quem só lê vê a última VersaoDocumentoProcesso (ADR 0009).
+model DocumentoProcesso {
+  id                   String                @id @default(cuid())
+  areaId               String                @map("area_id")
+  tipo                 TipoDocumentoProcesso @default(processo)
+  titulo               String                @db.VarChar(150)
+  resumo               String?               @db.VarChar(300)
+  conteudo             String?               @db.MediumText
+  // Ficha do processo (padrão no modelo Falconi / SIPOC).
+  objetivo             String?               @db.Text
+  donoId               String?               @map("dono_id")
+  fornecedores         String?               @db.Text
+  entradas             String?               @db.Text
+  saidas               String?               @db.Text
+  clientes             String?               @db.Text
+  frequencia           String?               @db.VarChar(120)
+  /// Etapas do fluxograma (lista validada em regras/fluxo.ts).
+  fluxo                Json?
+  revisarACadaMeses    Int?                  @map("revisar_a_cada_meses")
+  ordem                Int                   @default(0)
+  versaoPublicada      Int                   @default(0) @map("versao_publicada")
+  /// Título e resumo da versão publicada, para a árvore e a busca de quem só lê.
+  tituloPublicado      String?               @map("titulo_publicado") @db.VarChar(150)
+  resumoPublicado      String?               @map("resumo_publicado") @db.VarChar(300)
+  publicadoEm          DateTime?             @map("publicado_em")
+  alteradoAposPublicar Boolean               @default(true) @map("alterado_apos_publicar")
+  criadoPorId          String                @map("criado_por_id")
+  atualizadoPorId      String                @map("atualizado_por_id")
+  excluidoEm           DateTime?             @map("excluido_em")
+  criadoEm             DateTime              @default(now()) @map("criado_em")
+  atualizadoEm         DateTime              @updatedAt @map("atualizado_em")
+
+  area            AreaProcesso               @relation(fields: [areaId], references: [id])
+  dono            Usuario?                   @relation("DocumentoProcessoDono", fields: [donoId], references: [id], onDelete: SetNull)
+  criadoPor       Usuario                    @relation("DocumentoProcessoCriadoPor", fields: [criadoPorId], references: [id])
+  atualizadoPor   Usuario                    @relation("DocumentoProcessoAtualizadoPor", fields: [atualizadoPorId], references: [id])
+  versoes         VersaoDocumentoProcesso[]
+  ligacoesSaida   LigacaoDocumentoProcesso[] @relation("LigacaoOrigem")
+  ligacoesEntrada LigacaoDocumentoProcesso[] @relation("LigacaoDestino")
+  indicadores     IndicadorProcesso[]
+
+  @@index([areaId])
+  @@map("documentos_processo")
+}
+
+/// Snapshot de cada publicação. `dados` guarda título, texto, ficha e fluxo daquela versão.
+model VersaoDocumentoProcesso {
+  id             String   @id @default(cuid())
+  documentoId    String   @map("documento_id")
+  numero         Int
+  nota           String   @db.VarChar(300)
+  dados          Json
+  publicadoPorId String   @map("publicado_por_id")
+  criadoEm       DateTime @default(now()) @map("criado_em")
+
+  documento    DocumentoProcesso @relation(fields: [documentoId], references: [id], onDelete: Cascade)
+  publicadoPor Usuario           @relation("VersaoProcessoPublicadaPor", fields: [publicadoPorId], references: [id])
+
+  @@unique([documentoId, numero])
+  @@map("versoes_documento_processo")
+}
+
+/// Ligações `[[Título]]` da versão publicada (para "Citado por").
+model LigacaoDocumentoProcesso {
+  origemId  String @map("origem_id")
+  destinoId String @map("destino_id")
+
+  origem  DocumentoProcesso @relation("LigacaoOrigem", fields: [origemId], references: [id], onDelete: Cascade)
+  destino DocumentoProcesso @relation("LigacaoDestino", fields: [destinoId], references: [id], onDelete: Cascade)
+
+  @@id([origemId, destinoId])
+  @@index([destinoId])
+  @@map("ligacoes_documento_processo")
+}
+
+/// Item de controle de um processo.
+model IndicadorProcesso {
+  id            String              @id @default(cuid())
+  documentoId   String              @map("documento_id")
+  nome          String              @db.VarChar(120)
+  descricao     String?             @db.Text
+  unidade       String              @default("") @db.VarChar(20)
+  sentido       SentidoIndicador    @default(maior_melhor)
+  meta          Decimal?            @db.Decimal(18, 4)
+  frequencia    FrequenciaIndicador @default(mensal)
+  responsavelId String?             @map("responsavel_id")
+  ordem         Int                 @default(0)
+  excluidoEm    DateTime?           @map("excluido_em")
+  criadoEm      DateTime            @default(now()) @map("criado_em")
+  atualizadoEm  DateTime            @updatedAt @map("atualizado_em")
+
+  documento   DocumentoProcesso  @relation(fields: [documentoId], references: [id])
+  responsavel Usuario?           @relation("IndicadorProcessoResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
+  medicoes    MedicaoIndicador[]
+
+  @@index([documentoId])
+  @@index([responsavelId])
+  @@map("indicadores_processo")
+}
+
+/// Resultado de um período. `periodo` é o primeiro dia (segunda-feira, dia 1 do mês ou do trimestre).
+model MedicaoIndicador {
+  id              String   @id @default(cuid())
+  indicadorId     String   @map("indicador_id")
+  periodo         DateTime @db.Date
+  valor           Decimal  @db.Decimal(18, 4)
+  meta            Decimal? @db.Decimal(18, 4)
+  analise         String?  @db.Text
+  registradoPorId String   @map("registrado_por_id")
+  criadoEm        DateTime @default(now()) @map("criado_em")
+  atualizadoEm    DateTime @updatedAt @map("atualizado_em")
+
+  indicador     IndicadorProcesso @relation(fields: [indicadorId], references: [id], onDelete: Cascade)
+  registradoPor Usuario           @relation("MedicaoRegistradaPor", fields: [registradoPorId], references: [id])
+
+  @@unique([indicadorId, periodo])
+  @@map("medicoes_indicador")
 }

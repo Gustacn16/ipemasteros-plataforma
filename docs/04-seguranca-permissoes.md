@@ -56,6 +56,15 @@ Enquanto não há aulas nem ligação do professor com as turmas, valem estas pe
 | `academico:gerenciar` (turmas, alunos, matrículas e professores) | ✅ | ✅ | ✅ | ✅ | — |
 | `academico:importar_alunos` (importar a planilha de alunos) | ✅ | ✅ | — | — | — |
 
+### Processos internos
+Todo o time interno lê os documentos publicados. Só a gestão escreve e publica. O lançamento de resultados vale para a gestão e para o responsável de cada indicador (regra no serviço `src/modulos/processos/servicos/acesso.ts`).
+
+| Permissão | admin | gestor | colaborador | comercial | professor |
+|---|---|---|---|---|---|
+| `processos:ver` (ler documentos publicados, histórico e painel de indicadores) | ✅ | ✅ | ✅ | ✅ | — |
+| `processos:editar` (categorias, áreas, documentos, indicadores, publicar e restaurar) | ✅ | ✅ | — | — | — |
+| `processos:registrar_medicao` (lançar resultado de qualquer indicador) | ✅ | ✅ | 🔸 só onde é responsável | 🔸 só onde é responsável | — |
+
 ### Comercial
 O papel `comercial` tem, nos outros módulos, as mesmas permissões do colaborador. Colaborador e professor não entram no Comercial.
 

@@ -47,7 +47,14 @@ export type AcaoAuditoria =
   | "whatsapp.configuracao_alterada"
   | "whatsapp.regras_atendimento_alteradas"
   | "nexu.configuracao_alterada"
-  | "nexu.proposta_confirmada";
+  | "nexu.proposta_confirmada"
+  | "processos.documento_publicado"
+  | "processos.versao_restaurada"
+  | "processos.documento_excluido"
+  | "processos.categoria_excluida"
+  | "processos.area_excluida"
+  | "processos.indicador_excluido"
+  | "processos.medicao_excluida";
 
 type DadosAuditoria = {
   usuarioId: string | null;

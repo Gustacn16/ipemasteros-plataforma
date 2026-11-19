@@ -321,3 +321,24 @@ describe("permissões do Nexu", () => {
     }
   });
 });
+
+describe("permissões de Processos internos", () => {
+  it("todo o time interno lê, professor e aluno não", () => {
+    for (const papel of ["admin", "gestor", "colaborador", "comercial"] as const) {
+      expect(temPermissao(papel, "processos:ver")).toBe(true);
+    }
+    expect(temPermissao("professor", "processos:ver")).toBe(false);
+    expect(temPermissao("aluno", "processos:ver")).toBe(false);
+  });
+
+  it("só admin e gestor editam e lançam qualquer indicador", () => {
+    for (const papel of ["admin", "gestor"] as const) {
+      expect(temPermissao(papel, "processos:editar")).toBe(true);
+      expect(temPermissao(papel, "processos:registrar_medicao")).toBe(true);
+    }
+    for (const papel of ["colaborador", "comercial", "professor"] as const) {
+      expect(temPermissao(papel, "processos:editar")).toBe(false);
+      expect(temPermissao(papel, "processos:registrar_medicao")).toBe(false);
+    }
+  });
+});
