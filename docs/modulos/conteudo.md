@@ -30,7 +30,7 @@ Especificação da C1: `docs/superpowers/specs/2026-11-02-conteudo-c1-design.md`
 
 ## Telas (C1)
 - Ajustes de uso (2026-11-17, spec `docs/superpowers/specs/2026-11-17-conteudo-ajustes-de-uso-design.md`): canal primeiro e depois o formato do canal (`Conteudo.formatoId`; o canal do formato é o principal, os outros são "também publicar em"); formatos no menu debaixo do canal escolhido e no filtro; novo conteúdo de qualquer tela (botão, + nas colunas e nos dias, tecla N, "Criar e adicionar outro"); arrastar cartões no quadro; anotações e roteiro num editor de blocos (Markdown simples no campo `roteiro`, salvo sozinho).
-- `/conteudo`: visão geral (atrasados, próximos 7 dias, gravações marcadas, gravados aguardando edição, publicados no mês por plataforma).
+- `/conteudo`: abre direto em `/conteudo/relatorios` (a visão geral com atrasados, próximos e gravações saiu em 2026-11-19; esses itens continuam em Planejamento, Calendário e Gravações).
 - `/conteudo/planejamento`: quadro por etapa, de ideia a aprovado.
 - `/conteudo/calendario`: calendário mensal por data de publicação, com opção de mostrar gravações.
 - `/conteudo/gravacoes`: agenda de gravação e banco de gravados.

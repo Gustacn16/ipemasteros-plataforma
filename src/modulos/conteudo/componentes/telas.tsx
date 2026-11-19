@@ -1,7 +1,6 @@
 // Telas do módulo Conteúdo (só apresentação). As páginas em src/app/(app)/conteudo buscam os dados e
 // passam para cá; assim a prévia visual usa exatamente o mesmo desenho.
 import {
-  CalendarX,
   CheckIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -10,23 +9,19 @@ import {
   FolderOpenIcon,
   HeartIcon,
   KanbanIcon,
-  LightbulbIcon,
   PercentIcon,
   SendIcon,
   UsersIcon,
   VideoIcon,
-  type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { CabecalhoPagina } from "@/componentes/cabecalho-pagina";
 import { CartaoNumero } from "@/componentes/cartao-numero";
-import { ChipSituacao } from "@/componentes/chip-situacao";
 import { EstadoVazio } from "@/componentes/estado-vazio";
 import { formatarDataHora } from "@/lib/datas";
 import { cn } from "@/lib/utils";
 import { CLASSE_TITULO_SECAO } from "@/modulos/tarefas/componentes/exibicao";
 import { diaDaDataEntrega } from "@/modulos/tarefas/regras/prazo";
-import { COR_PLATAFORMA, ROTULO_PLATAFORMA, type Plataforma } from "../esquemas/conteudo";
 import { rotuloCanalFormato } from "../regras/formatos";
 import { mesAnterior, mesAtual, proximoMes, taxaEngajamento, type DiaGrade } from "../regras/calendario";
 import { COR_ETAPA, ETAPAS_DO_QUADRO, ROTULO_ETAPA } from "../regras/etapas";
@@ -76,115 +71,6 @@ function TituloBloco({ id, titulo, total, perigo }: { id: string; titulo: string
     <h2 id={id} className={cn("font-semibold", perigo && total > 0 ? "text-perigo" : "text-foreground")}>
       {titulo} <span className="text-muted-foreground font-normal tabular-nums">{total}</span>
     </h2>
-  );
-}
-
-// ---------------------------------------------------------------- Visão geral
-
-export type DadosVisaoGeral = {
-  atrasados: CartaoConteudo[];
-  proximos: CartaoConteudo[];
-  gravacoes: CartaoConteudo[];
-  aguardandoEdicao: number;
-  ideias: number;
-  publicadosMes: { canal: { plataforma: Plataforma } }[];
-};
-
-function Bloco(props: {
-  id: string;
-  titulo: string;
-  itens: CartaoConteudo[];
-  vazio: string;
-  icone: LucideIcon;
-  perigo?: boolean;
-  gravacao?: boolean;
-  agora: Date;
-}) {
-  const { id, titulo, itens, vazio, icone, perigo, gravacao, agora } = props;
-  return (
-    <section className="grid min-w-0 content-start gap-2" aria-labelledby={id}>
-      <TituloBloco id={id} titulo={titulo} total={itens.length} perigo={perigo} />
-      {itens.length === 0 ? (
-        <EstadoVazio icone={icone} titulo={vazio} compacto />
-      ) : (
-        <div className="grid gap-2">
-          {itens.map((i) => (
-            <Cartao key={i.id} item={i} mostrarGravacao={gravacao} agora={agora} />
-          ))}
-        </div>
-      )}
-    </section>
-  );
-}
-
-const estiloLinkNumero =
-  "focus-visible:ring-ring rounded-xl focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none hover:[&>div]:bg-muted/50 [&>div]:transition-colors";
-
-export function TelaVisaoGeral({ v, agora = new Date() }: { v: DadosVisaoGeral; agora?: Date }) {
-  // Publicados do mês por plataforma.
-  const porPlataforma = new Map<Plataforma, number>();
-  for (const p of v.publicadosMes) porPlataforma.set(p.canal.plataforma, (porPlataforma.get(p.canal.plataforma) ?? 0) + 1);
-
-  return (
-    <div className="grid grid-cols-1 gap-6">
-      <CabecalhoPagina titulo="Visão geral" descricao="O que precisa de atenção na produção de conteúdo." />
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-4">
-        <Link href="/conteudo/planejamento" className={estiloLinkNumero}>
-          <CartaoNumero
-            rotulo="Atrasados"
-            icone={CalendarX}
-            valor={v.atrasados.length}
-            tom={v.atrasados.length > 0 ? "perigo" : "neutro"}
-          />
-        </Link>
-        <Link href="/conteudo/planejamento" className={estiloLinkNumero}>
-          <CartaoNumero rotulo="Banco de ideias" icone={LightbulbIcon} valor={v.ideias} />
-        </Link>
-        <Link href="/conteudo/gravacoes" className={estiloLinkNumero}>
-          <CartaoNumero rotulo="Gravados aguardando edição" icone={ClapperboardIcon} valor={v.aguardandoEdicao} />
-        </Link>
-        <Link href="/conteudo/publicados" className={estiloLinkNumero}>
-          <CartaoNumero rotulo="Publicados no mês" icone={SendIcon} valor={v.publicadosMes.length} />
-        </Link>
-      </div>
-
-      {porPlataforma.size > 0 && (
-        <ul className="flex flex-wrap gap-2" aria-label="Publicados no mês por plataforma">
-          {[...porPlataforma].map(([plataforma, total]) => (
-            <li key={plataforma} className="min-w-0">
-              <ChipSituacao cor={COR_PLATAFORMA[plataforma]}>
-                <span className="inline-flex items-center gap-1.5">
-                  <SeloPlataforma plataforma={plataforma} />
-                  {ROTULO_PLATAFORMA[plataforma]}: {total}
-                </span>
-              </ChipSituacao>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <Bloco id="bloco-atrasados" titulo="Atrasados" itens={v.atrasados} vazio="Nada atrasado." icone={CalendarX} perigo agora={agora} />
-        <Bloco
-          id="bloco-proximos"
-          titulo="Publicar nos próximos 7 dias"
-          itens={v.proximos}
-          vazio="Nada previsto para a semana."
-          icone={SendIcon}
-          agora={agora}
-        />
-        <Bloco
-          id="bloco-gravacoes"
-          titulo="Gravações marcadas"
-          itens={v.gravacoes}
-          vazio="Nenhuma gravação marcada."
-          icone={VideoIcon}
-          gravacao
-          agora={agora}
-        />
-      </div>
-    </div>
   );
 }
 

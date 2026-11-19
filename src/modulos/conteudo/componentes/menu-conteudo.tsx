@@ -11,12 +11,11 @@ import { SeloPlataforma } from "./selo-plataforma";
 import { BotaoNovoConteudo } from "./novo-conteudo";
 
 const VISOES = [
-  { href: "/conteudo", rotulo: "Visão geral" },
+  { href: "/conteudo/relatorios", rotulo: "Relatórios" },
   { href: "/conteudo/planejamento", rotulo: "Planejamento" },
   { href: "/conteudo/calendario", rotulo: "Calendário" },
   { href: "/conteudo/gravacoes", rotulo: "Gravações" },
   { href: "/conteudo/publicados", rotulo: "Publicados" },
-  { href: "/conteudo/relatorios", rotulo: "Relatórios" },
 ];
 
 const estiloItem =
@@ -29,11 +28,11 @@ function Conteudo({ contas, podeConfigurar, podeIntegrar, filtro }: Props) {
   const router = useRouter();
   const { aplicar } = useAplicarFiltro();
   const { marca, canal, formato } = filtro;
-  // Fora das visões (detalhe, configurações), escolher uma conta leva para a visão geral.
+  // Fora das visões (detalhe, configurações), escolher uma conta leva para os Relatórios.
   const ehVisao = VISOES.some((v) => v.href === caminho);
   const filtrar = (novo: Pick<FiltroConteudo, "marca" | "canal" | "formato">) => {
     aplicar({ ...filtro, formato: undefined, ...novo });
-    if (!ehVisao) router.push("/conteudo");
+    if (!ehVisao) router.push("/conteudo/relatorios");
   };
 
   return (

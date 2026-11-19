@@ -5,7 +5,6 @@ import { ErroNegocio } from "@/lib/erros";
 import { ErroPermissao, temPermissao } from "@/lib/permissoes";
 import { prisma } from "@/lib/prisma";
 import type { UsuarioAtual } from "@/lib/sessao";
-import { diaEmSaoPaulo, somarDias } from "@/modulos/tarefas/regras/prazo";
 import type { FiltroConteudo } from "../esquemas/conteudo";
 import { gradeDoMes, proximoMes } from "../regras/calendario";
 import { ETAPAS_DO_QUADRO, etapaAposPublicacoes, validarMudancaEtapa, type Etapa } from "../regras/etapas";
@@ -18,7 +17,6 @@ function exigirUso(ator: UsuarioAtual) {
 const podeAprovar = (ator: UsuarioAtual) => temPermissao(ator.papel, "conteudo:aprovar");
 
 const dataDoDia = (dia: string) => new Date(`${dia}T00:00:00Z`);
-const hojeSP = () => diaEmSaoPaulo(new Date());
 
 /** Início do dia "AAAA-MM-DD" em São Paulo (UTC−3 fixo, sem horário de verão) como instante UTC. */
 const inicioDoDiaSP = (dia: string) => new Date(`${dia}T03:00:00Z`);
@@ -135,37 +133,6 @@ export async function listarPublicados(ator: UsuarioAtual, mes: string, f: Filtr
   return publicacoes;
 }
 export type LinhaPublicado = Awaited<ReturnType<typeof listarPublicados>>[number];
-
-export async function visaoGeral(ator: UsuarioAtual, f: FiltroConteudo) {
-  exigirUso(ator);
-  const hoje = hojeSP();
-  const ativos: Prisma.ConteudoWhereInput = { ...whereFiltro(f), etapa: { notIn: ["publicado", "cancelado"] } };
-  const mes = hoje.slice(0, 7);
-  const [atrasados, proximos, gravacoes, aguardandoEdicao, ideias, publicadosMes] = await Promise.all([
-    prisma.conteudo.findMany({
-      where: { ...ativos, dataPublicacao: { lt: dataDoDia(hoje) } },
-      orderBy: { dataPublicacao: "asc" },
-      take: 20,
-      select: selecaoCartao,
-    }),
-    prisma.conteudo.findMany({
-      where: { ...ativos, dataPublicacao: { gte: dataDoDia(hoje), lte: dataDoDia(somarDias(hoje, 7)) } },
-      orderBy: { dataPublicacao: "asc" },
-      take: 20,
-      select: selecaoCartao,
-    }),
-    prisma.conteudo.findMany({
-      where: { ...whereFiltro(f), etapa: "a_gravar" },
-      orderBy: { dataGravacao: { sort: "asc", nulls: "last" } },
-      take: 10,
-      select: selecaoCartao,
-    }),
-    prisma.conteudo.count({ where: { ...whereFiltro(f), etapa: { in: ["gravado", "edicao"] } } }),
-    prisma.conteudo.count({ where: { ...whereFiltro(f), etapa: "ideia" } }),
-    listarPublicados(ator, mes, f),
-  ]);
-  return { atrasados, proximos, gravacoes, aguardandoEdicao, ideias, publicadosMes };
-}
 
 export async function obterConteudo(ator: UsuarioAtual, conteudoId: string) {
   exigirUso(ator);

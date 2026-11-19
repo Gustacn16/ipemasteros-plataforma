@@ -1,13 +1,6 @@
-import type { Metadata } from "next";
-import { exigirPermissaoPagina } from "@/lib/sessao";
-import { lerFiltro } from "@/modulos/conteudo/componentes/filtro";
-import { TelaVisaoGeral } from "@/modulos/conteudo/componentes/telas";
-import { visaoGeral } from "@/modulos/conteudo/servicos/conteudos";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = { title: "Conteúdo — IPEMaster OS" };
-
-export default async function PaginaVisaoGeral() {
-  const usuario = await exigirPermissaoPagina("conteudo:usar");
-  const filtro = await lerFiltro();
-  return <TelaVisaoGeral v={await visaoGeral(usuario, filtro)} />;
+/** O Conteúdo abre nos Relatórios do Instagram (a antiga visão geral saiu em 2026-11-19). */
+export default function PaginaConteudo() {
+  redirect("/conteudo/relatorios");
 }
