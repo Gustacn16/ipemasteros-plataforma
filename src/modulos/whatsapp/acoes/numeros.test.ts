@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ErroPermissao } from "@/lib/permissoes";
 
-const m = vi.hoisted(() => ({ papel: "admin", salvar: vi.fn(async () => {}), alterarTime: vi.fn(async () => {}) }));
+const m = vi.hoisted(() => ({
+  papel: "admin",
+  salvar: vi.fn(async () => {}),
+  salvarRegras: vi.fn(async () => {}),
+  alterarTime: vi.fn(async () => {}),
+}));
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -14,15 +19,17 @@ vi.mock("@/lib/sessao", () => ({
     return { id: "u1", papel: m.papel };
   },
 }));
-vi.mock("../servicos/configuracao", () => ({ salvarConfiguracaoWhatsapp: m.salvar }));
+vi.mock("../servicos/configuracao", () => ({ salvarConfiguracaoWhatsapp: m.salvar, salvarRegrasAtendimento: m.salvarRegras }));
 vi.mock("../servicos/numeros", () => ({ alterarTimeNumero: m.alterarTime }));
 vi.mock("../servicos/titular", () => ({}));
 
-const { alterarTimeNumeroAcao, salvarLimiteIaWhatsappAcao } = await import("./numeros");
+const { alterarTimeNumeroAcao, salvarLimiteIaWhatsappAcao, salvarRegrasAtendimentoAcao } = await import("./numeros");
+const { REGRAS_PADRAO } = await import("../esquemas/regras-atendimento");
 
 beforeEach(() => {
   m.papel = "admin";
   m.salvar.mockClear();
+  m.salvarRegras.mockClear();
 });
 
 describe("salvarLimiteIaWhatsappAcao", () => {
@@ -60,5 +67,26 @@ describe("alterarTimeNumeroAcao", () => {
     const r = await alterarTimeNumeroAcao({ numeroId: "n1", time: "cs" });
     expect(r.ok).toBe(true);
     expect(m.alterarTime).toHaveBeenCalledWith({ id: "u1", papel: "admin" }, "n1", "cs");
+  });
+});
+
+describe("salvarRegrasAtendimentoAcao", () => {
+  it("salvarRegrasAtendimentoAcao recusa gestor", async () => {
+    m.papel = "gestor";
+    const r = await salvarRegrasAtendimentoAcao(REGRAS_PADRAO);
+    expect(r.ok).toBe(false);
+    expect(m.salvarRegras).not.toHaveBeenCalled();
+  });
+
+  it("comercial também é recusado", async () => {
+    m.papel = "comercial";
+    expect((await salvarRegrasAtendimentoAcao(REGRAS_PADRAO)).ok).toBe(false);
+    expect(m.salvarRegras).not.toHaveBeenCalled();
+  });
+
+  it("admin repassa os dados ao serviço, que valida", async () => {
+    const r = await salvarRegrasAtendimentoAcao(REGRAS_PADRAO);
+    expect(r.ok).toBe(true);
+    expect(m.salvarRegras).toHaveBeenCalledWith(REGRAS_PADRAO, "u1");
   });
 });

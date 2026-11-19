@@ -32,3 +32,26 @@ export function formatarDuracao(segundos: number | null): string {
   if (min < 60) return `${min} min`;
   return `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, "0")} min`;
 }
+
+export const DIAS_DA_SEMANA = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"] as const;
+
+/** 480 → "08:00". */
+export function minutosParaHora(minutos: number): string {
+  return `${String(Math.floor(minutos / 60)).padStart(2, "0")}:${String(minutos % 60).padStart(2, "0")}`;
+}
+
+/** "08:00" → 480; "24:00" vale como fim do dia; formato ou hora inválida → null. */
+export function horaParaMinutos(hora: string): number | null {
+  const m = /^(\d{2}):(\d{2})$/.exec(hora);
+  if (!m) return null;
+  const total = Number(m[1]) * 60 + Number(m[2]);
+  return Number(m[2]) < 60 && total <= 1440 ? total : null;
+}
+
+/** Uma linha por dia, de domingo a sábado: "Segunda: 08:00 às 18:00" ou "Domingo: fechado". */
+export function textoDoHorario(horario: (FaixaHorario | null)[]): string[] {
+  return DIAS_DA_SEMANA.map((nome, i) => {
+    const f = horario[i];
+    return f ? `${nome}: ${minutosParaHora(f.inicioMin)} às ${minutosParaHora(f.fimMin)}` : `${nome}: fechado`;
+  });
+}

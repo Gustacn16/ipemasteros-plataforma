@@ -17,7 +17,7 @@ import {
   solicitarConexao,
   solicitarDesconexao,
 } from "../servicos/numeros";
-import { salvarConfiguracaoWhatsapp } from "../servicos/configuracao";
+import { salvarConfiguracaoWhatsapp, salvarRegrasAtendimento } from "../servicos/configuracao";
 import { apagarDadosDoTelefone } from "../servicos/titular";
 
 const idNumero = z.string().min(1).max(40);
@@ -129,6 +129,19 @@ export async function salvarLimiteIaWhatsappAcao(dados: unknown): Promise<Estado
     await salvarConfiguracaoWhatsapp({ limiteMensalMicroUsd: Math.round(limiteUsd * 1_000_000) }, ator.id);
     revalidatePath("/admin/saude");
     return { ok: true, mensagem: "Limite salvo." };
+  } catch (erro) {
+    return tratarErroAcao(erro);
+  }
+}
+
+/** Regras do atendimento (horário, SLA e follow-up). Só o admin edita; o serviço valida os dados. */
+export async function salvarRegrasAtendimentoAcao(dados: unknown): Promise<EstadoAcao> {
+  try {
+    const ator = await exigirPermissao("whatsapp:ver_equipe");
+    if (ator.papel !== "admin") throw new ErroPermissao("whatsapp:ver_equipe");
+    await salvarRegrasAtendimento(dados, ator.id);
+    revalidatePath("/whatsapp/atendimento");
+    return { ok: true, mensagem: "Regras salvas." };
   } catch (erro) {
     return tratarErroAcao(erro);
   }

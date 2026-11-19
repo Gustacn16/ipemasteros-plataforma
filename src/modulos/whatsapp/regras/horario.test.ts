@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { REGRAS_PADRAO } from "../esquemas/regras-atendimento";
-import { formatarDuracao, segundosUteis } from "./horario";
+import { formatarDuracao, horaParaMinutos, minutosParaHora, segundosUteis, textoDoHorario } from "./horario";
 
 const h = REGRAS_PADRAO.horario;
 const d = (s: string) => new Date(`${s}-03:00`);
@@ -43,5 +43,27 @@ describe("formatarDuracao", () => {
     expect(formatarDuracao(540)).toBe("9 min");
     expect(formatarDuracao(43800)).toBe("12 h 10 min");
     expect(formatarDuracao(3900)).toBe("1 h 05 min");
+  });
+});
+
+describe("horário em HH:MM", () => {
+  it("converte minutos e HH:MM nos dois sentidos", () => {
+    expect(minutosParaHora(480)).toBe("08:00");
+    expect(minutosParaHora(1440)).toBe("24:00");
+    expect(horaParaMinutos("18:30")).toBe(1110);
+    expect(horaParaMinutos("24:00")).toBe(1440);
+    for (const ruim of ["", "8h", "25:00", "12:60", "24:01"]) expect(horaParaMinutos(ruim)).toBeNull();
+  });
+
+  it("textoDoHorario descreve cada dia", () => {
+    expect(textoDoHorario(REGRAS_PADRAO.horario)).toEqual([
+      "Domingo: fechado",
+      "Segunda: 08:00 às 18:00",
+      "Terça: 08:00 às 18:00",
+      "Quarta: 08:00 às 18:00",
+      "Quinta: 08:00 às 18:00",
+      "Sexta: 08:00 às 18:00",
+      "Sábado: 08:00 às 12:00",
+    ]);
   });
 });
