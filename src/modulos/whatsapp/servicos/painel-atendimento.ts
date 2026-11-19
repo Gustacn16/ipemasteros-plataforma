@@ -99,7 +99,11 @@ export async function resumoDaSemana(
     opcoes.semResposta ?? semRespostaAgora(ator, opcoes.agora),
   ]);
   const porNumero = new Map<string, LinhaDiaria[]>();
-  for (const l of linhas) porNumero.set(l.numeroId, [...(porNumero.get(l.numeroId) ?? []), l]);
+  for (const l of linhas) {
+    const doNumero = porNumero.get(l.numeroId) ?? [];
+    doNumero.push(l);
+    porNumero.set(l.numeroId, doNumero);
+  }
   return numeros.map((n) => {
     const a = agregar(porNumero.get(n.id) ?? []);
     return {

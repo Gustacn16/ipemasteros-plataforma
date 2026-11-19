@@ -63,7 +63,20 @@ function followupDe(e: Date, proxima: MensagemTempo | undefined, agora: Date, re
   return { devidoEm, resultado: "perdido" };
 }
 
-/** Métricas de um dia ("AAAA-MM-DD" de São Paulo). Vez conta no dia em que começou; follow-up, no dia em que venceu. */
+const linhaVazia = (): LinhaDia => ({
+  conversasComCliente: 0,
+  primeirasRespostasSeg: [],
+  respostasSeg: [],
+  respostasNoSla: 0,
+  semResposta: 0,
+  followupsFeitos: 0,
+  followupsPerdidos: 0,
+});
+
+/**
+ * Métricas de um dia ("AAAA-MM-DD" de São Paulo). Vez conta no dia em que começou; follow-up, no dia em que venceu.
+ * É a regra de referência de um dia; o cron usa `metricasDosDias`, que dá o mesmo resultado para vários dias.
+ */
 export function metricasDoDia(
   conversas: { mensagens: MensagemTempo[] }[],
   dia: string,
@@ -71,15 +84,7 @@ export function metricasDoDia(
   regras: RegrasAtendimento,
 ): LinhaDia {
   const sla = regras.slaMinutos * 60;
-  const linha: LinhaDia = {
-    conversasComCliente: 0,
-    primeirasRespostasSeg: [],
-    respostasSeg: [],
-    respostasNoSla: 0,
-    semResposta: 0,
-    followupsFeitos: 0,
-    followupsPerdidos: 0,
-  };
+  const linha = linhaVazia();
 
   for (const { mensagens } of conversas) {
     if (mensagens.some((m) => !m.deMim && diaEmSaoPaulo(m.enviadaEm) === dia)) linha.conversasComCliente++;
@@ -103,6 +108,56 @@ export function metricasDoDia(
     }
   }
   return linha;
+}
+
+/**
+ * O mesmo que `metricasDoDia` para cada dia da lista, calculando os eventos de cada conversa uma vez
+ * só e distribuindo pelo dia. O mapa tem uma linha por dia, na ordem de `dias`.
+ */
+export function metricasDosDias(
+  conversas: { mensagens: MensagemTempo[] }[],
+  dias: string[],
+  agora: Date,
+  regras: RegrasAtendimento,
+): Map<string, LinhaDia> {
+  const sla = regras.slaMinutos * 60;
+  const porDia = new Map(dias.map((dia) => [dia, linhaVazia()]));
+
+  for (const { mensagens } of conversas) {
+    const diasDoCliente = new Set<string>();
+    for (const m of mensagens) if (!m.deMim) diasDoCliente.add(diaEmSaoPaulo(m.enviadaEm));
+    for (const dia of diasDoCliente) {
+      const linha = porDia.get(dia);
+      if (linha) linha.conversasComCliente++;
+    }
+
+    const { vezes, followups } = eventosDaConversa(mensagens, agora, regras);
+    // As vezes vêm em ordem: a primeira vista de cada dia é a primeira vez do dia.
+    const diasComVez = new Set<string>();
+    for (const v of vezes) {
+      const dia = diaEmSaoPaulo(v.inicio);
+      const linha = porDia.get(dia);
+      if (!linha) continue;
+      if (!diasComVez.has(dia)) {
+        diasComVez.add(dia);
+        if (v.respondidaEm) linha.primeirasRespostasSeg.push(v.segundos);
+      }
+      if (v.respondidaEm) {
+        linha.respostasSeg.push(v.segundos);
+        if (v.segundos <= sla) linha.respostasNoSla++;
+      } else if (v.segundos > sla) {
+        linha.semResposta++;
+      }
+    }
+
+    for (const f of followups) {
+      const linha = porDia.get(diaEmSaoPaulo(f.devidoEm));
+      if (!linha) continue;
+      if (f.resultado === "feito") linha.followupsFeitos++;
+      else if (f.resultado === "perdido") linha.followupsPerdidos++;
+    }
+  }
+  return porDia;
 }
 
 /** Mediana; com tamanho par, a média arredondada dos dois do meio. */

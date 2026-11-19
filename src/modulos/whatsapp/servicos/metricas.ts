@@ -1,7 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { diaEmSaoPaulo, somarDias } from "@/modulos/tarefas/regras/prazo";
-import { metricasDoDia, type MensagemTempo } from "../regras/atendimento";
+import { metricasDosDias, type MensagemTempo } from "../regras/atendimento";
 import { obterRegrasAtendimento } from "./configuracao";
 
 const DIAS_CARGA_INICIAL = 35;
@@ -9,19 +9,26 @@ const DIAS_RECALCULO = 5; // hoje e os 4 anteriores: o follow-up se decide em at
 const DIAS_ANTES_DA_JANELA = 7;
 const LOTE_CONVERSAS = 1000;
 
+const ultimosDias = (hoje: string, total: number) => Array.from({ length: total }, (_, i) => somarDias(hoje, i - (total - 1)));
+
 /**
- * Recalcula a linha diária de cada número não excluído para hoje e os 4 dias anteriores
- * (35 dias se a tabela estiver vazia). Linhas de dias anteriores a hoje mantêm o `time` gravado.
- * Devolve só contagens.
+ * Recalcula a linha diária de cada número não excluído para hoje e os 4 dias anteriores.
+ * Número sem nenhuma linha ainda (novo, ou a tabela vazia) recebe 35 dias, para carregar o histórico.
+ * Linhas de dias anteriores a hoje mantêm o `time` gravado. Devolve só contagens
+ * (`dias` é o maior período recalculado).
  */
 export async function recalcularMetricas(agora: Date = new Date()): Promise<{ dias: number; linhas: number }> {
   const hoje = diaEmSaoPaulo(agora);
-  const total = (await prisma.metricaAtendimentoDia.count()) === 0 ? DIAS_CARGA_INICIAL : DIAS_RECALCULO;
-  const dias = Array.from({ length: total }, (_, i) => somarDias(hoje, i - (total - 1)));
-  const desde = new Date(`${somarDias(dias[0]!, -DIAS_ANTES_DA_JANELA)}T00:00:00.000-03:00`);
-
   const regras = await obterRegrasAtendimento();
   const numeros = await prisma.numeroWhatsapp.findMany({ where: { excluidoEm: null }, select: { id: true, time: true } });
+  const comLinhas = new Set(
+    (await prisma.metricaAtendimentoDia.findMany({ distinct: ["numeroId"], select: { numeroId: true } })).map((l) => l.numeroId),
+  );
+  const totalDe = (numeroId: string) => (comLinhas.has(numeroId) ? DIAS_RECALCULO : DIAS_CARGA_INICIAL);
+  const total = Math.max(0, ...numeros.map((n) => totalDe(n.id)));
+  // Mensagens carregadas uma vez, desde o dia mais antigo que algum número precisa (mais a folga de 7 dias).
+  const maisAntigo = somarDias(hoje, -(Math.max(total, 1) - 1));
+  const desde = new Date(`${somarDias(maisAntigo, -DIAS_ANTES_DA_JANELA)}T00:00:00.000-03:00`);
   const conversas = await prisma.conversaWhatsapp.findMany({
     where: { tipo: "individual", categoria: { in: ["lead", "aluno"] }, numero: { excluidoEm: null } },
     select: { id: true, numeroId: true },
@@ -45,13 +52,17 @@ export async function recalcularMetricas(agora: Date = new Date()): Promise<{ di
   const porNumero = new Map<string, { mensagens: MensagemTempo[] }[]>();
   for (const [conversaId, mensagens] of porConversa) {
     const numeroId = numeroDa.get(conversaId)!;
-    porNumero.set(numeroId, [...(porNumero.get(numeroId) ?? []), { mensagens }]);
+    const lista = porNumero.get(numeroId) ?? [];
+    lista.push({ mensagens });
+    porNumero.set(numeroId, lista);
   }
 
   let linhas = 0;
   for (const numero of numeros) {
+    const dias = ultimosDias(hoje, totalDe(numero.id));
+    const porDia = metricasDosDias(porNumero.get(numero.id) ?? [], dias, agora, regras);
     for (const dia of dias) {
-      const linha = metricasDoDia(porNumero.get(numero.id) ?? [], dia, agora, regras);
+      const linha = porDia.get(dia)!;
       const dados = {
         conversasComCliente: linha.conversasComCliente,
         primeirasRespostasSeg: linha.primeirasRespostasSeg,

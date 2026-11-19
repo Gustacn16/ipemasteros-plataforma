@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { REGRAS_PADRAO } from "../esquemas/regras-atendimento";
-import { eventosDaConversa, mediana, metricasDoDia, percentual, type MensagemTempo } from "./atendimento";
+import { somarDias } from "@/modulos/tarefas/regras/prazo";
+import { eventosDaConversa, mediana, metricasDoDia, metricasDosDias, percentual, type MensagemTempo } from "./atendimento";
 
 const r = REGRAS_PADRAO;
 const d = (s: string) => new Date(`${s}-03:00`);
@@ -160,6 +161,43 @@ describe("metricasDoDia: follow-up perto da meia-noite", () => {
     const agora = d("2026-11-20T12:00:00");
     expect(metricasDoDia(conversas, "2026-11-17", agora, r).followupsFeitos).toBe(1);
     expect(metricasDoDia(conversas, "2026-11-18", agora, r).followupsFeitos).toBe(0);
+  });
+});
+
+describe("metricasDosDias", () => {
+  // Gerador determinístico: várias conversas com mensagens espalhadas por ~3 semanas, em qualquer hora.
+  function conversasAleatorias(semente: number) {
+    let x = semente;
+    const rand = () => ((x = (x * 1103515245 + 12345) % 2 ** 31) / 2 ** 31);
+    const base = d("2026-10-25T00:00:00").getTime();
+    return Array.from({ length: 25 }, () => {
+      let t = base + rand() * 5 * 24 * H;
+      const mensagens: MensagemTempo[] = [];
+      const total = 1 + Math.floor(rand() * 30);
+      for (let i = 0; i < total; i++) {
+        // Intervalos de minutos a alguns dias, para cair em SLA, follow-up feito, cancelado e perdido.
+        const salto = rand() < 0.2 ? rand() * 4 * 24 * H : rand() < 0.5 ? rand() * 30 * 60_000 : rand() * 10 * H;
+        t += salto;
+        mensagens.push({ deMim: rand() < 0.5, enviadaEm: new Date(t) });
+      }
+      return { mensagens };
+    });
+  }
+
+  it("dá o mesmo que metricasDoDia dia a dia", () => {
+    const agora = d("2026-11-18T12:00:00");
+    const dias = Array.from({ length: 35 }, (_, i) => somarDias("2026-11-18", i - 34));
+    for (const semente of [1, 7, 42, 2026]) {
+      const conversas = conversasAleatorias(semente);
+      const porDia = metricasDosDias(conversas, dias, agora, r);
+      expect([...porDia.keys()]).toEqual(dias);
+      for (const dia of dias) expect(porDia.get(dia)).toEqual(metricasDoDia(conversas, dia, agora, r));
+    }
+  });
+
+  it("dia sem conversa dá linha zerada", () => {
+    const porDia = metricasDosDias([], ["2026-11-18"], d("2026-11-18T12:00:00"), r);
+    expect(porDia.get("2026-11-18")).toEqual(metricasDoDia([], "2026-11-18", d("2026-11-18T12:00:00"), r));
   });
 });
 

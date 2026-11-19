@@ -46,7 +46,10 @@ const banco = vi.hoisted(() => {
       },
     },
     metricaAtendimentoDia: {
-      count: async () => estado.metricas.length,
+      findMany: async (args: { distinct?: string[]; select: Linha }) => {
+        const ids = [...new Set(estado.metricas.map((m) => m.numeroId))];
+        return ids.map((numeroId) => ({ numeroId }));
+      },
       upsert: async ({ where, create, update }: { where: Linha; create: Linha; update: Linha }) => {
         const { numeroId, dia } = where.numeroId_dia;
         const atual = estado.metricas.find((r) => r.numeroId === numeroId && r.dia.getTime() === dia.getTime());
@@ -106,6 +109,30 @@ describe("recalcularMetricas", () => {
     expect(r).toEqual({ dias: 5, linhas: 5 });
     const dias = banco.estado.metricas.map((m) => m.dia.toISOString().slice(0, 10)).sort();
     expect(dias).toEqual(["2026-11-10", "2026-11-14", "2026-11-15", "2026-11-16", "2026-11-17", "2026-11-18"]);
+  });
+
+  it("número sem linhas ganha 35 dias e número com linhas ganha 5", async () => {
+    numero("n1", "comercial");
+    numero("n2", "comercial");
+    conversa("c2", "n2");
+    msg("c2", false, "2026-10-16T13:00:00Z"); // sexta 16/10 10h em SP: só a carga de 35 dias pega
+    msg("c2", true, "2026-10-16T13:05:00Z");
+    banco.estado.metricas.push({ numeroId: "n1", dia: dia("2026-11-10"), time: "comercial" });
+    const r = await recalcularMetricas(agora);
+    expect(r).toEqual({ dias: 35, linhas: 5 + 35 });
+    const diasDe = (id: string) =>
+      banco.estado.metricas
+        .filter((m) => m.numeroId === id)
+        .map((m) => m.dia.toISOString().slice(0, 10))
+        .sort();
+    expect(diasDe("n1")).toEqual(["2026-11-10", "2026-11-14", "2026-11-15", "2026-11-16", "2026-11-17", "2026-11-18"]);
+    expect(diasDe("n2")).toHaveLength(35);
+    expect(diasDe("n2")[0]).toBe("2026-10-15");
+    const linha = banco.estado.metricas.find((m) => m.numeroId === "n2" && m.dia.getTime() === dia("2026-10-16").getTime())!;
+    expect(linha).toMatchObject({ primeirasRespostasSeg: [300] });
+    // Mensagens carregadas uma vez, desde o dia mais antigo necessário (7 dias antes de 15/10).
+    expect(banco.estado.consultasMensagens).toHaveLength(1);
+    expect(banco.estado.consultasMensagens[0].where.enviadaEm.gte).toEqual(new Date("2026-10-08T03:00:00.000Z"));
   });
 
   it("grava linha com zeros para número sem conversa", async () => {
