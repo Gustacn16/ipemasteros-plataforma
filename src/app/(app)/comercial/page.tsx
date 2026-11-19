@@ -5,6 +5,7 @@ import { PainelDashboard } from "@/modulos/comercial/componentes/dashboard/paine
 import { esquemaFiltrosDashboard } from "@/modulos/comercial/esquemas/dashboard";
 import { obterDashboard } from "@/modulos/comercial/servicos/dashboard";
 import { obterMidia } from "@/modulos/comercial/servicos/dashboard-midia";
+import { obterProjecao } from "@/modulos/comercial/servicos/projecao";
 import { listarProdutosDoFiltro } from "@/modulos/comercial/servicos/produtos";
 import { listarVendedoresDoFiltro } from "@/modulos/comercial/servicos/vendas";
 
@@ -28,8 +29,9 @@ export default async function PaginaDashboard({ searchParams }: PageProps<"/come
   // Mídia só para quem vê marketing; os demais ficam sempre na visão de vendas.
   const veMidia = temPermissao(usuario.papel, "comercial:ver_marketing");
   const naMidia = veMidia && filtros.visao === "midia";
-  const [dados, produtos, vendedores, midia] = await Promise.all([
+  const [dados, projecao, produtos, vendedores, midia] = await Promise.all([
     obterDashboard(usuario, filtros),
+    naMidia ? Promise.resolve(null) : obterProjecao(usuario, filtros),
     listarProdutosDoFiltro(),
     listarVendedoresDoFiltro(),
     naMidia ? obterMidia(usuario, filtros) : Promise.resolve(null),
@@ -55,6 +57,7 @@ export default async function PaginaDashboard({ searchParams }: PageProps<"/come
   return (
     <PainelDashboard
       dados={dados}
+      projecao={projecao}
       produtos={produtos.map((p) => ({ id: p.id, nome: p.nome }))}
       vendedores={dados.equipe ? vendedores : []}
       midia={midia}
