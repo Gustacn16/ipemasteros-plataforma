@@ -102,6 +102,24 @@ describe("eventos conversas e mensagens", () => {
 });
 
 describe("esquemaRegrasAtendimento", () => {
+  it("toda mensagem de número fora da faixa ou quebrado sai em português", () => {
+    const faixa = (f: Record<string, number>) => [{ ...REGRAS_PADRAO.horario[1]!, ...f }, ...REGRAS_PADRAO.horario.slice(1)];
+    const casos = [
+      { horario: faixa({ inicioMin: 1.5 }) },
+      { horario: faixa({ inicioMin: 2000 }) },
+      { horario: faixa({ fimMin: 600.5 }) },
+      { horario: faixa({ fimMin: -1 }) },
+      { slaMinutos: 1.5 },
+      { followupHoras: 1.5 },
+      { followupDias: 1.5 },
+    ];
+    for (const caso of casos) {
+      const r = esquemaRegrasAtendimento.safeParse({ ...REGRAS_PADRAO, ...caso });
+      expect(r.success, JSON.stringify(caso)).toBe(false);
+      for (const issue of r.error!.issues) expect(issue.message, JSON.stringify(caso)).toMatch(/^(O|A|Informe) /);
+    }
+  });
+
   it("aceita REGRAS_PADRAO", () => {
     expect(esquemaRegrasAtendimento.safeParse(REGRAS_PADRAO).success).toBe(true);
   });
