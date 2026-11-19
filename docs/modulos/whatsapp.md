@@ -1,7 +1,7 @@
 # Módulo: WhatsApp
 
 ## Objetivo
-Conectar os números de WhatsApp da escola e dos vendedores ao IPEMaster OS e guardar o que acontece nos grupos e nas conversas. A entrega 1 criou o motor de conexão (projeto à parte, `motor-whatsapp/`, com a Baileys) e a tela de números com o QR. A entrega 2a captura grupos, contatos e mensagens e mostra as telas Grupos e Conversas. Resumos, SLA, qualidade e disparo vêm nas próximas entregas.
+Conectar os números de WhatsApp da escola e dos vendedores ao IPEMaster OS e guardar o que acontece nos grupos e nas conversas. A entrega 1 criou o motor de conexão (projeto à parte, `motor-whatsapp/`, com a Baileys) e a tela de números com o QR. A entrega 2a captura grupos, contatos e mensagens e mostra as telas Grupos e Conversas. A entrega 3 faz o resumo diário dos grupos com IA e a entrega 4 mede os tempos de resposta e o tempo da CS. Avaliação com IA e disparo vêm nas próximas entregas.
 
 ## Entidades
 | Entidade | Campos principais |
