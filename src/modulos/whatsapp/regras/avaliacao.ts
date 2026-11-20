@@ -1,5 +1,5 @@
 // Tipos de avaliação, critérios e notas calculadas pelo sistema. Regra pura: sem banco.
-import type { TimeNumeroWhatsapp } from "@/generated/prisma/enums";
+import type { SituacaoLead, TemperaturaLead, TimeNumeroWhatsapp } from "@/generated/prisma/enums";
 import type { RegrasAtendimento } from "../esquemas/regras-atendimento";
 import { eventosDaConversa, type MensagemTempo } from "./atendimento";
 
@@ -56,3 +56,20 @@ export function formatarNota(decimos: number | null): string {
   if (decimos === null) return "—";
   return (decimos / 10).toFixed(1).replace(".", ",");
 }
+
+export const ROTULO_SITUACAO_LEAD: Record<SituacaoLead, string> = {
+  novo: "Novo",
+  qualificando: "Qualificando",
+  interessado: "Interessado",
+  objecao: "Com objeção",
+  negociando: "Negociando",
+  sem_retorno: "Sem retorno",
+  fechou: "Fechou",
+  perdido: "Perdido",
+};
+
+export const ROTULO_TEMPERATURA: Record<TemperaturaLead, string> = {
+  quente: "Quente",
+  morno: "Morno",
+  frio: "Frio",
+};

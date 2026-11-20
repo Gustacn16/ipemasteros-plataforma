@@ -4,6 +4,7 @@ import { temPermissao, type Papel } from "@/lib/permissoes";
 const ABAS = [
   { chave: "grupos", href: "/whatsapp/grupos", rotulo: "Grupos", permissoes: ["whatsapp:ver_grupos"] },
   { chave: "atendimento", href: "/whatsapp/atendimento", rotulo: "Atendimento", permissoes: ["whatsapp:ver_equipe"] },
+  { chave: "leads", href: "/whatsapp/leads", rotulo: "Leads", permissoes: ["whatsapp:ver_equipe"] },
   { chave: "cs", href: "/whatsapp/cs", rotulo: "CS", permissoes: ["whatsapp:ver_equipe"] },
   { chave: "conversas", href: "/whatsapp/conversas", rotulo: "Conversas", permissoes: ["whatsapp:ver_equipe", "whatsapp:ver_proprio"] },
   { chave: "numeros", href: "/whatsapp/numeros", rotulo: "Números", permissoes: ["whatsapp:gerenciar_numeros", "whatsapp:conectar_proprio"] },
