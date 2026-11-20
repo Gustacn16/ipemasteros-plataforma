@@ -13,7 +13,6 @@ import {
   participacaoDoDia,
   pedidoResumo,
   type MensagemParaResumo,
-  type PedidoResumo,
 } from "../ia/resumo-grupo";
 import { janelaDeOntem } from "../regras/dia";
 import { obterConfiguracaoWhatsapp } from "./configuracao";
@@ -80,7 +79,14 @@ export function clienteLotesAnthropic(cliente: Anthropic): ClienteLotes {
   };
 }
 
-type ResultadoCriacao = {
+/** O cliente recebido (os testes passam um falso, ou null) ou o da Anthropic; null sem ANTHROPIC_API_KEY. */
+export function clienteLotesOuPadrao(cliente: ClienteLotes | null | undefined): ClienteLotes | null {
+  if (cliente !== undefined) return cliente;
+  const c = obterClienteAnthropic();
+  return c ? clienteLotesAnthropic(c) : null;
+}
+
+export type ResultadoCriacao = {
   criado: boolean;
   pedidos: number;
   semVerba: number;
@@ -90,7 +96,7 @@ type ResultadoCriacao = {
 /** Prefixo do custom_id de cada pedido. A API só aceita ^[a-zA-Z0-9_-]{1,64}$ (sem dois-pontos). */
 const PREFIXO_CUSTOM_ID = "resumo_";
 
-const codigoErro = (e: unknown) => (typeof e === "object" && e !== null ? (e as { code?: unknown }).code : undefined);
+export const codigoErro = (e: unknown) => (typeof e === "object" && e !== null ? (e as { code?: unknown }).code : undefined);
 
 /** Saída esperada de um resumo (raciocínio + JSON) para a conta da verba; o teto do pedido é MAX_TOKENS_RESUMO. */
 export const SAIDA_ESTIMADA = 4000;
@@ -110,8 +116,7 @@ export async function criarLoteDoDia(
   agora: Date = new Date(),
   cliente?: ClienteLotes | null,
 ): Promise<ResultadoCriacao> {
-  const lotes =
-    cliente === undefined ? ((c) => (c ? clienteLotesAnthropic(c) : null))(obterClienteAnthropic()) : cliente;
+  const lotes = clienteLotesOuPadrao(cliente);
   if (!lotes) return { criado: false, pedidos: 0, semVerba: 0, motivo: "sem_chave" };
 
   const { dia, inicio, fim } = janelaDeOntem(agora);
@@ -196,12 +201,66 @@ export async function criarLoteDoDia(
     return { criado: false, pedidos: 0, semVerba: semVerba.length, motivo: "nada_a_fazer" };
   }
 
+  return enviarLoteReservado({
+    tipo: "resumo_grupo",
+    rotulo: "resumos",
+    dia,
+    lotes,
+    semVerba: semVerba.length,
+    gravarSemVerba,
+    async gravarPendentes(reservaId) {
+      const itens: ItemDoLote[] = [];
+      for (const c of cabem) {
+        const id = await gravarResumo(c, dia, { situacao: "pendente", erro: null, loteId: reservaId, modelo: config.modelo });
+        if (!id) continue; // ficou pronto no meio do caminho
+        itens.push({ id, pedido: pedidoResumo(`${PREFIXO_CUSTOM_ID}${id}`, config.modelo, c.texto) });
+      }
+      return itens;
+    },
+    async falharPendentesDoLote(reservaId) {
+      await prisma.resumoGrupo.updateMany({
+        where: { loteId: reservaId, situacao: "pendente" },
+        data: { situacao: "falhou", erro: ERRO_ENVIO_LOTE, loteId: null },
+      });
+    },
+    async falharEnviados(ids) {
+      await prisma.resumoGrupo.updateMany({
+        where: { id: { in: ids }, situacao: { not: "pronto" } },
+        data: { situacao: "falhou", erro: ERRO_ENVIO_LOTE, loteId: null },
+      });
+    },
+  });
+}
+
+/** Um pedido já gravado como pendente: o id da linha e o pedido para a API. */
+export type ItemDoLote = { id: string; pedido: unknown };
+
+/**
+ * Reserva o lote do dia (o único tipo + dia barra a execução dupla), grava os itens e envia.
+ * Comum aos resumos e às avaliações; a tabela de cada um entra pelas funções recebidas.
+ */
+export async function enviarLoteReservado(o: {
+  tipo: "resumo_grupo" | "avaliacao";
+  /** Só para o log ("resumos", "avaliações"). */
+  rotulo: string;
+  dia: Date;
+  lotes: ClienteLotes;
+  semVerba: number;
+  gravarSemVerba: () => Promise<void>;
+  /** Grava os pendentes do lote e devolve os pedidos; quem ficou pronto no caminho fica de fora. */
+  gravarPendentes: (reservaId: string) => Promise<ItemDoLote[]>;
+  /** Nada foi enviado: os pendentes já gravados deste lote viram falhou e saem do lote. */
+  falharPendentesDoLote: (reservaId: string) => Promise<void>;
+  /** Recusa certa (4xx): os enviados que não estão prontos viram falhou e saem do lote. */
+  falharEnviados: (ids: string[]) => Promise<void>;
+}): Promise<ResultadoCriacao> {
+  const { tipo, rotulo, dia, lotes, semVerba } = o;
   // Reserva do dia antes de qualquer envio: o único (tipo, dia) barra a execução simultânea.
   let reservaId: string;
   try {
     reservaId = (
       await prisma.loteIa.create({
-        data: { tipo: "resumo_grupo", dia, situacao: "aberto", idExterno: null },
+        data: { tipo, dia, situacao: "aberto", idExterno: null },
         select: { id: true },
       })
     ).id;
@@ -210,47 +269,35 @@ export async function criarLoteDoDia(
     throw e;
   }
 
-  const pedidos: PedidoResumo[] = [];
-  const enviados: string[] = [];
+  let itens: ItemDoLote[];
   try {
-    await gravarSemVerba();
-    for (const c of cabem) {
-      const id = await gravarResumo(c, dia, { situacao: "pendente", erro: null, loteId: reservaId, modelo: config.modelo });
-      if (!id) continue; // ficou pronto no meio do caminho
-      pedidos.push(pedidoResumo(`${PREFIXO_CUSTOM_ID}${id}`, config.modelo, c.texto));
-      enviados.push(id);
-    }
+    await o.gravarSemVerba();
+    itens = await o.gravarPendentes(reservaId);
   } catch (e) {
-    // Nada foi enviado: os resumos já gravados como pendentes deste lote não podem ficar pendentes para sempre.
-    await prisma.resumoGrupo.updateMany({
-      where: { loteId: reservaId, situacao: "pendente" },
-      data: { situacao: "falhou", erro: ERRO_ENVIO_LOTE, loteId: null },
-    });
+    // Nada foi enviado: os itens já gravados como pendentes deste lote não podem ficar pendentes para sempre.
+    await o.falharPendentesDoLote(reservaId);
     await prisma.loteIa.delete({ where: { id: reservaId } });
     throw e;
   }
-  if (pedidos.length === 0) {
+  if (itens.length === 0) {
     await prisma.loteIa.delete({ where: { id: reservaId } });
-    return { criado: false, pedidos: 0, semVerba: semVerba.length, motivo: "nada_a_fazer" };
+    return { criado: false, pedidos: 0, semVerba, motivo: "nada_a_fazer" };
   }
 
   let idExterno: string;
   try {
-    idExterno = (await lotes.criar(pedidos)).id;
+    idExterno = (await lotes.criar(itens.map((i) => i.pedido))).id;
   } catch (e) {
-    console.error("[whatsapp] falha ao criar o lote de resumos:", descreverErro(e));
+    console.error(`[whatsapp] falha ao criar o lote de ${rotulo}:`, descreverErro(e));
     if (!(e instanceof LoteRecusadoError)) {
       // Tempo esgotado, conexão ou 5xx: o lote pode existir na Anthropic. A reserva fica (sem idExterno) e os
-      // resumos ficam pendentes; a coleta marca falhou depois de 1 h, e nada é reenviado no mesmo dia.
-      return { criado: false, pedidos: 0, semVerba: semVerba.length, motivo: "envio_incerto" };
+      // itens ficam pendentes; a coleta marca falhou depois de 1 h, e nada é reenviado no mesmo dia.
+      return { criado: false, pedidos: 0, semVerba, motivo: "envio_incerto" };
     }
-    await prisma.resumoGrupo.updateMany({
-      where: { id: { in: enviados }, situacao: { not: "pronto" } },
-      data: { situacao: "falhou", erro: ERRO_ENVIO_LOTE, loteId: null },
-    });
+    await o.falharEnviados(itens.map((i) => i.id));
     // Recusa certa (4xx): a reserva sai e uma nova tentativa no mesmo dia pode enviar.
     await prisma.loteIa.delete({ where: { id: reservaId } });
-    return { criado: false, pedidos: 0, semVerba: semVerba.length, motivo: "falha_envio" };
+    return { criado: false, pedidos: 0, semVerba, motivo: "falha_envio" };
   }
 
   try {
@@ -258,10 +305,10 @@ export async function criarLoteDoDia(
   } catch (e) {
     // A reserva fica (sem idExterno): nada é reenviado; a coleta marca falhou depois de 1 h.
     // O id externo do lote (não é dado pessoal) vai para o log para a recuperação manual.
-    console.error("[whatsapp] falha ao gravar o id do lote de resumos:", descreverErro(e), idExterno);
+    console.error(`[whatsapp] falha ao gravar o id do lote de ${rotulo}:`, descreverErro(e), idExterno);
     throw e;
   }
-  return { criado: true, pedidos: pedidos.length, semVerba: semVerba.length };
+  return { criado: true, pedidos: itens.length, semVerba };
 }
 
 type DadosResumo = { situacao: "pendente" | "falhou"; erro: string | null; loteId: string | null; modelo: string };
@@ -368,8 +415,7 @@ function desfechoDoItem(item: ResultadoLote): Desfecho {
  */
 export async function coletarLotes(agora: Date = new Date(), cliente?: ClienteLotes | null): Promise<ResultadoColeta> {
   const total: ResultadoColeta = { lotes: 0, prontos: 0, falhos: 0 };
-  const lotes =
-    cliente === undefined ? ((c) => (c ? clienteLotesAnthropic(c) : null))(obterClienteAnthropic()) : cliente;
+  const lotes = clienteLotesOuPadrao(cliente);
   if (!lotes) return total;
 
   const abertos = await prisma.loteIa.findMany({

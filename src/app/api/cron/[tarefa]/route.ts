@@ -5,6 +5,8 @@ import { atualizarInstagram } from "@/modulos/conteudo/servicos/atualizacao-inst
 import { recalcularMetricas } from "@/modulos/whatsapp/servicos/metricas";
 import { limparWhatsapp } from "@/modulos/whatsapp/servicos/limpeza";
 import { coletarLotes, criarLoteDoDia } from "@/modulos/whatsapp/servicos/lote-ia";
+import { criarLoteAvaliacoes } from "@/modulos/whatsapp/servicos/lote-avaliacao";
+import { descreverErro } from "@/modulos/nexu/servicos/descrever-erro";
 import { limparConversasAntigas } from "@/modulos/nexu/servicos/limpeza";
 import { iniciarColeta } from "@/modulos/espiao/servicos/coleta";
 import { limparEspiaoAntigo } from "@/modulos/espiao/servicos/limpeza";
@@ -66,7 +68,18 @@ const TAREFAS: Record<string, () => Promise<Record<string, unknown>>> = {
   },
   // Só contagens na resposta.
   "metricas-whatsapp": async () => ({ ok: true, ...(await recalcularMetricas()) }),
-  "ia-whatsapp": async () => ({ ok: true, ...(await criarLoteDoDia()) }),
+  "ia-whatsapp": async () => {
+    // Resumos primeiro (o gasto deles entra na reserva das avaliações); a falha deles não barra as avaliações.
+    let resumos: Record<string, unknown>;
+    try {
+      resumos = await criarLoteDoDia();
+    } catch (e) {
+      console.error("[whatsapp] falha no lote de resumos:", descreverErro(e));
+      resumos = { criado: false, motivo: "erro" };
+    }
+    const avaliacoes = await criarLoteAvaliacoes();
+    return { ok: true, resumos, avaliacoes };
+  },
   "coletar-ia-whatsapp": async () => ({ ok: true, ...(await coletarLotes()) }),
   "importar-stories-instagram": async () => {
     const r = await atualizarInstagram({ tipo: "stories", origem: "agendada" });
