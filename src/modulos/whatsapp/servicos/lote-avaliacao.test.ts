@@ -14,6 +14,7 @@ const banco = vi.hoisted(() => {
     vendas: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
     lotes: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
     config: null as Record<string, any> | null, // eslint-disable-line @typescript-eslint/no-explicit-any
+    usos: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
     gastoMes: 0,
     seq: 0,
   };
@@ -46,8 +47,18 @@ const banco = vi.hoisted(() => {
         if (where.origem !== "whatsapp") throw new Error("origem errada");
         return { _sum: { custoMicroUsd: estado.gastoMes } };
       },
+      create: async ({ data }: { data: Linha }) => {
+        estado.usos.push(data);
+        return data;
+      },
     },
     loteIa: {
+      findMany: async ({ where }: { where: Linha }) => {
+        semLike(where);
+        return estado.lotes
+          .filter((l) => naLista(l.tipo, where.tipo) && l.situacao === where.situacao)
+          .map((l) => ({ id: l.id, tipo: l.tipo, idExterno: l.idExterno, criadoEm: l.criadoEm }));
+      },
       findFirst: async ({ where }: { where: Linha }) => {
         semLike(where);
         return estado.lotes.find((l) => l.tipo === where.tipo && mesmoDia(l.dia, where.dia)) ?? null;
@@ -113,6 +124,12 @@ const banco = vi.hoisted(() => {
     resumoGrupo: {
       findMany: async ({ where }: { where: Linha }) =>
         estado.resumos.filter((r) => r.situacao === where.situacao).map((r) => ({ totalMensagens: r.totalMensagens, modelo: r.modelo })),
+      findUnique: async ({ where }: { where: Linha }) => estado.resumos.find((r) => r.id === where.id) ?? null,
+      updateMany: async ({ where, data }: { where: Linha; data: Linha }) => {
+        const alvo = estado.resumos.filter((r) => avaliacaoCombina(r, where));
+        alvo.forEach((r) => Object.assign(r, data));
+        return { count: alvo.length };
+      },
     },
     avaliacaoConversa: {
       findMany: async ({ where }: { where: Linha }) => {
@@ -143,8 +160,8 @@ vi.mock("@/lib/prisma", () => ({ prisma: banco.prisma }));
 vi.mock("@/lib/ia/cliente", () => ({ obterClienteAnthropic: () => null }));
 
 import { INSTRUCOES_AVALIACAO } from "../ia/avaliacao-conversa";
-import { LoteRecusadoError, type ClienteLotes, type ResultadoLote } from "./lote-ia";
-import { criarLoteAvaliacoes, PREFIXO_AVALIACAO, reservaPendentesMicroUsd } from "./lote-avaliacao";
+import { coletarLotes, ERRO_FORMATO, ERRO_GRANDE_DEMAIS, LoteRecusadoError, type ClienteLotes, type ResultadoLote } from "./lote-ia";
+import { criarLoteAvaliacoes, gravarItemAvaliacao, PREFIXO_AVALIACAO, reservaPendentesMicroUsd } from "./lote-avaliacao";
 
 // 18/11 às 07:30 UTC (04:30 em São Paulo): "ontem" é 17/11 (terça) de 03:00Z até 18/11 03:00Z.
 const AGORA = new Date("2026-11-18T07:30:00Z");
@@ -199,6 +216,7 @@ beforeEach(() => {
     vendas: [],
     lotes: [],
     config: null,
+    usos: [],
     gastoMes: 0,
     seq: 0,
   });
@@ -470,5 +488,199 @@ describe("criarLoteAvaliacoes", () => {
     expect(await criarLoteAvaliacoes(AGORA, cliente)).toMatchObject({ criado: false, semVerba: 2, motivo: "nada_a_fazer" });
     expect(avaliacaoDe("c1")).toMatchObject({ situacao: "pendente", erro: null, loteId: "outro" });
     expect(avaliacaoDe("c2")).toMatchObject({ situacao: "falhou", erro: LIMITE, loteId: null });
+  });
+});
+
+describe("coleta das avaliações", () => {
+  // Coleta às 10:00 UTC do dia 18; o lote foi criado às 07:30.
+  const COLETA = new Date("2026-11-18T10:00:00Z");
+  const USAGE = { input_tokens: 1000, output_tokens: 500, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 };
+  const crit = (nota: number | null, frase = "ok") => ({ seAplica: nota !== null, nota: nota ?? 0, frase });
+  const JSON_VENDAS = {
+    situacao: "negociando",
+    temperatura: "quente",
+    motivoTemperatura: "Pediu o valor.",
+    oQueRespondeu: "Mandou a tabela.",
+    proximoPasso: "Ligar amanhã.",
+    criterios: {
+      qualificacao: crit(8),
+      quebra_objecao: crit(null, "Sem objeção."),
+      followup: crit(6),
+      clareza_cordialidade: crit(9),
+      conducao_fechamento: crit(7),
+    },
+    pontosFortes: ["Rápido", "Educado"],
+    melhorar: [],
+  };
+  const JSON_CS = {
+    oQueRespondeu: "Explicou o acesso.",
+    proximoPasso: "Nada.",
+    criterios: { cordialidade: crit(10), clareza: crit(8), resolveu_duvida: crit(9), conduziu_proximo_passo: crit(7) },
+    pontosFortes: [],
+    melhorar: ["Confirmar o acesso"],
+  };
+
+  function sucesso(customId: string, texto: string, extra: Linha = {}): ResultadoLote {
+    return {
+      custom_id: customId,
+      result: {
+        type: "succeeded",
+        message: {
+          id: "msg",
+          type: "message",
+          role: "assistant",
+          model: "claude-sonnet-5-5-20261101",
+          content: [{ type: "text", text: texto, citations: null }],
+          stop_reason: "end_turn",
+          stop_sequence: null,
+          usage: USAGE,
+          ...extra,
+        } as never,
+      },
+    };
+  }
+  function clienteColeta(porLote: Record<string, ResultadoLote[]>): ClienteLotes {
+    return {
+      async criar() {
+        throw new Error("não deve criar");
+      },
+      async buscar() {
+        return { processing_status: "ended" };
+      },
+      async *resultados(id) {
+        for (const i of porLote[id] ?? []) yield i;
+      },
+    };
+  }
+  function lote(id: string, tipo: string, idExterno: string) {
+    banco.estado.lotes.push({ id, tipo, idExterno, dia: DIA, situacao: "aberto", erro: null, criadoEm: AGORA, concluidoEm: null });
+  }
+  function avaliacao(id: string, dados: Linha = {}) {
+    banco.estado.avaliacoes.push({
+      id,
+      conversaId: `c-${id}`,
+      numeroId: "n1",
+      dia: DIA,
+      time: "comercial",
+      loteId: "la",
+      situacao: "pendente",
+      erro: null,
+      modelo: "claude-sonnet-5-5",
+      notaTempo: 10,
+      vendaId: null,
+      ...dados,
+    });
+  }
+
+  it("vendas válida: critérios na ordem com o tempo, nota geral 80 e pronto; registra o uso de lote", async () => {
+    lote("la", "avaliacao", "msgbatch_av");
+    avaliacao("a1");
+    const cliente = clienteColeta({ msgbatch_av: [sucesso(`${PREFIXO_AVALIACAO}a1`, JSON.stringify(JSON_VENDAS))] });
+    expect(await coletarLotes(COLETA, cliente)).toEqual({ lotes: 1, prontos: 1, falhos: 0 });
+    const a = banco.estado.avaliacoes[0];
+    expect(a).toMatchObject({
+      situacao: "pronto",
+      erro: null,
+      notaGeralDecimos: 80,
+      situacaoLead: "negociando",
+      temperatura: "quente",
+      motivoTemperatura: "Pediu o valor.",
+      oQueRespondeu: "Mandou a tabela.",
+      proximoPasso: "Ligar amanhã.",
+      pontosFortes: "Rápido\nEducado",
+      melhorar: null,
+    });
+    expect(a.criterios).toEqual([
+      { chave: "qualificacao", nota: 8, frase: "ok" },
+      { chave: "quebra_objecao", nota: null, frase: "Sem objeção." },
+      { chave: "followup", nota: 6, frase: "ok" },
+      { chave: "clareza_cordialidade", nota: 9, frase: "ok" },
+      { chave: "conducao_fechamento", nota: 7, frase: "ok" },
+      { chave: "tempo_resposta", nota: 10, frase: "" },
+    ]);
+    expect(banco.estado.lotes[0]).toMatchObject({ situacao: "concluido", concluidoEm: COLETA });
+    expect(banco.estado.usos).toEqual([expect.objectContaining({ origem: "whatsapp", modelo: "claude-sonnet-5-5", usuarioId: null })]);
+  });
+
+  it("com vendaId a situação é fechou, mesmo quando a IA disse negociando", async () => {
+    lote("la", "avaliacao", "msgbatch_av");
+    avaliacao("a1", { vendaId: "v1" });
+    expect(await gravarItemAvaliacao(sucesso(`${PREFIXO_AVALIACAO}a1`, JSON.stringify(JSON_VENDAS)), "la")).toBe("pronto");
+    expect(banco.estado.avaliacoes[0]).toMatchObject({ situacao: "pronto", situacaoLead: "fechou", temperatura: "quente" });
+  });
+
+  it("CS: situação, temperatura e motivo ficam null", async () => {
+    lote("la", "avaliacao", "msgbatch_av");
+    avaliacao("a1", { time: "cs", notaTempo: null });
+    expect(await gravarItemAvaliacao(sucesso(`${PREFIXO_AVALIACAO}a1`, JSON.stringify(JSON_CS)), "la")).toBe("pronto");
+    const a = banco.estado.avaliacoes[0];
+    expect(a).toMatchObject({
+      situacao: "pronto",
+      situacaoLead: null,
+      temperatura: null,
+      motivoTemperatura: null,
+      notaGeralDecimos: 85,
+      pontosFortes: null,
+      melhorar: "Confirmar o acesso",
+    });
+    expect(a.criterios.map((c: Linha) => c.chave)).toEqual(["cordialidade", "clareza", "resolveu_duvida", "conduziu_proximo_passo", "tempo_resposta"]);
+  });
+
+  it("JSON de CS numa avaliação de vendas: falhou com ERRO_FORMATO e registra o uso", async () => {
+    lote("la", "avaliacao", "msgbatch_av");
+    avaliacao("a1");
+    expect(await gravarItemAvaliacao(sucesso(`${PREFIXO_AVALIACAO}a1`, JSON.stringify(JSON_CS)), "la")).toBe("falhou");
+    expect(banco.estado.avaliacoes[0]).toMatchObject({ situacao: "falhou", erro: ERRO_FORMATO });
+    expect(banco.estado.usos).toHaveLength(1);
+  });
+
+  it("coletar duas vezes o mesmo lote registra o uso uma vez só", async () => {
+    lote("la", "avaliacao", "msgbatch_av");
+    avaliacao("a1");
+    const itens = { msgbatch_av: [sucesso(`${PREFIXO_AVALIACAO}a1`, JSON.stringify(JSON_VENDAS))] };
+    await Promise.all([coletarLotes(COLETA, clienteColeta(itens)), coletarLotes(COLETA, clienteColeta(itens))]);
+    banco.estado.lotes[0].situacao = "aberto";
+    await coletarLotes(COLETA, clienteColeta(itens));
+    expect(banco.estado.usos).toHaveLength(1);
+    expect(banco.estado.avaliacoes[0]).toMatchObject({ situacao: "pronto" });
+  });
+
+  it("um lote de resumo e um de avaliação na mesma execução: cada item vai para a sua tabela", async () => {
+    lote("lr", "resumo_grupo", "msgbatch_res");
+    lote("la", "avaliacao", "msgbatch_av");
+    banco.estado.resumos.push({ id: "r1", conversaId: "g1", dia: DIA, loteId: "lr", situacao: "pendente", erro: null, modelo: "claude-opus-5-5" });
+    avaliacao("a1");
+    const resumo = { resumo: "Dia tranquilo.", temas: [], pendencias: [], destaques: [] };
+    const cliente = clienteColeta({
+      msgbatch_res: [sucesso("resumo_r1", JSON.stringify(resumo))],
+      msgbatch_av: [sucesso(`${PREFIXO_AVALIACAO}a1`, JSON.stringify(JSON_VENDAS))],
+    });
+    expect(await coletarLotes(COLETA, cliente)).toEqual({ lotes: 2, prontos: 2, falhos: 0 });
+    expect(banco.estado.resumos[0]).toMatchObject({ situacao: "pronto", resumo: "Dia tranquilo." });
+    expect(banco.estado.avaliacoes[0]).toMatchObject({ situacao: "pronto", notaGeralDecimos: 80 });
+    expect(banco.estado.avaliacoes[0].resumo).toBeUndefined();
+    expect(banco.estado.lotes.map((l) => l.situacao)).toEqual(["concluido", "concluido"]);
+    expect(banco.estado.usos).toHaveLength(2);
+  });
+
+  it("item de avaliação sem resultado e lote não enviado: os pendentes da avaliação viram falhou", async () => {
+    lote("la", "avaliacao", "msgbatch_av");
+    lote("lv", "avaliacao", null as never);
+    banco.estado.lotes[1].criadoEm = new Date(COLETA.getTime() - 2 * 3_600_000);
+    avaliacao("a1");
+    avaliacao("a2", { loteId: "lv" });
+    banco.estado.resumos.push({ id: "r1", conversaId: "g1", dia: DIA, loteId: "la", situacao: "pendente", erro: null, modelo: "x" });
+    expect(await coletarLotes(COLETA, clienteColeta({}))).toEqual({ lotes: 2, prontos: 0, falhos: 2 });
+    expect(banco.estado.avaliacoes.map((a) => a.situacao)).toEqual(["falhou", "falhou"]);
+    expect(banco.estado.resumos[0].situacao).toBe("pendente");
+  });
+
+  it("stop_reason max_tokens: falhou com ERRO_GRANDE_DEMAIS e registra o uso", async () => {
+    lote("la", "avaliacao", "msgbatch_av");
+    avaliacao("a1");
+    const item = sucesso(`${PREFIXO_AVALIACAO}a1`, JSON.stringify(JSON_VENDAS), { stop_reason: "max_tokens" });
+    expect(await gravarItemAvaliacao(item, "la")).toBe("falhou");
+    expect(banco.estado.avaliacoes[0]).toMatchObject({ situacao: "falhou", erro: ERRO_GRANDE_DEMAIS });
+    expect(banco.estado.usos).toEqual([expect.objectContaining({ modelo: "claude-sonnet-5-5" })]);
   });
 });

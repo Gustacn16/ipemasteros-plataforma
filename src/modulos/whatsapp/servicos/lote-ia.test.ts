@@ -52,8 +52,8 @@ const banco = vi.hoisted(() => {
       findMany: async ({ where }: { where: Linha }) => {
         semLike(where);
         return estado.lotes
-          .filter((l) => l.tipo === where.tipo && l.situacao === where.situacao)
-          .map((l) => ({ id: l.id, idExterno: l.idExterno, criadoEm: l.criadoEm }));
+          .filter((l) => (where.tipo?.in ? where.tipo.in.includes(l.tipo) : l.tipo === where.tipo) && l.situacao === where.situacao)
+          .map((l) => ({ id: l.id, tipo: l.tipo, idExterno: l.idExterno, criadoEm: l.criadoEm }));
       },
       findFirst: async ({ where }: { where: Linha }) => {
         semLike(where);

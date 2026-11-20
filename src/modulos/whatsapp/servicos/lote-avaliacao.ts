@@ -4,16 +4,20 @@ import { calcularCustoMicroUsd, MODELOS_IA, type ModeloIa } from "@/lib/ia/preco
 import { gastoMesMicroUsd } from "@/lib/ia/uso";
 import { prisma } from "@/lib/prisma";
 import {
+  esquemaZodAvaliacaoCs,
+  esquemaZodAvaliacaoVendas,
   INSTRUCOES_AVALIACAO,
   MODELO_AVALIACAO,
   montarEntradaAvaliacao,
   pedidoAvaliacao,
+  type AvaliacaoCs,
+  type AvaliacaoVendas,
   type MensagemParaAvaliacao,
   type TemposParaAvaliacao,
 } from "../ia/avaliacao-conversa";
 import { INSTRUCOES_RESUMO } from "../ia/resumo-grupo";
 import { eventosDaConversa, mediana, type MensagemTempo } from "../regras/atendimento";
-import { notaDeTempo, tipoDoTime, type TipoAvaliacao } from "../regras/avaliacao";
+import { CRITERIO_TEMPO, CRITERIOS, notaDeTempo, notaGeralDecimos, tipoDoTime, type TipoAvaliacao } from "../regras/avaliacao";
 import { chaveTelefone } from "../regras/captura";
 import { janelaDeOntem } from "../regras/dia";
 import { obterConfiguracaoWhatsapp, obterRegrasAtendimento } from "./configuracao";
@@ -23,11 +27,14 @@ import {
   enviarLoteReservado,
   ERRO_ENVIO_LOTE,
   ERRO_LIMITE_MENSAL,
+  gravarItemDoLote,
   ORIGEM_IA_WHATSAPP,
   SAIDA_ESTIMADA,
   type ClienteLotes,
+  type GravadorDoLote,
   type ItemDoLote,
   type ResultadoCriacao,
+  type ResultadoLote,
 } from "./lote-ia";
 
 /** Prefixo do custom_id de cada pedido de avaliação (a API só aceita ^[a-zA-Z0-9_-]{1,64}$). */
@@ -302,4 +309,86 @@ async function gravarAvaliacao(c: Candidata, dia: Date, d: DadosAvaliacao): Prom
     if (codigoErro(e) === "P2002") return null; // já existe: pronta, ou pendente de outro lote
     throw e;
   }
+}
+
+// ─── Coleta ──────────────────────────────────────────────────────────────────
+
+type LinhaAvaliacao = {
+  situacao: string;
+  modelo: string;
+  loteId: string | null;
+  time: TimeNumeroWhatsapp;
+  notaTempo: number | null;
+  vendaId: string | null;
+};
+
+/** Item da lista `criterios` gravada: a nota null é "não se aplica". */
+export type CriterioGravado = { chave: string; nota: number | null; frase: string };
+
+/** Lista de pontos guardada como texto, um por linha; vazia vira null. */
+const comoTexto = (lista: string[]) => {
+  const linhas = lista.map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean);
+  return linhas.length > 0 ? linhas.join("\n") : null;
+};
+
+/**
+ * Monta os dados de uma avaliação pronta. O zod segue o tipo do time gravado na criação. A lista de critérios
+ * segue a ordem de CRITERIOS[tipo] e termina com o tempo de resposta do sistema (frase vazia: a tela usa o rótulo
+ * de CRITERIO_TEMPO). A nota geral é a média de todas essas notas. Com venda casada, a situação é "fechou".
+ */
+function dadosAvaliacaoPronta(json: unknown, linha: LinhaAvaliacao): Record<string, unknown> | null {
+  const tipo = tipoDoTime(linha.time);
+  if (!tipo) return null;
+  let d: AvaliacaoCs;
+  let vendas: AvaliacaoVendas | null = null; // só vendas tem situação e temperatura; em CS ficam null
+  if (tipo === "vendas") {
+    const v = esquemaZodAvaliacaoVendas.safeParse(json);
+    if (!v.success) return null;
+    d = vendas = v.data;
+  } else {
+    const v = esquemaZodAvaliacaoCs.safeParse(json);
+    if (!v.success) return null;
+    d = v.data;
+  }
+
+  const criterios: CriterioGravado[] = CRITERIOS[tipo].map((c) => ({
+    chave: c.chave,
+    nota: d.criterios[c.chave]?.nota ?? null,
+    frase: d.criterios[c.chave]?.frase ?? "",
+  }));
+  criterios.push({ chave: CRITERIO_TEMPO.chave, nota: linha.notaTempo, frase: "" });
+
+  return {
+    situacaoLead: vendas ? (linha.vendaId ? "fechou" : vendas.situacao) : null,
+    temperatura: vendas ? vendas.temperatura : null,
+    motivoTemperatura: vendas ? vendas.motivoTemperatura.trim() : null,
+    oQueRespondeu: d.oQueRespondeu.trim(),
+    proximoPasso: d.proximoPasso.trim(),
+    criterios,
+    notaGeralDecimos: notaGeralDecimos(criterios.map((c) => c.nota)),
+    pontosFortes: comoTexto(d.pontosFortes),
+    melhorar: comoTexto(d.melhorar),
+  };
+}
+
+const GRAVADOR_AVALIACAO: GravadorDoLote<LinhaAvaliacao> = {
+  prefixo: PREFIXO_AVALIACAO,
+  rotulo: "a avaliação",
+  buscar: (id) =>
+    prisma.avaliacaoConversa.findUnique({
+      where: { id },
+      select: { situacao: true, modelo: true, loteId: true, time: true, notaTempo: true, vendaId: true },
+    }),
+  dadosProntos: dadosAvaliacaoPronta,
+  async gravarSePendente(id, data) {
+    return (await prisma.avaliacaoConversa.updateMany({ where: { id, situacao: "pendente" }, data })).count;
+  },
+};
+
+/**
+ * Grava um item do lote de avaliações, com as mesmas regras do resumo: só quem tira a avaliação de "pendente"
+ * registra o uso (a preço de lote, pelo modelo gravado). Devolve o que aconteceu, ou null se nada mudou.
+ */
+export function gravarItemAvaliacao(item: ResultadoLote, loteId: string): Promise<"pronto" | "falhou" | null> {
+  return gravarItemDoLote(item, loteId, GRAVADOR_AVALIACAO);
 }
