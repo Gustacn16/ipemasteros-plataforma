@@ -79,6 +79,11 @@ const banco = vi.hoisted(() => {
         ) ?? null,
     },
     avaliacaoConversa: {
+      deleteMany: async ({ where }: { where: { conversaId: string } }) => {
+        const antes = estado.avaliacoes.length;
+        estado.avaliacoes = estado.avaliacoes.filter((a) => a.conversaId !== where.conversaId);
+        return { count: antes - estado.avaliacoes.length };
+      },
       findFirst: async ({ where }: { where: Linha }) => {
         estado.consultasAvaliacoes++;
         const achadas = estado.avaliacoes
@@ -213,6 +218,14 @@ describe("conversas", () => {
     expect(banco.estado.conversas.find((c) => c.id === "i1")!.categoria).toBe("pessoal");
     expect(banco.estado.mensagens.filter((m) => m.conversaId === "i1")).toHaveLength(0);
     expect(banco.estado.auditorias[0]).toMatchObject({ acao: "whatsapp.categoria_alterada", entidadeId: "i1" });
+  });
+
+  it("marcar como pessoal apaga as avaliações; outra categoria não", async () => {
+    banco.estado.avaliacoes = [{ conversaId: "i1", dia: dias(1), situacao: "ok" }];
+    await definirCategoria(gestor, "i1", "aluno");
+    expect(banco.estado.avaliacoes).toHaveLength(1);
+    await definirCategoria(gestor, "i1", "pessoal");
+    expect(banco.estado.avaliacoes).toHaveLength(0);
   });
 
   it("outra categoria mantém as mensagens", async () => {

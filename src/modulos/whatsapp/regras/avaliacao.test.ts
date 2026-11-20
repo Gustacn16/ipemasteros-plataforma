@@ -24,9 +24,15 @@ describe("notaDeTempo", () => {
     expect(notaDeTempo([], ontem, REGRAS_PADRAO)).toBeNull();
   });
 
-  it("vez aberta no fim de ontem conta fora do SLA", () => {
-    const msgs = [c("2026-11-17T11:00:00Z"), e("2026-11-17T11:05:00Z"), c("2026-11-17T20:00:00Z")];
+  it("vez aberta cujo tempo útil já passou do SLA conta fora do SLA", () => {
+    const msgs = [c("2026-11-17T11:00:00Z"), e("2026-11-17T11:05:00Z"), c("2026-11-17T13:00:00Z")]; // 10h, sem resposta
     expect(notaDeTempo(msgs, ontem, REGRAS_PADRAO)).toBe(5);
+  });
+
+  it("vez aberta às 22h (fora do expediente) fica de fora; sem outras vezes devolve null", () => {
+    expect(notaDeTempo([c("2026-11-18T01:00:00Z")], ontem, REGRAS_PADRAO)).toBeNull();
+    const msgs = [c("2026-11-17T11:00:00Z"), e("2026-11-17T11:05:00Z"), c("2026-11-18T01:00:00Z")];
+    expect(notaDeTempo(msgs, ontem, REGRAS_PADRAO)).toBe(10);
   });
 
   it("ignora vezes que começaram antes de ontem", () => {

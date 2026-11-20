@@ -36,4 +36,4 @@ Cole na descrição de cada grupo de WhatsApp que a equipe acompanha:
 >
 > **Quem ajuda no tratamento:** usamos a Anthropic como operadora para gerar resumos e avaliações das conversas. Os dados enviados não são usados para treinar modelos de inteligência artificial.
 >
-> **Como pedir a exclusão:** envie o pedido para [e-mail do encarregado de dados]. Informe o telefone usado no WhatsApp. A equipe apaga o contato, as conversas e as mensagens ligadas a ele e responde ao pedido.
+> **Como pedir a exclusão:** envie o pedido para [e-mail do encarregado de dados]. Informe o telefone usado no WhatsApp. A equipe apaga o contato, as conversas, as mensagens e as avaliações ligadas a ele e responde ao pedido.

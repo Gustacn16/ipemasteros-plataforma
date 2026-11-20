@@ -81,7 +81,10 @@ export function montarEntradaAvaliacao(
   if (mantidas.length === 0 && ultima) {
     // Uma só mensagem maior que o limite: encurta o texto dela em vez de deixar o corpo vazio.
     const folga = LIMITE_ENTRADA_AVALIACAO - total - (ultima.deOntem ? marcador.length + 1 : 0) - 2;
-    mantidas.push({ ...ultima, linha: ultima.linha.slice(0, Math.max(0, folga)) + "…" });
+    let corte = ultima.linha.slice(0, Math.max(0, folga));
+    // Não deixa meio par substituto (emoji) no fim.
+    if (corte && /[\uD800-\uDBFF]/.test(corte[corte.length - 1]!)) corte = corte.slice(0, -1);
+    mantidas.push({ ...ultima, linha: corte + "…" });
   }
   return { texto: montar(mantidas, true), cortada: true };
 }

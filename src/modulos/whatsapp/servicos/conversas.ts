@@ -251,7 +251,10 @@ export async function definirCategoria(
   await prisma.$transaction(async (tx) => {
     await tx.conversaWhatsapp.update({ where: { id: conversa.id }, data: { categoria } });
     // Pessoal não fica guardada: o que já existia some junto, na mesma transação.
-    if (categoria === "pessoal") await tx.mensagemWhatsapp.deleteMany({ where: { conversaId: conversa.id } });
+    if (categoria === "pessoal") {
+      await tx.mensagemWhatsapp.deleteMany({ where: { conversaId: conversa.id } });
+      await tx.avaliacaoConversa.deleteMany({ where: { conversaId: conversa.id } });
+    }
     await registrarAuditoria(
       {
         usuarioId: ator.id,

@@ -31,7 +31,7 @@ export const CRITERIO_TEMPO = { chave: "tempo_resposta", rotulo: "Tempo de respo
 
 /**
  * Nota 0-10 do tempo de resposta: das vezes do cliente que começaram ontem, a fatia dentro do SLA.
- * `todas` em ordem crescente. Uma vez ainda aberta no fim de ontem conta fora do SLA.
+ * `todas` em ordem crescente. Vez ainda aberta no fim de ontem só conta fora do SLA se o tempo útil já passou do SLA; senão não dá para julgar e fica de fora.
  */
 export function notaDeTempo(
   todas: MensagemTempo[],
@@ -39,9 +39,12 @@ export function notaDeTempo(
   regras: RegrasAtendimento,
 ): number | null {
   const { vezes } = eventosDaConversa(todas, ontem.fim, regras);
-  const deOntem = vezes.filter((v) => v.inicio >= ontem.inicio && v.inicio <= ontem.fim);
+  const limite = regras.slaMinutos * 60;
+  const deOntem = vezes.filter(
+    (v) => v.inicio >= ontem.inicio && v.inicio <= ontem.fim && (v.respondidaEm !== null || v.segundos > limite),
+  );
   if (deOntem.length === 0) return null;
-  const noSla = deOntem.filter((v) => v.respondidaEm !== null && v.respondidaEm <= ontem.fim && v.segundos <= regras.slaMinutos * 60).length;
+  const noSla = deOntem.filter((v) => v.respondidaEm !== null && v.respondidaEm <= ontem.fim && v.segundos <= limite).length;
   return Math.round((10 * noSla) / deOntem.length);
 }
 

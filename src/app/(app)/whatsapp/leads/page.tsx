@@ -53,7 +53,7 @@ export default async function PaginaLeads({ searchParams }: { searchParams: Prom
           {semVerba} {semVerba === 1 ? "conversa ficou sem avaliação porque o limite mensal de IA do WhatsApp foi atingido." : "conversas ficaram sem avaliação porque o limite mensal de IA do WhatsApp foi atingido."}
         </p>
       )}
-      {pendentes > 0 && <p role="status" className="text-muted-foreground text-sm">Avaliações de ontem ainda em processamento.</p>}
+      {pendentes > 0 && <p role="status" className="text-muted-foreground text-sm">Avaliações deste dia ainda em processamento.</p>}
       {falhas > 0 && (
         <p role="status" className="text-muted-foreground text-sm">
           {falhas} {falhas === 1 ? "avaliação falhou" : "avaliações falharam"} e não aparece{falhas === 1 ? "" : "m"} aqui.

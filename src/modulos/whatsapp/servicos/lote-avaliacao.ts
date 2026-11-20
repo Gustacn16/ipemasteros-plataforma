@@ -109,10 +109,12 @@ function temposDeOntem(
   regras: Awaited<ReturnType<typeof obterRegrasAtendimento>>,
 ): TemposParaAvaliacao {
   const { vezes } = eventosDaConversa(todas, ontem.fim, regras);
-  const deOntem = vezes.filter((v) => v.inicio >= ontem.inicio && v.inicio < ontem.fim);
+  const limite = regras.slaMinutos * 60;
+  // Vez ainda aberta só conta (como fora do SLA) se o tempo útil já passou do SLA; senão não dá para julgar.
+  const deOntem = vezes.filter((v) => v.inicio >= ontem.inicio && v.inicio < ontem.fim && (v.respondidaEm !== null || v.segundos > limite));
   if (deOntem.length === 0) return { primeiraRespostaMin: null, respostaMin: null, noSla: null };
   const respondidas = deOntem.filter((v) => v.respondidaEm !== null);
-  const noSla = respondidas.filter((v) => v.segundos <= regras.slaMinutos * 60).length;
+  const noSla = respondidas.filter((v) => v.segundos <= limite).length;
   return {
     primeiraRespostaMin: deOntem[0]!.respondidaEm ? emMinutos(deOntem[0]!.segundos) : null,
     respostaMin: emMinutos(mediana(respondidas.map((v) => v.segundos))),
