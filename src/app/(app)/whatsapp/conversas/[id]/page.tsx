@@ -5,11 +5,12 @@ import { CabecalhoPagina } from "@/componentes/cabecalho-pagina";
 import { ErroNegocio } from "@/lib/erros";
 import { ErroPermissao } from "@/lib/permissoes";
 import { exigirUsuario } from "@/lib/sessao";
+import { AvaliacaoConversa } from "@/modulos/whatsapp/componentes/avaliacao-conversa";
 import { MensagensConversa } from "@/modulos/whatsapp/componentes/mensagens-conversa";
 import { ResumoGrupo } from "@/modulos/whatsapp/componentes/resumo-grupo";
 import { diaEmSaoPaulo } from "@/modulos/tarefas/regras/prazo";
 import { diaDaConsulta } from "@/modulos/whatsapp/regras/dia";
-import { mensagensDaConversa, resumoDoGrupo } from "@/modulos/whatsapp/servicos/conversas";
+import { mensagensDaConversa, resumoDoGrupo, ultimaAvaliacao } from "@/modulos/whatsapp/servicos/conversas";
 
 export const metadata: Metadata = { title: "Conversa do WhatsApp — IPEMaster OS" };
 
@@ -32,6 +33,8 @@ export default async function PaginaConversa({ params, searchParams }: { params:
   const dia = diaDaConsulta(typeof diaParam === "string" ? diaParam : undefined, agora);
   const resumo = grupo ? await resumoDoGrupo(id, dia.dia) : null;
 
+  const avaliacao = grupo ? null : await ultimaAvaliacao(usuario, id);
+
   return (
     <div className="grid max-w-3xl gap-6">
       <CabecalhoPagina
@@ -44,6 +47,7 @@ export default async function PaginaConversa({ params, searchParams }: { params:
         }
       />
       {grupo && <ResumoGrupo resumo={resumo} dia={dia.texto} ate={diaEmSaoPaulo(agora)} />}
+      {avaliacao && <AvaliacaoConversa item={{ ...avaliacao, linkConversa: false }} />}
       <MensagensConversa mensagens={conversa.mensagens} />
     </div>
   );

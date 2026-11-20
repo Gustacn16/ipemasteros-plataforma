@@ -12,6 +12,8 @@ const banco = vi.hoisted(() => {
     metricas: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
     conversas: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
     mensagens: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
+    avaliacoes: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
+    consultasAvaliacoes: 0,
     consultasMensagens: 0,
   };
   // Como no mock de saude.test.ts: o LIKE do MySQL da Hostinger não pode ser usado.
@@ -59,6 +61,18 @@ const banco = vi.hoisted(() => {
           .map((c) => ({ ...c, numero: { nome: numeroDe(c.numeroId)?.nome } }));
       },
     },
+    avaliacaoConversa: {
+      findMany: async ({ where }: { where: Linha }) => {
+        semLike(where);
+        estado.consultasAvaliacoes++;
+        return estado.avaliacoes
+          .filter((a) => confere(a.numeroId, where.numeroId) && confere(a.situacao, where.situacao) && confere(a.dia, where.dia))
+          .map((a) => {
+            const c = estado.conversas.find((x) => x.id === a.conversaId);
+            return { ...a, conversa: { nome: c?.nome ?? null, contato: c?.contato ?? null } };
+          });
+      },
+    },
     mensagemWhatsapp: {
       findMany: async ({ where }: { where: Linha }) => {
         semLike(where);
@@ -77,7 +91,7 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/lib/prisma", () => ({ prisma: banco.prisma }));
 vi.mock("./configuracao", () => ({ obterRegrasAtendimento: async () => REGRAS_PADRAO }));
 
-import { evolucaoDoNumero, resumoDaSemana, semRespostaAgora } from "./painel-atendimento";
+import { evolucaoDoNumero, pioresNotas, resumoDaSemana, semRespostaAgora } from "./painel-atendimento";
 
 const gestor = { id: "g1", papel: "gestor" } as UsuarioAtual;
 const comercial = { id: "c1", papel: "comercial" } as UsuarioAtual;
@@ -126,6 +140,8 @@ beforeEach(() => {
   banco.estado.conversas = [];
   banco.estado.mensagens = [];
   banco.estado.consultasMensagens = 0;
+  banco.estado.avaliacoes = [];
+  banco.estado.consultasAvaliacoes = 0;
 });
 
 describe("resumoDaSemana", () => {
@@ -159,6 +175,7 @@ describe("resumoDaSemana", () => {
         noSlaPct: null,
         followupPct: null,
         semRespostaAgora: 0,
+        notaDecimos: null,
       },
     ]);
   });
@@ -278,9 +295,9 @@ describe("evolucaoDoNumero", () => {
     const semanas = ultimasSemanas(agora, 3);
     const pontos = await evolucaoDoNumero(gestor, "n1", semanas);
     expect(pontos).toEqual([
-      { rotulo: "02/11 a 08/11", primeiraRespostaMin: null, respostaMin: null, noSlaPct: null, followupPct: null },
-      { rotulo: "09/11 a 15/11", primeiraRespostaMin: null, respostaMin: null, noSlaPct: 0, followupPct: null },
-      { rotulo: "16/11 a 22/11", primeiraRespostaMin: 3, respostaMin: 1.5, noSlaPct: 100, followupPct: 100 },
+      { rotulo: "02/11 a 08/11", primeiraRespostaMin: null, respostaMin: null, noSlaPct: null, followupPct: null, nota: null },
+      { rotulo: "09/11 a 15/11", primeiraRespostaMin: null, respostaMin: null, noSlaPct: 0, followupPct: null, nota: null },
+      { rotulo: "16/11 a 22/11", primeiraRespostaMin: 3, respostaMin: 1.5, noSlaPct: 100, followupPct: 100, nota: null },
     ]);
   });
 
@@ -288,6 +305,62 @@ describe("evolucaoDoNumero", () => {
     banco.estado.numeros = [numero("n1", { time: "cs" })];
     banco.estado.metricas = [metrica("n1", "2026-11-16", { respostasSeg: [90], respostasNoSla: 1, followupsFeitos: 1 })];
     const pontos = await evolucaoDoNumero(gestor, "n1", ultimasSemanas(agora, 1));
-    expect(pontos).toEqual([{ rotulo: "16/11 a 22/11", primeiraRespostaMin: null, respostaMin: 1.5, noSlaPct: 100, followupPct: null }]);
+    expect(pontos).toEqual([{ rotulo: "16/11 a 22/11", primeiraRespostaMin: null, respostaMin: 1.5, noSlaPct: 100, followupPct: null, nota: null }]);
+  });
+});
+
+const avaliacao = (conversaId: string, dia: string, nota: number | null, extra: Linha = {}) => ({
+  conversaId,
+  numeroId: "n1",
+  dia: new Date(`${dia}T00:00:00.000Z`),
+  situacao: "pronto",
+  notaGeralDecimos: nota,
+  melhorar: "Responder mais rápido\nFazer follow-up",
+  ...extra,
+});
+
+describe("nota da IA", () => {
+  it("resumoDaSemana usa a avaliação mais recente de cada conversa", async () => {
+    banco.estado.numeros = [numero("n1"), numero("n2")];
+    banco.estado.conversas = [conversa("c1", "n1"), conversa("c2", "n1")];
+    banco.estado.avaliacoes = [
+      avaliacao("c1", "2026-11-16", 40),
+      avaliacao("c1", "2026-11-18", 80),
+      avaliacao("c2", "2026-11-17", 60),
+      avaliacao("c2", "2026-11-17", null, { conversaId: "c3" }),
+      avaliacao("c1", "2026-11-20", 10, { situacao: "falhou" }),
+      avaliacao("c1", "2026-11-23", 0),
+    ];
+    const linhas = await resumoDaSemana(gestor, semana, { agora, semResposta: [] });
+    expect(linhas.find((l) => l.numeroId === "n1")!.notaDecimos).toBe(70);
+    expect(linhas.find((l) => l.numeroId === "n2")!.notaDecimos).toBeNull();
+    expect(banco.estado.consultasAvaliacoes).toBe(1);
+  });
+
+  it("evolucaoDoNumero traz a nota de 0 a 10 por semana", async () => {
+    banco.estado.numeros = [numero("n1")];
+    banco.estado.avaliacoes = [avaliacao("c1", "2026-11-16", 40), avaliacao("c2", "2026-11-17", 75)];
+    const pontos = await evolucaoDoNumero(gestor, "n1", [semanaDaConsulta("2026-11-09", agora), semana]);
+    expect(pontos.map((p) => p.nota)).toEqual([null, 5.8]);
+  });
+
+  it("pioresNotas traz uma linha por conversa, da menor nota para a maior", async () => {
+    banco.estado.conversas = [conversa("c1", "n1"), conversa("c2", "n1"), conversa("c3", "n1", { contato: null })];
+    banco.estado.avaliacoes = [
+      avaliacao("c1", "2026-11-16", 20),
+      avaliacao("c1", "2026-11-18", 90),
+      avaliacao("c2", "2026-11-17", 50),
+      avaliacao("c3", "2026-11-17", 30),
+      avaliacao("c3", "2026-11-17", null, { conversaId: "c4" }),
+    ];
+    const lista = await pioresNotas(gestor, "n1", semana, 2);
+    expect(lista.map((l) => [l.conversaId, l.notaGeralDecimos])).toEqual([["c3", 30], ["c2", 50]]);
+    expect(lista[0]!.contatoNome).toBe("Sem nome");
+    expect(lista[1]!.contatoNome).toBe("Contato c2");
+    expect(lista[1]!.melhorar).toContain("follow-up");
+  });
+
+  it("exige permissão da gestão", async () => {
+    await expect(pioresNotas(comercial, "n1", semana)).rejects.toBeInstanceOf(ErroPermissao);
   });
 });

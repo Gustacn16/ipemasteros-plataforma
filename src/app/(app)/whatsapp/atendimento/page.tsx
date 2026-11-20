@@ -7,11 +7,11 @@ import { somarDias } from "@/modulos/tarefas/regras/prazo";
 import { AbasWhatsapp } from "@/modulos/whatsapp/componentes/abas-whatsapp";
 import { GraficoAtendimento } from "@/modulos/whatsapp/componentes/grafico-atendimento";
 import { RegrasAtendimentoForm } from "@/modulos/whatsapp/componentes/regras-atendimento";
-import { ListaSemResposta, TabelaAtendimento, TextoRegras } from "@/modulos/whatsapp/componentes/tabela-atendimento";
+import { ListaPioresNotas, ListaSemResposta, TabelaAtendimento, TextoRegras } from "@/modulos/whatsapp/componentes/tabela-atendimento";
 import { semanaDaConsulta, ultimasSemanas } from "@/modulos/whatsapp/regras/dia";
 import { temFollowup } from "@/modulos/whatsapp/regras/time";
 import { obterRegrasAtendimento } from "@/modulos/whatsapp/servicos/configuracao";
-import { evolucaoDoNumero, resumoDaSemana, semRespostaAgora } from "@/modulos/whatsapp/servicos/painel-atendimento";
+import { evolucaoDoNumero, pioresNotas, resumoDaSemana, semRespostaAgora } from "@/modulos/whatsapp/servicos/painel-atendimento";
 
 export const metadata: Metadata = { title: "Atendimento do WhatsApp — IPEMaster OS" };
 export const dynamic = "force-dynamic";
@@ -28,7 +28,12 @@ export default async function PaginaAtendimento({ searchParams }: { searchParams
   const aoVivo = await semRespostaAgora(usuario, agora);
   const [linhas, regras] = await Promise.all([resumoDaSemana(usuario, semana, { agora, semResposta: aoVivo }), obterRegrasAtendimento()]);
   const selecionado = linhas.find((l) => l.numeroId === valorNumero) ?? null;
-  const evolucao = selecionado ? await evolucaoDoNumero(usuario, selecionado.numeroId, ultimasSemanas(agora, SEMANAS_NO_GRAFICO)) : [];
+  const [evolucao, piores] = selecionado
+    ? await Promise.all([
+        evolucaoDoNumero(usuario, selecionado.numeroId, ultimasSemanas(agora, SEMANAS_NO_GRAFICO)),
+        pioresNotas(usuario, selecionado.numeroId, semana),
+      ])
+    : [[], []];
   const itens = selecionado ? aoVivo.filter((i) => i.numeroId === selecionado.numeroId) : aoVivo;
 
   const comNumero = (s: string) => `/whatsapp/atendimento?semana=${s}${selecionado ? `&numero=${selecionado.numeroId}` : ""}`;
@@ -46,7 +51,7 @@ export default async function PaginaAtendimento({ searchParams }: { searchParams
       <Card>
         <CardHeader>
           <CardTitle>Semana de {semana.rotulo}</CardTitle>
-          <CardDescription>Tempos contados só dentro do horário de atendimento. &quot;Sem resposta agora&quot; é a situação deste momento. Conversas-dia: uma conversa com mensagem do cliente em 3 dias conta 3. Follow-up só nos números de paciente modelo e comercial.</CardDescription>
+          <CardDescription>Tempos contados só dentro do horário de atendimento. &quot;Sem resposta agora&quot; é a situação deste momento. Conversas-dia: uma conversa com mensagem do cliente em 3 dias conta 3. Follow-up só nos números de paciente modelo e comercial. Nota IA: média da avaliação mais recente de cada conversa na semana.</CardDescription>
           <nav aria-label="Escolher semana" className="flex flex-wrap gap-3 text-sm">
             <Link href={comNumero(anterior)} className="underline-offset-4 hover:underline">
               ← Semana anterior
@@ -80,6 +85,18 @@ export default async function PaginaAtendimento({ searchParams }: { searchParams
           </CardHeader>
           <CardContent>
             <GraficoAtendimento dados={evolucao} comFollowup={temFollowup(selecionado.time)} />
+          </CardContent>
+        </Card>
+      )}
+
+      {selecionado && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Piores notas da semana</CardTitle>
+            <CardDescription>As conversas de {selecionado.nome} com a menor nota da IA na semana, uma por conversa.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ListaPioresNotas itens={piores} />
           </CardContent>
         </Card>
       )}

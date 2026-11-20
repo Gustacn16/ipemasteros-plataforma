@@ -3,6 +3,7 @@ import type { SituacaoLead, TemperaturaLead } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/prisma";
 import { ErroPermissao, temPermissao } from "@/lib/permissoes";
 import type { UsuarioAtual } from "@/lib/sessao";
+import { paraItemLead, SELECT_AVALIACAO_ITEM } from "./avaliacao-item";
 import { ERRO_LIMITE_MENSAL } from "./lote-ia";
 
 const ESCOPO = "whatsapp:ver_equipe";
@@ -31,15 +32,6 @@ export type ItemLead = {
 
 const ORDEM_TEMPERATURA: Record<string, number> = { quente: 0, morno: 1, frio: 2 };
 
-function lerCriterios(valor: unknown): CriterioAvaliado[] {
-  if (!Array.isArray(valor)) return [];
-  return valor.map((c) => ({
-    chave: String(c?.chave ?? ""),
-    nota: typeof c?.nota === "number" ? c.nota : null,
-    frase: typeof c?.frase === "string" ? c.frase : "",
-  }));
-}
-
 /** Avaliações de vendas prontas do dia, quentes primeiro; mais os avisos de falha, falta de verba e pendência. */
 export async function listarLeads(
   ator: UsuarioAtual,
@@ -58,23 +50,7 @@ export async function listarLeads(
         ...(filtros.situacao ? { situacaoLead: filtros.situacao } : {}),
         ...(filtros.numeroId ? { numeroId: filtros.numeroId } : {}),
       },
-      select: {
-        id: true,
-        conversaId: true,
-        time: true,
-        situacaoLead: true,
-        temperatura: true,
-        motivoTemperatura: true,
-        oQueRespondeu: true,
-        proximoPasso: true,
-        notaGeralDecimos: true,
-        criterios: true,
-        pontosFortes: true,
-        melhorar: true,
-        conversa: { select: { nome: true, contato: { select: { nomeExibido: true } } } },
-        numero: { select: { nome: true } },
-        venda: { select: { criadoEm: true, produto: { select: { nome: true } } } },
-      },
+      select: SELECT_AVALIACAO_ITEM,
     }),
     prisma.avaliacaoConversa.count({ where: { ...base, situacao: "falhou", erro: ERRO_LIMITE_MENSAL } }),
     prisma.avaliacaoConversa.count({ where: { ...base, situacao: "falhou" } }),
@@ -86,23 +62,7 @@ export async function listarLeads(
     }),
   ]);
 
-  const itens: ItemLead[] = linhas.map((a) => ({
-    avaliacaoId: a.id,
-    conversaId: a.conversaId,
-    contatoNome: a.conversa.contato?.nomeExibido || a.conversa.nome || "Sem nome",
-    numeroNome: a.numero.nome,
-    time: a.time,
-    situacaoLead: a.situacaoLead,
-    temperatura: a.temperatura,
-    motivoTemperatura: a.motivoTemperatura,
-    oQueRespondeu: a.oQueRespondeu,
-    proximoPasso: a.proximoPasso,
-    notaGeralDecimos: a.notaGeralDecimos,
-    criterios: lerCriterios(a.criterios),
-    pontosFortes: a.pontosFortes,
-    melhorar: a.melhorar,
-    venda: a.venda ? { produto: a.venda.produto.nome, criadoEm: a.venda.criadoEm } : null,
-  }));
+  const itens: ItemLead[] = linhas.map(paraItemLead);
   itens.sort(
     (x, y) =>
       (ORDEM_TEMPERATURA[x.temperatura ?? ""] ?? 3) - (ORDEM_TEMPERATURA[y.temperatura ?? ""] ?? 3) ||

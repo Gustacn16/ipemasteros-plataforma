@@ -8,15 +8,17 @@ type Ponto = {
   respostaMin: number | null;
   noSlaPct: number | null;
   followupPct: number | null;
+  nota: number | null;
 };
 
 type Chave = Exclude<keyof Ponto, "rotulo">;
 
-const SERIES: { chave: Chave; nome: string; cor: string; eixo: "min" | "pct"; unidade: string; tracejada?: boolean }[] = [
+const SERIES: { chave: Chave; nome: string; cor: string; eixo: "min" | "pct" | "nota"; unidade: string; tracejada?: boolean }[] = [
   { chave: "primeiraRespostaMin", nome: "1ª resposta", cor: "var(--chart-1)", eixo: "min", unidade: " min" },
   { chave: "respostaMin", nome: "Resposta", cor: "var(--chart-2)", eixo: "min", unidade: " min" },
   { chave: "noSlaPct", nome: "No SLA", cor: "var(--chart-3)", eixo: "pct", unidade: "%", tracejada: true },
   { chave: "followupPct", nome: "Follow-up", cor: "var(--chart-4)", eixo: "pct", unidade: "%", tracejada: true },
+  { chave: "nota", nome: "Nota IA", cor: "var(--chart-5)", eixo: "nota", unidade: "" },
 ];
 
 const EIXO = { fill: "var(--muted-foreground)", fontSize: 12 };
@@ -59,6 +61,7 @@ export function GraficoAtendimento({ dados, comFollowup }: { dados: Ponto[]; com
             <XAxis dataKey="rotulo" tick={EIXO} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={8} />
             <YAxis yAxisId="min" tick={EIXO} tickLine={false} axisLine={false} width={48} unit=" min" allowDecimals={false} />
             <YAxis yAxisId="pct" orientation="right" domain={[0, 100]} tick={EIXO} tickLine={false} axisLine={false} width={40} unit="%" />
+            <YAxis yAxisId="nota" orientation="right" domain={[0, 10]} hide />
             <Tooltip content={<Dica series={series} />} cursor={{ stroke: "var(--border)" }} />
             {series.map((s) => (
               <Line
@@ -81,7 +84,7 @@ export function GraficoAtendimento({ dados, comFollowup }: { dados: Ponto[]; com
         {series.map((s) => (
           <li key={s.chave} className="flex items-center gap-1.5">
             <span aria-hidden className="size-2.5 rounded-sm" style={{ backgroundColor: s.cor }} />
-            {s.nome} ({s.eixo === "min" ? "min" : "%"})
+            {s.nome} ({s.eixo === "min" ? "min" : s.eixo === "pct" ? "%" : "0 a 10"})
           </li>
         ))}
       </ul>

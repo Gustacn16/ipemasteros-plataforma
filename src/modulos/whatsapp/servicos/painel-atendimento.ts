@@ -24,6 +24,8 @@ export type LinhaAtendimento = {
   noSlaPct: number | null;
   followupPct: number | null;
   semRespostaAgora: number;
+  /** Nota da IA da semana em décimos (0 a 100); null sem avaliação. */
+  notaDecimos: number | null;
 };
 
 export type PontoEvolucao = {
@@ -32,6 +34,16 @@ export type PontoEvolucao = {
   respostaMin: number | null;
   noSlaPct: number | null;
   followupPct: number | null;
+  /** Nota da IA de 0 a 10, com uma casa. */
+  nota: number | null;
+};
+
+export type PiorNota = {
+  conversaId: string;
+  contatoNome: string;
+  dia: Date;
+  notaGeralDecimos: number | null;
+  melhorar: string | null;
 };
 
 export type ItemSemResposta = {
@@ -79,6 +91,44 @@ function agregar(linhas: LinhaDiaria[]) {
   };
 }
 
+type AvaliacaoDaSemana = {
+  conversaId: string;
+  numeroId: string;
+  dia: Date;
+  notaGeralDecimos: number | null;
+  melhorar: string | null;
+  conversa: { nome: string | null; contato: { nomeExibido: string | null } | null };
+};
+
+const avaliacoesProntas = (where: { numeroId?: string }, inicio: string, fim: string): Promise<AvaliacaoDaSemana[]> =>
+  prisma.avaliacaoConversa.findMany({
+    where: { ...where, situacao: "pronto", dia: { gte: diaDb(inicio), lt: diaDb(fim) } },
+    select: {
+      conversaId: true,
+      numeroId: true,
+      dia: true,
+      notaGeralDecimos: true,
+      melhorar: true,
+      conversa: { select: { nome: true, contato: { select: { nomeExibido: true } } } },
+    },
+  });
+
+/** Uma avaliação por conversa: a de `dia` mais recente. */
+function maisRecentePorConversa(avaliacoes: AvaliacaoDaSemana[]): AvaliacaoDaSemana[] {
+  const mapa = new Map<string, AvaliacaoDaSemana>();
+  for (const a of avaliacoes) {
+    const atual = mapa.get(a.conversaId);
+    if (!atual || a.dia > atual.dia) mapa.set(a.conversaId, a);
+  }
+  return [...mapa.values()];
+}
+
+/** Média (em décimos, arredondada) das notas, ignorando as nulas; null sem nenhuma. */
+function mediaDecimos(avaliacoes: AvaliacaoDaSemana[]): number | null {
+  const notas = maisRecentePorConversa(avaliacoes).flatMap((a) => (a.notaGeralDecimos === null ? [] : [a.notaGeralDecimos]));
+  return notas.length === 0 ? null : Math.round(notas.reduce((t, n) => t + n, 0) / notas.length);
+}
+
 const linhasDaSemana = (where: { numeroId?: string }, inicio: string, fim: string) =>
   prisma.metricaAtendimentoDia.findMany({ where: { ...where, dia: { gte: diaDb(inicio), lt: diaDb(fim) } } });
 
@@ -89,7 +139,7 @@ export async function resumoDaSemana(
   opcoes: { agora?: Date; semResposta?: ItemSemResposta[] } = {},
 ): Promise<LinhaAtendimento[]> {
   exigirPermissao(ator);
-  const [numeros, linhas, aoVivo] = await Promise.all([
+  const [numeros, linhas, aoVivo, avaliacoes] = await Promise.all([
     prisma.numeroWhatsapp.findMany({
       where: { excluidoEm: null },
       select: { id: true, nome: true, time: true, usuario: { select: { nome: true, apelido: true } } },
@@ -97,6 +147,7 @@ export async function resumoDaSemana(
     }),
     linhasDaSemana({}, semana.texto, somarDias(semana.texto, 7)),
     opcoes.semResposta ?? semRespostaAgora(ator, opcoes.agora),
+    avaliacoesProntas({}, semana.texto, somarDias(semana.texto, 7)),
   ]);
   const porNumero = new Map<string, LinhaDiaria[]>();
   for (const l of linhas) {
@@ -115,6 +166,7 @@ export async function resumoDaSemana(
       // Follow-up só vale nos times de venda (pelo time atual do número).
       followupPct: temFollowup(n.time) ? a.followupPct : null,
       semRespostaAgora: aoVivo.filter((i) => i.numeroId === n.id).length,
+      notaDecimos: mediaDecimos(avaliacoes.filter((a) => a.numeroId === n.id)),
     };
   });
 }
@@ -129,23 +181,43 @@ export async function evolucaoDoNumero(ator: UsuarioAtual, numeroId: string, sem
   exigirPermissao(ator);
   if (semanas.length === 0) return [];
   const textos = semanas.map((s) => s.texto).sort();
-  const [numeros, linhas] = await Promise.all([
+  const [numeros, linhas, avaliacoes] = await Promise.all([
     prisma.numeroWhatsapp.findMany({ where: { id: numeroId }, select: { time: true } }),
     linhasDaSemana({ numeroId }, textos[0]!, somarDias(textos[textos.length - 1]!, 7)),
+    avaliacoesProntas({ numeroId }, textos[0]!, somarDias(textos[textos.length - 1]!, 7)),
   ]);
   const comFollowup = numeros[0] ? temFollowup(numeros[0].time) : false;
   return semanas.map((s) => {
     const fim = somarDias(s.texto, 7);
     const daSemana = linhas.filter((l) => l.dia >= diaDb(s.texto) && l.dia < diaDb(fim));
     const a = agregar(daSemana);
+    const media = mediaDecimos(avaliacoes.filter((x) => x.dia >= diaDb(s.texto) && x.dia < diaDb(fim)));
     return {
       rotulo: s.rotulo,
       primeiraRespostaMin: emMinutos(a.primeiraRespostaSeg),
       respostaMin: emMinutos(a.respostaSeg),
       noSlaPct: a.noSlaPct,
       followupPct: comFollowup ? a.followupPct : null,
+      nota: media === null ? null : media / 10,
     };
   });
+}
+
+/** As notas mais baixas da semana de um número, uma por conversa (a avaliação mais recente dela), da menor para a maior. */
+export async function pioresNotas(ator: UsuarioAtual, numeroId: string, semana: Semana, limite = 5): Promise<PiorNota[]> {
+  exigirPermissao(ator);
+  const avaliacoes = await avaliacoesProntas({ numeroId }, semana.texto, somarDias(semana.texto, 7));
+  return maisRecentePorConversa(avaliacoes)
+    .filter((a) => a.notaGeralDecimos !== null)
+    .sort((x, y) => x.notaGeralDecimos! - y.notaGeralDecimos! || y.dia.getTime() - x.dia.getTime())
+    .slice(0, limite)
+    .map((a) => ({
+      conversaId: a.conversaId,
+      contatoNome: a.conversa.contato?.nomeExibido || a.conversa.nome || "Sem nome",
+      dia: a.dia,
+      notaGeralDecimos: a.notaGeralDecimos,
+      melhorar: a.melhorar,
+    }));
 }
 
 /**

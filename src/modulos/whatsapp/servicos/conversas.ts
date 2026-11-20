@@ -6,6 +6,8 @@ import { prisma } from "@/lib/prisma";
 import { ErroPermissao, temPermissao } from "@/lib/permissoes";
 import type { UsuarioAtual } from "@/lib/sessao";
 import { janelaDeOntem } from "../regras/dia";
+import { paraItemLead, SELECT_AVALIACAO_ITEM } from "./avaliacao-item";
+import type { ItemLead } from "./leads";
 
 const ESCOPO_GRUPOS = "whatsapp:ver_grupos";
 const ESCOPO_EQUIPE = "whatsapp:ver_equipe";
@@ -301,4 +303,18 @@ export async function mensagensDaConversa(
     }));
     return { tipo: base.tipo, mensagens: naTela };
   });
+}
+
+/**
+ * Avaliação `pronto` mais recente da conversa, só para a gestão. Quem não tem `whatsapp:ver_equipe`
+ * (o vendedor também abre a conversa) recebe null, sem erro e sem consultar avaliações.
+ */
+export async function ultimaAvaliacao(ator: UsuarioAtual, conversaId: string): Promise<ItemLead | null> {
+  if (!temPermissao(ator.papel, ESCOPO_EQUIPE)) return null;
+  const a = await prisma.avaliacaoConversa.findFirst({
+    where: { conversaId, situacao: "pronto" },
+    select: SELECT_AVALIACAO_ITEM,
+    orderBy: [{ dia: "desc" }, { atualizadoEm: "desc" }],
+  });
+  return a ? paraItemLead(a) : null;
 }

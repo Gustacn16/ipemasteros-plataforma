@@ -3,9 +3,10 @@ import Link from "next/link";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/componentes/ui/table";
 import { formatarDataHora } from "@/lib/datas";
 import type { RegrasAtendimento } from "../esquemas/regras-atendimento";
+import { formatarNota } from "../regras/avaliacao";
 import { formatarDuracao, textoDoHorario } from "../regras/horario";
 import { ROTULO_TIME } from "../regras/time";
-import type { ItemSemResposta, LinhaAtendimento } from "../servicos/painel-atendimento";
+import type { ItemSemResposta, LinhaAtendimento, PiorNota } from "../servicos/painel-atendimento";
 
 const pct = (valor: number | null) => (valor === null ? "—" : `${valor}%`);
 
@@ -30,6 +31,7 @@ export function TabelaAtendimento({
           <TableHead className="text-right">Resposta</TableHead>
           <TableHead className="text-right">No SLA</TableHead>
           <TableHead className="text-right">Follow-up</TableHead>
+          <TableHead className="text-right">Nota IA</TableHead>
           <TableHead className="text-right">Sem resposta agora</TableHead>
         </TableRow>
       </TableHeader>
@@ -52,6 +54,7 @@ export function TabelaAtendimento({
             <TableCell className="text-right">{formatarDuracao(l.respostaSeg)}</TableCell>
             <TableCell className="text-right">{pct(l.noSlaPct)}</TableCell>
             <TableCell className="text-right">{pct(l.followupPct)}</TableCell>
+            <TableCell className="text-right">{formatarNota(l.notaDecimos)}</TableCell>
             <TableCell className="text-right">{l.semRespostaAgora}</TableCell>
           </TableRow>
         ))}
@@ -87,6 +90,31 @@ export function ListaSemResposta({ itens, mostrarNumero }: { itens: ItemSemRespo
         ))}
       </TableBody>
     </Table>
+  );
+}
+
+export function ListaPioresNotas({ itens }: { itens: PiorNota[] }) {
+  if (itens.length === 0) return <p className="text-muted-foreground text-sm">Nenhuma conversa avaliada nesta semana.</p>;
+  return (
+    <ul className="grid gap-3">
+      {itens.map((i) => (
+        <li key={i.conversaId} className="grid gap-1 text-sm">
+          <div className="flex flex-wrap items-center gap-2">
+            <Link href={`/whatsapp/conversas/${i.conversaId}`} className="font-medium underline-offset-4 hover:underline">
+              {i.contatoNome}
+            </Link>
+            <span className="ml-auto tabular-nums">
+              Nota: <strong>{formatarNota(i.notaGeralDecimos)}</strong>
+            </span>
+          </div>
+          {i.melhorar && (
+            <ul className="text-muted-foreground list-disc pl-5">
+              {i.melhorar.split("\n").map((p) => p.trim()).filter(Boolean).map((p, n) => <li key={n}>{p}</li>)}
+            </ul>
+          )}
+        </li>
+      ))}
+    </ul>
   );
 }
 

@@ -15,6 +15,8 @@ const banco = vi.hoisted(() => {
     turmas: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
     resumos: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
     auditorias: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
+    avaliacoes: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
+    consultasAvaliacoes: 0,
   };
   const prisma = {
     conversaWhatsapp: {
@@ -76,6 +78,15 @@ const banco = vi.hoisted(() => {
           (r) => r.conversaId === where.conversaId_dia.conversaId && r.dia.getTime() === where.conversaId_dia.dia.getTime(),
         ) ?? null,
     },
+    avaliacaoConversa: {
+      findFirst: async ({ where }: { where: Linha }) => {
+        estado.consultasAvaliacoes++;
+        const achadas = estado.avaliacoes
+          .filter((a) => a.conversaId === where.conversaId && a.situacao === where.situacao)
+          .sort((a, b) => b.dia.getTime() - a.dia.getTime());
+        return achadas[0] ? { ...achadas[0], conversa: { nome: null, contato: null }, numero: { nome: "Ana" }, venda: null } : null;
+      },
+    },
     turma: {
       findUnique: async ({ where }: { where: { id: string } }) => estado.turmas.find((t) => t.id === where.id) ?? null,
       findMany: async () => estado.turmas,
@@ -101,6 +112,7 @@ const {
   listarGrupos,
   mensagensDaConversa,
   nomeDoAutor,
+  ultimaAvaliacao,
   resumoDoGrupo,
 } = await import("./conversas");
 
@@ -316,5 +328,30 @@ describe("resumo do grupo", () => {
     expect((await listarGrupos(gestor, agora))[0].pendenciasOntem).toBeNull();
     banco.estado.resumos = [{ ...base, dia: new Date("2026-11-16T00:00:00.000Z"), situacao: "pronto", pendencias: [] }];
     expect((await listarGrupos(gestor, agora))[0].pendenciasOntem).toBeNull();
+  });
+});
+
+describe("última avaliação da conversa", () => {
+  beforeEach(() => {
+    banco.estado.consultasAvaliacoes = 0;
+    banco.estado.avaliacoes = [
+      { id: "a1", conversaId: "i1", situacao: "pronto", dia: new Date("2026-11-10T00:00:00Z"), time: "comercial", notaGeralDecimos: 40, criterios: [] },
+      { id: "a2", conversaId: "i1", situacao: "pronto", dia: new Date("2026-11-12T00:00:00Z"), time: "comercial", notaGeralDecimos: 80, criterios: [] },
+    ];
+  });
+
+  it("devolve a mais recente para a gestão", async () => {
+    const item = await ultimaAvaliacao(gestor, "i1");
+    expect(item?.avaliacaoId).toBe("a2");
+    expect(item?.notaGeralDecimos).toBe(80);
+  });
+
+  it("devolve null sem consultar para quem não é gestão", async () => {
+    expect(await ultimaAvaliacao(ana, "i1")).toBeNull();
+    expect(banco.estado.consultasAvaliacoes).toBe(0);
+  });
+
+  it("devolve null quando não há avaliação pronta", async () => {
+    expect(await ultimaAvaliacao(gestor, "i2")).toBeNull();
   });
 });
