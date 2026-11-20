@@ -12,6 +12,7 @@ const banco = vi.hoisted(() => {
     usuarios: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
     resumos: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
     metricas: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
+    avaliacoes: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
   };
   // Como no mock de captura.test.ts: o LIKE do MySQL da Hostinger não pode ser usado.
   const semLike = (where: unknown) => {
@@ -75,6 +76,14 @@ const banco = vi.hoisted(() => {
         const antes = estado.metricas.length;
         estado.metricas = estado.metricas.filter((r) => !(r.dia < where.dia.lt));
         return { count: antes - estado.metricas.length };
+      },
+    },
+    avaliacaoConversa: {
+      deleteMany: async ({ where }: { where: Linha }) => {
+        semLike(where);
+        const antes = estado.avaliacoes.length;
+        estado.avaliacoes = estado.avaliacoes.filter((r) => !(r.dia < where.dia.lt));
+        return { count: antes - estado.avaliacoes.length };
       },
     },
     aluno: { findMany: async () => estado.alunos },
@@ -169,6 +178,7 @@ describe("limparWhatsapp", () => {
     banco.estado.usuarios = [];
     banco.estado.resumos = [];
     banco.estado.metricas = [];
+    banco.estado.avaliacoes = [];
     esquecerTelefonesCadastrados();
   });
 
@@ -295,7 +305,7 @@ describe("limparWhatsapp", () => {
     banco.estado.usuarios.push({ id: "u1", whatsapp: "11987654321" });
     individual("i1", { contatoId: "c1", ultimaMensagemEm: dias(-100) });
     const r = await limparWhatsapp(AGORA);
-    expect(r).toEqual({ provisorias: 0, antigas: 0, resumosAntigos: 0, metricasAntigas: 0, religados: 1, conversasVazias: 1, contatosVazios: 0 });
+    expect(r).toEqual({ provisorias: 0, antigas: 0, resumosAntigos: 0, metricasAntigas: 0, avaliacoesAntigas: 0, religados: 1, conversasVazias: 1, contatosVazios: 0 });
   });
 
   it("limparWhatsapp apaga métrica de 366 dias e mantém a de 364", async () => {
@@ -318,5 +328,18 @@ describe("limparWhatsapp", () => {
     const r = await limparWhatsapp(AGORA);
     expect(r.resumosAntigos).toBe(1);
     expect(banco.estado.resumos.map((x) => x.id)).toEqual(["r2", "r3"]);
+  });
+
+  it("limparWhatsapp apaga avaliações com dia anterior a 365 dias", async () => {
+    const espiao = vi.spyOn(banco.prisma.avaliacaoConversa, "deleteMany");
+    banco.estado.avaliacoes = [
+      { id: "velha", dia: new Date("2025-11-16T00:00:00.000Z") },
+      { id: "nova", dia: new Date("2025-11-18T00:00:00.000Z") },
+    ];
+    const r = await limparWhatsapp(AGORA);
+    expect(espiao).toHaveBeenCalledWith({ where: { dia: { lt: new Date(AGORA.getTime() - 365 * 86_400_000) } } });
+    expect(r.avaliacoesAntigas).toBe(1);
+    expect(banco.estado.avaliacoes.map((x) => x.id)).toEqual(["nova"]);
+    espiao.mockRestore();
   });
 });

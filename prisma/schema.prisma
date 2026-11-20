@@ -74,8 +74,8 @@ model Usuario {
   configuracoesIaAlteradas       ConfiguracaoIa[]
   configuracoesWhatsappAlteradas ConfiguracaoWhatsapp[]
 
-  espiaoVistoEm DateTime?     @map("espiao_visto_em")
-  gastosEspiao  GastoEspiao[]
+  espiaoVistoEm                  DateTime?                 @map("espiao_visto_em")
+  gastosEspiao                   GastoEspiao[]
   documentosProcessoDono         DocumentoProcesso[]       @relation("DocumentoProcessoDono")
   documentosProcessoCriados      DocumentoProcesso[]       @relation("DocumentoProcessoCriadoPor")
   documentosProcessoAtualizados  DocumentoProcesso[]       @relation("DocumentoProcessoAtualizadoPor")
@@ -815,11 +815,12 @@ model Venda {
   criadoEm           DateTime        @default(now()) @map("criado_em")
   atualizadoEm       DateTime        @updatedAt @map("atualizado_em")
 
-  produto   Produto        @relation(fields: [produtoId], references: [id])
-  oferta    OfertaProduto? @relation(fields: [ofertaId], references: [id], onDelete: SetNull)
-  vendedor  Usuario        @relation("VendasDoVendedor", fields: [vendedorId], references: [id])
-  canal     CanalVenda?    @relation(fields: [canalId], references: [id], onDelete: SetNull)
-  criadoPor Usuario        @relation("VendasRegistradas", fields: [criadoPorId], references: [id])
+  produto            Produto             @relation(fields: [produtoId], references: [id])
+  oferta             OfertaProduto?      @relation(fields: [ofertaId], references: [id], onDelete: SetNull)
+  vendedor           Usuario             @relation("VendasDoVendedor", fields: [vendedorId], references: [id])
+  canal              CanalVenda?         @relation(fields: [canalId], references: [id], onDelete: SetNull)
+  criadoPor          Usuario             @relation("VendasRegistradas", fields: [criadoPorId], references: [id])
+  avaliacoesConversa AvaliacaoConversa[]
 
   @@index([dataVenda])
   @@index([vendedorId, dataVenda])
@@ -1382,12 +1383,13 @@ model NumeroWhatsapp {
   criadoEm      DateTime                 @default(now()) @map("criado_em")
   atualizadoEm  DateTime                 @updatedAt @map("atualizado_em")
 
-  usuario   Usuario?                @relation(fields: [usuarioId], references: [id])
-  comandos  ComandoWhatsapp[]
-  conversas ConversaWhatsapp[]
-  nosGrupos NumeroNoGrupo[]
-  mensagens MensagemWhatsapp[]
-  metricas  MetricaAtendimentoDia[]
+  usuario    Usuario?                @relation(fields: [usuarioId], references: [id])
+  comandos   ComandoWhatsapp[]
+  conversas  ConversaWhatsapp[]
+  nosGrupos  NumeroNoGrupo[]
+  mensagens  MensagemWhatsapp[]
+  metricas   MetricaAtendimentoDia[]
+  avaliacoes AvaliacaoConversa[]
 
   @@index([usuarioId])
   @@map("numeros_whatsapp")
@@ -1478,12 +1480,13 @@ model ConversaWhatsapp {
   criadoEm         DateTime                  @default(now()) @map("criado_em")
   atualizadoEm     DateTime                  @updatedAt @map("atualizado_em")
 
-  numero    NumeroWhatsapp?    @relation(fields: [numeroId], references: [id])
-  contato   ContatoWhatsapp?   @relation(fields: [contatoId], references: [id])
-  turma     Turma?             @relation(fields: [turmaId], references: [id], onDelete: SetNull)
-  nosGrupo  NumeroNoGrupo[]
-  mensagens MensagemWhatsapp[]
-  resumos   ResumoGrupo[]
+  numero     NumeroWhatsapp?     @relation(fields: [numeroId], references: [id])
+  contato    ContatoWhatsapp?    @relation(fields: [contatoId], references: [id])
+  turma      Turma?              @relation(fields: [turmaId], references: [id], onDelete: SetNull)
+  nosGrupo   NumeroNoGrupo[]
+  mensagens  MensagemWhatsapp[]
+  resumos    ResumoGrupo[]
+  avaliacoes AvaliacaoConversa[]
 
   @@unique([numeroId, jid])
   @@index([tipo, monitorada])
@@ -1798,7 +1801,8 @@ model LoteIa {
   criadoEm    DateTime       @default(now()) @map("criado_em")
   concluidoEm DateTime?      @map("concluido_em")
 
-  resumos ResumoGrupo[]
+  resumos    ResumoGrupo[]
+  avaliacoes AvaliacaoConversa[]
 
   /// Um lote por tipo e dia: a criação é a reserva contra execução dupla.
   @@unique([tipo, dia])
@@ -1835,6 +1839,63 @@ model ResumoGrupo {
   @@unique([conversaId, dia])
   @@index([dia])
   @@map("resumos_grupo")
+}
+
+enum SituacaoLead {
+  novo
+  qualificando
+  interessado
+  objecao
+  negociando
+  sem_retorno
+  fechou
+  perdido
+}
+
+enum TemperaturaLead {
+  quente
+  morno
+  frio
+}
+
+/// Avaliação da IA de uma conversa individual em um dia. `dia` é a data de São Paulo.
+model AvaliacaoConversa {
+  id                String             @id @default(cuid())
+  conversaId        String             @map("conversa_id")
+  numeroId          String             @map("numero_id")
+  dia               DateTime           @db.Date
+  /// Time do número quando a avaliação foi criada.
+  time              TimeNumeroWhatsapp
+  loteId            String?            @map("lote_id")
+  situacao          SituacaoResumo     @default(pendente)
+  erro              String?            @db.VarChar(255)
+  modelo            String             @db.VarChar(60)
+  situacaoLead      SituacaoLead?      @map("situacao_lead")
+  temperatura       TemperaturaLead?
+  motivoTemperatura String?            @map("motivo_temperatura") @db.Text
+  oQueRespondeu     String?            @map("o_que_respondeu") @db.Text
+  proximoPasso      String?            @map("proximo_passo") @db.Text
+  /// Lista { chave, nota: number|null, frase }, já com a nota de tempo do sistema.
+  criterios         Json?
+  /// Nota de tempo de resposta (0 a 10), calculada na criação.
+  notaTempo         Int?               @map("nota_tempo")
+  /// Nota geral × 10 (0 a 100), para evitar ponto flutuante.
+  notaGeralDecimos  Int?               @map("nota_geral_decimos")
+  pontosFortes      String?            @map("pontos_fortes") @db.Text
+  melhorar          String?            @db.Text
+  vendaId           String?            @map("venda_id")
+  criadoEm          DateTime           @default(now()) @map("criado_em")
+  atualizadoEm      DateTime           @updatedAt @map("atualizado_em")
+
+  conversa ConversaWhatsapp @relation(fields: [conversaId], references: [id], onDelete: Cascade)
+  numero   NumeroWhatsapp   @relation(fields: [numeroId], references: [id])
+  lote     LoteIa?          @relation(fields: [loteId], references: [id], onDelete: SetNull)
+  venda    Venda?           @relation(fields: [vendaId], references: [id], onDelete: SetNull)
+
+  @@unique([conversaId, dia])
+  @@index([dia])
+  @@index([numeroId, dia])
+  @@map("avaliacoes_conversa")
 }
 
 // ─── Processos internos ──────────────────────────────────────────────────────

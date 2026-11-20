@@ -62,13 +62,13 @@ async function religarContatos(): Promise<number> {
 
 /**
  * Limpeza diária: apaga as mensagens provisórias vencidas de grupos que continuam não monitorados
- * (e zera `provisoriaAte`) e as mensagens com mais de 90 dias e os resumos de grupo e as métricas diárias do atendimento com mais de 365 dias; religa contatos a alunos e usuários
+ * (e zera `provisoriaAte`) e as mensagens com mais de 90 dias e os resumos de grupo as métricas diárias do atendimento e as avaliações de conversa com mais de 365 dias; religa contatos a alunos e usuários
  * cadastrados depois; apaga conversas individuais vazias (menos "pessoal") e contatos sem nada.
  * Devolve só contagens.
  */
 export async function limparWhatsapp(
   agora: Date = new Date(),
-): Promise<{ provisorias: number; antigas: number; resumosAntigos: number; metricasAntigas: number; religados: number; conversasVazias: number; contatosVazios: number }> {
+): Promise<{ provisorias: number; antigas: number; resumosAntigos: number; metricasAntigas: number; avaliacoesAntigas: number; religados: number; conversasVazias: number; contatosVazios: number }> {
   const vencidas = await prisma.conversaWhatsapp.findMany({
     where: { tipo: "grupo", monitorada: false, provisoriaAte: { lt: agora } },
     select: { id: true },
@@ -93,6 +93,11 @@ export async function limparWhatsapp(
     where: { dia: { lt: new Date(agora.getTime() - 365 * 24 * 60 * 60 * 1000) } },
   });
 
+  // Avaliação de conversa fica 365 dias; `dia` também é a meia-noite UTC da data de São Paulo.
+  const { count: avaliacoesAntigas } = await prisma.avaliacaoConversa.deleteMany({
+    where: { dia: { lt: new Date(agora.getTime() - 365 * 24 * 60 * 60 * 1000) } },
+  });
+
   const religados = await religarContatos();
   // As conversas saem antes dos contatos: o contato só some quando não tem mais conversa.
   const { count: conversasVazias } = await prisma.conversaWhatsapp.deleteMany({
@@ -108,5 +113,5 @@ export async function limparWhatsapp(
   const { count: contatosVazios } = await prisma.contatoWhatsapp.deleteMany({
     where: { mensagens: { none: {} }, conversas: { none: {} }, alunoId: null, usuarioId: null, criadoEm: { lt: umDiaAtras } },
   });
-  return { provisorias, antigas, resumosAntigos, metricasAntigas, religados, conversasVazias, contatosVazios };
+  return { provisorias, antigas, resumosAntigos, metricasAntigas, avaliacoesAntigas, religados, conversasVazias, contatosVazios };
 }

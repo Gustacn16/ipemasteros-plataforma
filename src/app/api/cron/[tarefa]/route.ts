@@ -46,6 +46,7 @@ const TAREFAS: Record<string, () => Promise<Record<string, unknown>>> = {
       provisorias: r.provisorias,
       antigas: r.antigas,
       metricasAntigas: r.metricasAntigas,
+      avaliacoesAntigas: r.avaliacoesAntigas,
       religados: r.religados,
       conversasVazias: r.conversasVazias,
       contatosVazios: r.contatosVazios,

@@ -89,6 +89,16 @@ describe("apagarDadosDoTelefone", () => {
     expect(banco.estado.mensagens.map((m) => m.id).sort()).toEqual(["m4", "m5"]);
   });
 
+  it("apagar os dados do telefone apaga as conversas individuais, e as avaliações saem em cascata", async () => {
+    // AvaliacaoConversa.conversa tem onDelete: Cascade: o serviço só apaga as conversas pelo id e o banco leva as avaliações junto.
+    const deleteMany = vi.spyOn(banco.prisma.conversaWhatsapp, "deleteMany");
+    await apagarDadosDoTelefone("(62) 98170-7432", "u1");
+    const chamadas = deleteMany.mock.calls.map(([a]) => JSON.stringify((a as { where: unknown }).where));
+    expect(chamadas.some((w) => w.includes('"i1"'))).toBe(true);
+    expect(banco.prisma.avaliacaoConversa).toBeUndefined(); // não há apagamento manual de avaliações
+    deleteMany.mockRestore();
+  });
+
   it("telefone sem contato devolve encontrado: false e não audita", async () => {
     const r = await apagarDadosDoTelefone("62999990000", "u1");
     expect(r).toEqual({ encontrado: false, mensagens: 0, conversas: 0 });
