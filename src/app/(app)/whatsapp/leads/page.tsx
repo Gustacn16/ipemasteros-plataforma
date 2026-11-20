@@ -31,7 +31,7 @@ export default async function PaginaLeads({ searchParams }: { searchParams: Prom
   const situacao = situacoes.find((s) => s === busca.situacao);
   const numeroId = busca.numero || undefined;
 
-  const { itens, semVerba, falhas, pendentes } = await listarLeads(usuario, dia, { temperatura, situacao, numeroId });
+  const { itens, semVerba, falhas, pendentes, numeros } = await listarLeads(usuario, dia, { temperatura, situacao, numeroId });
 
   const link = (d: string) => {
     const p = new URLSearchParams({ dia: d });
@@ -72,7 +72,6 @@ export default async function PaginaLeads({ searchParams }: { searchParams: Prom
           </nav>
           <form method="get" className="flex flex-wrap items-end gap-3 text-sm">
             <input type="hidden" name="dia" value={texto} />
-            {numeroId && <input type="hidden" name="numero" value={numeroId} />}
             <label className="grid gap-1">
               Temperatura
               <select name="temperatura" defaultValue={temperatura ?? ""} className="bg-background h-8 rounded-md border px-2">
@@ -85,6 +84,13 @@ export default async function PaginaLeads({ searchParams }: { searchParams: Prom
               <select name="situacao" defaultValue={situacao ?? ""} className="bg-background h-8 rounded-md border px-2">
                 <option value="">Todas</option>
                 {situacoes.map((s) => <option key={s} value={s}>{ROTULO_SITUACAO_LEAD[s]}</option>)}
+              </select>
+            </label>
+            <label className="grid gap-1">
+              Número
+              <select name="numero" defaultValue={numeroId ?? ""} className="bg-background h-8 rounded-md border px-2">
+                <option value="">Todos os números</option>
+                {numeros.map((n) => <option key={n.id} value={n.id}>{n.nome}</option>)}
               </select>
             </label>
             <button type="submit" className="bg-primary text-primary-foreground h-8 rounded-md px-3">Filtrar</button>

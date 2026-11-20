@@ -5,7 +5,7 @@ import type { UsuarioAtual } from "@/lib/sessao";
 type Linha = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 const banco = vi.hoisted(() => {
-  const estado = { avaliacoes: [] as Record<string, any>[] }; // eslint-disable-line @typescript-eslint/no-explicit-any
+  const estado = { avaliacoes: [] as Record<string, any>[], numeros: [] as Record<string, any>[] }; // eslint-disable-line @typescript-eslint/no-explicit-any
   const semLike = (where: unknown) => {
     const json = JSON.stringify(where ?? {});
     for (const op of ["contains", "startsWith", "endsWith"]) if (json.includes(`"${op}"`)) throw new Error(`operador ${op} proibido`);
@@ -23,6 +23,12 @@ const banco = vi.hoisted(() => {
     return true;
   };
   const prisma = {
+    numeroWhatsapp: {
+      findMany: async ({ where }: { where: Linha }) => {
+        semLike(where);
+        return estado.numeros.filter((n) => casa(n, where)).sort((a, b) => a.nome.localeCompare(b.nome)).map((n) => ({ id: n.id, nome: n.nome }));
+      },
+    },
     avaliacaoConversa: {
       findMany: async ({ where }: { where: Linha }) => {
         semLike(where);
@@ -64,6 +70,7 @@ const aval = (extra: Linha = {}) => {
 beforeEach(() => {
   seq = 0;
   banco.estado.avaliacoes = [];
+  banco.estado.numeros = [];
 });
 
 describe("listarLeads", () => {
@@ -108,5 +115,29 @@ describe("listarLeads", () => {
     expect(r.falhas).toBe(1);
     expect(r.pendentes).toBe(1);
     expect(r.itens).toHaveLength(0);
+  });
+
+  it("filtra por situação e por número", async () => {
+    aval({ situacaoLead: "fechou", numeroId: "n1" });
+    aval({ situacaoLead: "novo", numeroId: "n2" });
+    expect((await listarLeads(gestor, dia, { situacao: "fechou" })).itens.map((i) => i.situacaoLead)).toEqual(["fechou"]);
+    expect((await listarLeads(gestor, dia, { numeroId: "n2" })).itens.map((i) => i.situacaoLead)).toEqual(["novo"]);
+  });
+
+  it("nota nula fica por último dentro da mesma temperatura", async () => {
+    aval({ temperatura: "morno", notaGeralDecimos: null });
+    aval({ temperatura: "morno", notaGeralDecimos: 90 });
+    const r = await listarLeads(gestor, dia, {});
+    expect(r.itens.map((i) => i.notaGeralDecimos)).toEqual([90, null]);
+  });
+
+  it("lista só números de vendas não excluídos, por nome", async () => {
+    banco.estado.numeros = [
+      { id: "b", nome: "B", time: "comercial", excluidoEm: null },
+      { id: "a", nome: "A", time: "paciente_modelo", excluidoEm: null },
+      { id: "c", nome: "C", time: "cs", excluidoEm: null },
+      { id: "d", nome: "D", time: "comercial", excluidoEm: new Date() },
+    ];
+    expect((await listarLeads(gestor, dia, {})).numeros.map((n) => n.id)).toEqual(["a", "b"]);
   });
 });

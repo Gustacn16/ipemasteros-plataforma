@@ -24,6 +24,8 @@ export type ItemLead = {
   proximoPasso: string | null;
   notaGeralDecimos: number | null;
   criterios: CriterioAvaliado[];
+  pontosFortes: string | null;
+  melhorar: string | null;
   venda: { produto: string; criadoEm: Date } | null;
 };
 
@@ -43,11 +45,11 @@ export async function listarLeads(
   ator: UsuarioAtual,
   dia: Date,
   filtros: { temperatura?: TemperaturaLead; situacao?: SituacaoLead; numeroId?: string },
-): Promise<{ itens: ItemLead[]; semVerba: number; falhas: number; pendentes: number }> {
+): Promise<{ itens: ItemLead[]; semVerba: number; falhas: number; pendentes: number; numeros: { id: string; nome: string }[] }> {
   if (!temPermissao(ator.papel, ESCOPO)) throw new ErroPermissao(ESCOPO);
   const base = { dia, time: { in: [...TIMES_VENDAS] } };
 
-  const [linhas, semVerba, falhasTotal, pendentes] = await Promise.all([
+  const [linhas, semVerba, falhasTotal, pendentes, numeros] = await Promise.all([
     prisma.avaliacaoConversa.findMany({
       where: {
         ...base,
@@ -67,6 +69,8 @@ export async function listarLeads(
         proximoPasso: true,
         notaGeralDecimos: true,
         criterios: true,
+        pontosFortes: true,
+        melhorar: true,
         conversa: { select: { nome: true, contato: { select: { nomeExibido: true } } } },
         numero: { select: { nome: true } },
         venda: { select: { criadoEm: true, produto: { select: { nome: true } } } },
@@ -75,6 +79,11 @@ export async function listarLeads(
     prisma.avaliacaoConversa.count({ where: { ...base, situacao: "falhou", erro: ERRO_LIMITE_MENSAL } }),
     prisma.avaliacaoConversa.count({ where: { ...base, situacao: "falhou" } }),
     prisma.avaliacaoConversa.count({ where: { ...base, situacao: "pendente" } }),
+    prisma.numeroWhatsapp.findMany({
+      where: { excluidoEm: null, time: { in: [...TIMES_VENDAS] } },
+      select: { id: true, nome: true },
+      orderBy: { nome: "asc" },
+    }),
   ]);
 
   const itens: ItemLead[] = linhas.map((a) => ({
@@ -90,6 +99,8 @@ export async function listarLeads(
     proximoPasso: a.proximoPasso,
     notaGeralDecimos: a.notaGeralDecimos,
     criterios: lerCriterios(a.criterios),
+    pontosFortes: a.pontosFortes,
+    melhorar: a.melhorar,
     venda: a.venda ? { produto: a.venda.produto.nome, criadoEm: a.venda.criadoEm } : null,
   }));
   itens.sort(
@@ -97,5 +108,5 @@ export async function listarLeads(
       (ORDEM_TEMPERATURA[x.temperatura ?? ""] ?? 3) - (ORDEM_TEMPERATURA[y.temperatura ?? ""] ?? 3) ||
       (x.notaGeralDecimos ?? 101) - (y.notaGeralDecimos ?? 101),
   );
-  return { itens, semVerba, falhas: falhasTotal - semVerba, pendentes };
+  return { itens, semVerba, falhas: falhasTotal - semVerba, pendentes, numeros };
 }
