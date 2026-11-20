@@ -34,6 +34,6 @@ Cole na descrição de cada grupo de WhatsApp que a equipe acompanha:
 >
 > **Sessão do aparelho:** a conexão com o WhatsApp de cada número da empresa fica guardada no servidor do motor (com uma cópia de segurança de 7 dias). Ela guarda só as chaves de conexão, não as mensagens, e é apagada quando o número é desconectado.
 >
-> **Quem ajuda no tratamento:** usamos a Anthropic como operadora para gerar resumos das conversas. Esse recurso entra em uma etapa futura. Os dados enviados não são usados para treinar modelos de inteligência artificial.
+> **Quem ajuda no tratamento:** usamos a Anthropic como operadora para gerar resumos e avaliações das conversas. Os dados enviados não são usados para treinar modelos de inteligência artificial.
 >
 > **Como pedir a exclusão:** envie o pedido para [e-mail do encarregado de dados]. Informe o telefone usado no WhatsApp. A equipe apaga o contato, as conversas e as mensagens ligadas a ele e responde ao pedido.

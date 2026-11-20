@@ -175,7 +175,7 @@ Use se a pasta de sessões se perder ou estragar.
 3. Confira na tela do WhatsApp. Se os números voltaram, apague a pasta `sessoes.velha`. Se uma sessão já tinha sido encerrada no celular, será preciso ler o QR de novo (passo 13).
 
 ## 18. Crons da IA e das métricas
-O resumo diário dos grupos e as métricas do atendimento usam quatro linhas de cron, criados no hPanel (**Avançado → Cron Jobs**). O servidor está em UTC: `30 7 * * *` é 4h30 em São Paulo. Troque `<CRON_SECRET>` pelo valor guardado nas variáveis de ambiente do site.
+Os resumos diários dos grupos, as avaliações das conversas de leads e alunos e as métricas do atendimento usam quatro linhas de cron, criados no hPanel (**Avançado → Cron Jobs**). O servidor está em UTC: `30 7 * * *` é 4h30 em São Paulo. Troque `<CRON_SECRET>` pelo valor guardado nas variáveis de ambiente do site.
 
 ```
 30 7 * * * curl -fsS --max-time 600 -H "Authorization: Bearer <CRON_SECRET>" https://teste.plataformaipemaster.com.br/api/cron/ia-whatsapp
@@ -184,7 +184,7 @@ O resumo diário dos grupos e as métricas do atendimento usam quatro linhas de 
 10 * * * * curl -fsS --max-time 600 -H "Authorization: Bearer <CRON_SECRET>" https://teste.plataformaipemaster.com.br/api/cron/metricas-whatsapp
 ```
 
-A primeira linha (7h30 UTC) envia o pedido do resumo do dia. A segunda (8h UTC) é uma execução de segurança, para o caso de a das 7h30 não rodar: é inofensiva, porque se o lote do dia já existe ela só responde `ja_existe`. A terceira recolhe as respostas a cada 15 minutos. A quarta recalcula as métricas do atendimento. O `--max-time 600` dá até 10 minutos para o envio, que pode demorar com muitos grupos. Sem a variável `ANTHROPIC_API_KEY`, nada é enviado (a tela **Saúde** mostra "IA não configurada").
+A primeira linha (7h30 UTC) cria os lotes do dia: primeiro o dos resumos dos grupos e depois o das avaliações das conversas. A segunda (8h UTC) é uma execução de segurança, para o caso de a das 7h30 não rodar: é inofensiva, porque se o lote do dia já existe ela só responde `ja_existe`. A terceira recolhe as respostas dos dois tipos de lote a cada 15 minutos. A entrega 5 não criou cron novo: as mesmas linhas passaram a fazer resumos e avaliações. A quarta recalcula as métricas do atendimento. O `--max-time 600` dá até 10 minutos para o envio, que pode demorar com muitos grupos. Sem a variável `ANTHROPIC_API_KEY`, nada é enviado (a tela **Saúde** mostra "IA não configurada").
 
 A linha `metricas-whatsapp` roda a cada hora, no minuto 10, e recalcula as métricas de tempo de resposta e de follow-up do atendimento (hoje e os 4 dias anteriores; número sem histórico ainda recebe 35 dias). Ela alimenta só a aba Atendimento; a aba CS é calculada na hora e não depende do cron.
 

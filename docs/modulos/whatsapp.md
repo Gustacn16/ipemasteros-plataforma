@@ -1,7 +1,7 @@
 # Módulo: WhatsApp
 
 ## Objetivo
-Conectar os números de WhatsApp da escola e dos vendedores ao IPEMaster OS e guardar o que acontece nos grupos e nas conversas. A entrega 1 criou o motor de conexão (projeto à parte, `motor-whatsapp/`, com a Baileys) e a tela de números com o QR. A entrega 2a captura grupos, contatos e mensagens e mostra as telas Grupos e Conversas. A entrega 3 faz o resumo diário dos grupos com IA e a entrega 4 mede os tempos de resposta e o tempo da CS. Avaliação com IA e disparo vêm nas próximas entregas.
+Conectar os números de WhatsApp da escola e dos vendedores ao IPEMaster OS e guardar o que acontece nos grupos e nas conversas. A entrega 1 criou o motor de conexão (projeto à parte, `motor-whatsapp/`, com a Baileys) e a tela de números com o QR. A entrega 2a captura grupos, contatos e mensagens e mostra as telas Grupos e Conversas. A entrega 3 faz o resumo diário dos grupos com IA, a entrega 4 mede os tempos de resposta e o tempo da CS e a entrega 5 avalia com IA as conversas de leads e alunos. O disparo vem nas próximas entregas.
 
 ## Entidades
 | Entidade | Campos principais |
@@ -30,12 +30,15 @@ A tela nunca fala com o motor: grava comandos no banco e o motor os busca. O mot
 - Abas **Atendimento** e **CS**: só `whatsapp:ver_equipe`. Mudar o time de um número: `whatsapp:gerenciar_numeros`. Editar as regras do atendimento: só o papel `admin`.
 
 ## Telas
-- `/whatsapp` redireciona para a primeira aba que a pessoa pode ver. As abas no topo são **Grupos · Atendimento · CS · Conversas · Números**, cada uma só para quem pode. O item "WhatsApp" do menu aparece para quem tem qualquer uma das permissões do módulo.
+- `/whatsapp` redireciona para a primeira aba que a pessoa pode ver. As abas no topo são **Grupos · Atendimento · Leads · CS · Conversas · Números**, cada uma só para quem pode. O item "WhatsApp" do menu aparece para quem tem qualquer uma das permissões do módulo.
 - `/whatsapp/grupos`: tabela com nome, números da empresa no grupo, mensagens nos últimos 7 dias, turma (seletor) e o interruptor "Acompanhar". Grupo provisório mostra "Histórico guardado até <data>". Ao desmarcar, confirma "As mensagens guardadas deste grupo serão apagadas."
 - `/whatsapp/conversas`: filtro por número e categoria; categoria editável por linha (marcar "pessoal" pede confirmação). O clique abre `/whatsapp/conversas/[id]` com as últimas 200 mensagens (texto, ou "[áudio]", "[imagem]" etc.).
 - `/whatsapp/numeros`: tabela com nome, finalidade, dono, telefone, situação, conectado em e último sinal. Por linha: **Conectar** (quando não conectado), **Desconectar** (conectado; pede confirmação) e **Excluir** (qualquer situação menos conectado, só gestão). Em erro, a linha mostra o detalhe enviado pelo motor abaixo da situação. **Novo número** (só gestão): nome, finalidade e, para vendedor, o dono entre os usuários ativos com papel `comercial`.
 - `/whatsapp/atendimento` (entrega 4): semana de segunda a domingo (`?semana=AAAA-MM-DD`, a segunda; padrão a semana atual). Tabela por número: time, conversas-dia, 1ª resposta e resposta (medianas), % no SLA, % de follow-up ("—" fora dos times de venda) e "Sem resposta agora". Clicar no número (`&numero=`) mostra o gráfico das 8 últimas semanas (sem a série de follow-up para números fora dos times de venda). Card "Sem resposta agora" (conversas com mensagem nos últimos 30 dias) e card "Regras do atendimento", editável só pelo admin; os outros veem as regras em texto.
 - `/whatsapp/cs` (entrega 4): vendas da semana com o tempo até o primeiro contato da CS; as que aguardam ficam no topo. Na semana atual, entram também as vendas de antes da segunda que ainda aguardam. Cabeçalho com a mediana e quantas aguardam; gráfico das 8 últimas semanas. Sem número `cs`, mostra "Nenhum número de CS".
+- `/whatsapp/leads` (entrega 5, só gestão, permissão `whatsapp:ver_equipe`): avaliações da IA. Mostra ontem por padrão; filtros por temperatura, situação e número; os quentes ficam no topo. Se alguma avaliação não coube no limite do mês, um aviso aparece no alto da aba.
+- Na aba Atendimento (entrega 5, só gestão): coluna "Nota IA" por número, linha da nota no gráfico de 8 semanas e o card "Piores notas da semana".
+- Na página de uma conversa (entrega 5, só gestão): card com a avaliação mais recente.
 - Na tela Números, a coluna **Time** é um seletor para a gestão, com a ajuda "O tempo da CS conta a partir de quando o número é marcado como CS. Trocar o time muda o que aparece na aba CS."
 - **Diálogo Conectar:** pede a conexão e consulta a situação a cada 2 s enquanto aberto. Mostra o QR com a instrução "No celular: WhatsApp › Aparelhos conectados › Conectar um aparelho". Ao conectar, mostra "Conectado!" e fecha em 2 s. Em QR expirado, erro, desconectado, removido no celular ou motor sem resposta, para de consultar e oferece "Tentar de novo". Em erro, mostra o detalhe enviado pelo motor (ex.: "Acesso recusado pelo WhatsApp.", "Não foi possível abrir a conexão (status 405).").
 
@@ -78,3 +81,14 @@ A tela nunca fala com o motor: grava comandos no banco e o motor os busca. O mot
 **Entrega 4:** abas Atendimento e CS, time dos números, regras do atendimento e cron `metricas-whatsapp` (ver itens 19–25).
 
 **Entrega 2b (servidor):** arquivos de implantação do motor na VPS Hostinger (`motor-whatsapp/deploy/`: unidade systemd e cópia diária das sessões) e runbook `docs/runbooks/whatsapp-motor-vps.md`. A implantação em si depende do Gustavo contratar a VPS.
+
+**Entrega 5:** avaliação das conversas de leads e alunos com IA e a aba Leads. Tabela `avaliacoes_conversa` (modelo `AvaliacaoConversa`), migration `20261120100000_whatsapp_avaliacoes`. Sem cron novo.
+- **Quando roda:** toda madrugada o cron `ia-whatsapp` (4h30 em São Paulo, com repetição às 5h) cria primeiro o lote dos resumos dos grupos e depois o lote das avaliações. O `coletar-ia-whatsapp` (a cada 15 min) recolhe os dois tipos.
+- **O que é avaliado:** conversas individuais de categoria `lead` ou `aluno`, em números não excluídos dos times `cs`, `paciente_modelo` ou `comercial`, que tiveram mensagem ontem. A IA recebe os últimos 14 dias (ontem marcado), só com os papéis Cliente e Atendente (sem nomes e sem telefones) e, só para comentar, os tempos medidos pelo sistema.
+- **Vendas (paciente_modelo e comercial):** situação (novo, qualificando, interessado, objeção, negociando, sem retorno, fechou, perdido), temperatura (quente, morna ou fria, com o motivo), o que o cliente respondeu, próximo passo e notas de 0 a 10 em qualificação, quebra de objeção, follow-up, clareza e cordialidade e condução para o fechamento.
+- **CS:** notas de cordialidade, clareza, resolveu a dúvida e conduziu o próximo passo. Não tem temperatura.
+- **Nota do tempo de resposta (sistema):** `round(10 × vezes no SLA ÷ vezes do cliente ontem)`. A **nota geral** é a média dos critérios que têm nota. "Não se aplica" fica vazio e não entra na média.
+- **Venda casada:** se existe venda não apagada, dos últimos 90 dias, com o mesmo telefone, a situação vira "fechou" e a venda aparece na avaliação.
+- **Modelo:** as avaliações usam o Claude Sonnet 5.5, por escolha do Gustavo em 19/11/2026, para caber no orçamento (com o Opus, 100 conversas por dia custariam cerca de US$ 120 por mês). Os resumos dos grupos continuam no modelo configurado (Opus). Tudo pela API em lote (50% mais barata).
+- **Limite de gasto:** o limite mensal de US$ 80 (`ConfiguracaoWhatsapp`) vale para resumos e avaliações juntos. Os resumos vão primeiro, e a reserva desconta a estimativa dos itens ainda pendentes. Avaliação que não cabe vira "falhou" e a aba Leads avisa.
+- **LGPD:** as avaliações ficam 365 dias (a rotina `limpar-whatsapp` apaga depois). Apagar os dados de um telefone apaga suas conversas e, em cascata, as avaliações.
