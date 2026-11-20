@@ -41,31 +41,49 @@ export function montarEntradaAvaliacao(
   tempos: TemposParaAvaliacao,
 ): { texto: string; cortada: boolean } {
   const ordenadas = [...mensagens].sort((a, b) => a.enviadaEm.getTime() - b.enviadaEm.getTime());
-  const itens: string[] = [];
-  let marcou = false;
-  for (const m of ordenadas) {
-    if (!marcou && m.enviadaEm >= ontem.inicio && m.enviadaEm <= ontem.fim) {
-      itens.push(`--- Ontem (${emSaoPaulo(ontem.inicio).slice(0, 5)}) ---`);
-      marcou = true;
-    }
-    itens.push(linhaDaMensagem(m));
-  }
-
+  const itens = ordenadas.map((m) => ({
+    linha: linhaDaMensagem(m),
+    deOntem: m.enviadaEm >= ontem.inicio && m.enviadaEm <= ontem.fim,
+  }));
+  const marcador = `--- Ontem (${emSaoPaulo(ontem.inicio).slice(0, 5)}) ---`;
   const cabecalho = blocoTempos(tempos);
-  const montar = (corpo: string[], cortada: boolean) => [cabecalho, "", ...(cortada ? [AVISO_CORTE] : []), ...corpo].join("\n");
+
+  // O marcador fica separado: vai logo antes da primeira mensagem de ontem que ficou no corpo.
+  const montar = (mantidas: typeof itens, cortada: boolean) => {
+    const corpo: string[] = [];
+    let marcou = false;
+    for (const i of mantidas) {
+      if (i.deOntem && !marcou) {
+        corpo.push(marcador);
+        marcou = true;
+      }
+      corpo.push(i.linha);
+    }
+    return [cabecalho, "", ...(cortada ? [AVISO_CORTE] : []), ...corpo].join("\n");
+  };
 
   const completo = montar(itens, false);
   if (completo.length <= LIMITE_ENTRADA_AVALIACAO) return { texto: completo, cortada: false };
 
-  // Mantém as mais recentes: descarta as mais antigas até caber (com o aviso).
-  let inicio = itens.length;
+  // Mantém as mais recentes: descarta as mais antigas até caber (com o aviso e o marcador).
   let total = montar([], true).length;
+  let temOntem = false;
+  let inicio = itens.length;
+  const ultima = itens[itens.length - 1];
   for (let i = itens.length - 1; i >= 0; i--) {
-    if (total + itens[i].length + 1 > LIMITE_ENTRADA_AVALIACAO) break;
-    total += itens[i].length + 1;
+    const extra = itens[i].deOntem && !temOntem ? marcador.length + 1 : 0;
+    if (total + itens[i].linha.length + 1 + extra > LIMITE_ENTRADA_AVALIACAO) break;
+    total += itens[i].linha.length + 1 + extra;
+    if (itens[i].deOntem) temOntem = true;
     inicio = i;
   }
-  return { texto: montar(itens.slice(inicio), true), cortada: true };
+  const mantidas = itens.slice(inicio);
+  if (mantidas.length === 0 && ultima) {
+    // Uma só mensagem maior que o limite: encurta o texto dela em vez de deixar o corpo vazio.
+    const folga = LIMITE_ENTRADA_AVALIACAO - total - (ultima.deOntem ? marcador.length + 1 : 0) - 2;
+    mantidas.push({ ...ultima, linha: ultima.linha.slice(0, Math.max(0, folga)) + "…" });
+  }
+  return { texto: montar(mantidas, true), cortada: true };
 }
 
 // ─── Esquemas ────────────────────────────────────────────────────────────────

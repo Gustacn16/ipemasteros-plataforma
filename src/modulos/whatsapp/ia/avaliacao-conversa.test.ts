@@ -59,6 +59,34 @@ describe("montarEntradaAvaliacao", () => {
   });
 });
 
+describe("corte dentro de ontem", () => {
+  it("mantém o marcador logo antes da primeira de ontem que ficou", () => {
+    const antigas = Array.from({ length: 5 }, (_, i) =>
+      msg({ enviadaEm: new Date(Date.UTC(2026, 10, 10, 12, i)), texto: "a".repeat(2_000) }),
+    );
+    const deOntem = Array.from({ length: 40 }, (_, i) =>
+      msg({ enviadaEm: new Date(Date.UTC(2026, 10, 18, 12, i)), texto: `O${i} ` + "y".repeat(2_000) }),
+    );
+    const { texto, cortada } = montarEntradaAvaliacao([...antigas, ...deOntem], ontem, tempos);
+    expect(cortada).toBe(true);
+    expect(texto.length).toBeLessThanOrEqual(LIMITE_ENTRADA_AVALIACAO);
+    expect(texto).not.toContain("aaaa");
+    const linhas = texto.split("\n");
+    const m = linhas.indexOf("--- Ontem (18/11) ---");
+    expect(m).toBeGreaterThan(-1);
+    expect(linhas[m + 1]).toMatch(/Cliente: O\d+ /);
+    expect(linhas[m + 1]).not.toContain("O0 ");
+    expect(linhas.slice(0, m).some((l) => l.includes("Cliente: O"))).toBe(false);
+  });
+
+  it("encurta uma mensagem única maior que o limite", () => {
+    const { texto } = montarEntradaAvaliacao([msg({ texto: "z".repeat(80_000) })], ontem, tempos);
+    expect(texto.length).toBeLessThanOrEqual(LIMITE_ENTRADA_AVALIACAO);
+    expect(texto).toContain("Cliente: zzz");
+    expect(texto).toContain("--- Ontem (18/11) ---");
+  });
+});
+
 const criteriosVendas = Object.fromEntries(
   ["qualificacao", "quebra_objecao", "followup", "clareza_cordialidade", "conducao_fechamento"].map((k) => [
     k,
