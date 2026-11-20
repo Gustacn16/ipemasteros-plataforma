@@ -14,7 +14,7 @@ export const LIMITE_ENTRADA_RESUMO = 120_000;
 const AVISO_CORTE = "(Mensagens mais antigas do dia foram omitidas.)";
 const DESLOCAMENTO_SP_MS = 3 * 3_600_000;
 
-const ROTULO_TIPO: Record<string, string> = {
+export const ROTULO_TIPO: Record<string, string> = {
   imagem: "[imagem]",
   audio: "[áudio]",
   video: "[vídeo]",
