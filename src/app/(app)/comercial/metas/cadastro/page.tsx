@@ -7,6 +7,7 @@ import { BotaoCopiarMetas, MetasMes } from "@/modulos/comercial/componentes/meta
 import { esquemaMes } from "@/modulos/comercial/esquemas/meta";
 import { mesAnterior, mesSeguinte, rotuloMes, totaisMetas } from "@/modulos/comercial/regras/meta";
 import { obterMetasDoMes } from "@/modulos/comercial/servicos/metas";
+import { obterPlanoDoMesParaMetas } from "@/modulos/planejamento/servicos/visoes";
 
 export const metadata: Metadata = { title: "Cadastrar metas — IPEMaster OS" };
 
@@ -17,7 +18,7 @@ export default async function PaginaCadastroMetas({ searchParams }: PageProps<"/
   const usuario = await exigirPermissaoPagina("comercial:gerenciar_metas");
   const { mes: mesUrl } = await searchParams;
   const mes = esquemaMes(new Date()).parse(typeof mesUrl === "string" ? mesUrl : undefined);
-  const dados = await obterMetasDoMes(usuario, mes);
+  const [dados, plano] = await Promise.all([obterMetasDoMes(usuario, mes), obterPlanoDoMesParaMetas(usuario, mes)]);
   const geral = totaisMetas(dados.metas).geral;
 
   return (
@@ -43,7 +44,7 @@ export default async function PaginaCadastroMetas({ searchParams }: PageProps<"/
           {dados.podeEditar && <BotaoCopiarMetas mes={mes} origem={rotuloMes(mesAnterior(mes))} />}
         </div>
       </div>
-      <MetasMes dados={dados} />
+      <MetasMes dados={dados} plano={plano} />
     </div>
   );
 }

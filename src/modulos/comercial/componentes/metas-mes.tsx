@@ -18,8 +18,28 @@ import { SeloInativo } from "./exibicao";
 const PRATELEIRAS: readonly TipoProduto[] = ["pos_graduacao", "curso_livre", "paciente_modelo"];
 
 type Produto = MetasDoMes["produtos"][number];
+/** Meta do produto no mês vinda do Planejamento (centavos). */
+export type PlanoDoMes = Record<string, { alunos: number; valorCentavos: number }>;
 
-function CartaoMetas({ dados, produto }: { dados: MetasDoMes; produto: Produto }) {
+/** Compara o plano do produto com a soma das metas dos vendedores. */
+function LinhaPlano({ plano, distribuidoReais }: { plano: { alunos: number; valorCentavos: number }; distribuidoReais: string }) {
+  const diferenca = plano.valorCentavos - Math.round(Number(distribuidoReais) * 100);
+  return (
+    <p className="bg-muted/50 rounded-md px-2 py-1 text-xs">
+      Plano: <strong>{plano.alunos}</strong> {plano.alunos === 1 ? "aluno" : "alunos"} · <strong>{formatarReais(plano.valorCentavos / 100)}</strong>
+      {" · "}
+      {diferenca === 0 ? (
+        <span className="text-emerald-700 dark:text-emerald-400">Distribuído ✔</span>
+      ) : diferenca > 0 ? (
+        <span className="text-amber-700 dark:text-amber-400">Faltam distribuir {formatarReais(diferenca / 100)}</span>
+      ) : (
+        <span className="text-amber-700 dark:text-amber-400">{formatarReais(-diferenca / 100)} acima do plano</span>
+      )}
+    </p>
+  );
+}
+
+function CartaoMetas({ dados, produto, plano }: { dados: MetasDoMes; produto: Produto; plano?: PlanoDoMes | null }) {
   const router = useRouter();
   const doProduto = dados.metas.filter((m) => m.produtoId === produto.id);
   // Só a quantidade é digitada; o valor é quantidade × preço do produto.
@@ -68,6 +88,7 @@ function CartaoMetas({ dados, produto }: { dados: MetasDoMes; produto: Produto }
         </div>
         {!produto.ativo && <SeloInativo />}
       </div>
+      {dados.podeEditar && plano?.[produto.id] && <LinhaPlano plano={plano[produto.id]} distribuidoReais={total.valor} />}
       {vendedores.length === 0 ? (
         <p className="text-muted-foreground text-sm">Sem meta neste mês.</p>
       ) : (
@@ -150,7 +171,7 @@ export function BotaoCopiarMetas({ mes, origem }: { mes: string; origem: string 
 }
 
 /** Cartões de metas por produto, em prateleiras por tipo, e o total por vendedor. */
-export function MetasMes({ dados }: { dados: MetasDoMes }) {
+export function MetasMes({ dados, plano }: { dados: MetasDoMes; plano?: PlanoDoMes | null }) {
   const totais = totaisMetas(dados.metas);
   if (dados.podeEditar && dados.vendedores.length === 0) {
     return <p className="text-muted-foreground text-sm">Cadastre usuários com o papel Comercial para definir metas.</p>;
@@ -174,6 +195,7 @@ export function MetasMes({ dados }: { dados: MetasDoMes }) {
                   key={`${dados.mes}-${p.id}-${JSON.stringify(dados.metas.filter((m) => m.produtoId === p.id))}`}
                   dados={dados}
                   produto={p}
+                  plano={plano}
                 />
               ))}
           </div>
