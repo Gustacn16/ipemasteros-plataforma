@@ -61,6 +61,7 @@ export function PainelInicio({
   agora,
   erro,
   aviso,
+  resumo,
 }: {
   nome: string;
   grupos: GruposInicio | null;
@@ -73,6 +74,8 @@ export function PainelInicio({
   erro?: string | string[];
   /** Cartão extra acima das tarefas (ex.: aniversários). */
   aviso?: React.ReactNode;
+  /** Resumo do mês (vendas, faturamento, leads) para quem vê Comercial e Planejamento. */
+  resumo?: React.ReactNode;
 }) {
   const abertas = grupos
     ? GRUPOS_MINHAS.reduce((n, g) => n + grupos[g].length, 0)
@@ -106,6 +109,8 @@ export function PainelInicio({
           ) : undefined
         }
       />
+
+      {resumo}
 
       {temNumeros && (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

@@ -6,11 +6,12 @@ import { acumular, desempenho, razaoAcumulada, statusDe, type Sentido, type Stat
 import type { RetratoMes } from "../regras/fechamento";
 import { fonteAutomatica, type ChaveMetaCalculada } from "../regras/fontes";
 import { mesComecou, mesDaData, mesDoDia, mesesDoAcumulado, mesesDoAno } from "../regras/meses";
+import { itemDoResumo } from "../regras/resumo-mes";
 import { totalDoMes, type MetaProdutoMes } from "../regras/turmas";
 import { exigir, hojeSp } from "./acesso";
 import { carregarPlanoCalculado, type PlanoCalculado } from "./fechamento";
 import { idDoPlano } from "./planos";
-import { realizadoAutomatico, type BaseMes } from "./realizado";
+import { baseDoAno, realizadoAutomatico, type BaseMes } from "./realizado";
 
 export type LinhaMes = { mes: string; meta: number | null; realizado: number | null; pct: number | null; status: Status | null; parcial: boolean; comecou: boolean };
 export type Resumo = { meta: number | null; realizado: number | null; pct: number | null; status: Status | null };
@@ -219,3 +220,28 @@ export async function obterPlanoDoMesParaMetas(ator: UsuarioAtual, mes: string):
   const calc = await carregarPlanoCalculado(planoId, hojeSp());
   return calc.porMes[mes]?.produtos ?? {};
 }
+
+/**
+ * Resumo do mês em andamento para o Início: vendas, faturamento e leads contra a meta do plano.
+ * Mesmos números do Painel. Sem plano no ano, conta todas as vendas e fica sem meta.
+ */
+export async function obterResumoDoMes(ator: UsuarioAtual) {
+  exigir(ator, "planejamento:ver");
+  exigir(ator, "comercial:ver");
+  const hoje = hojeSp();
+  const mes = mesDoDia(hoje);
+  const ano = Number(hoje.slice(0, 4));
+  const planoId = await idDoPlano(ano);
+  const calc = planoId ? await carregarPlanoCalculado(planoId, hoje) : null;
+  const base = (await baseDoAno(ano, calc?.produtosDoPlano ?? null))[mes];
+  const f = calc?.porMes[mes].funil;
+  return {
+    mes,
+    ano,
+    temPlano: calc !== null,
+    vendas: itemDoResumo(base.alunos, f ? f.alunos : null, hoje),
+    faturamento: itemDoResumo(base.vendasCentavos / 100, f ? f.valorCentavos / 100 : null, hoje),
+    leads: itemDoResumo(base.leads, f ? f.leads : null, hoje),
+  };
+}
+export type ResumoDoMes = Awaited<ReturnType<typeof obterResumoDoMes>>;

@@ -66,5 +66,8 @@ Abas: **Ver** (Painel · Comercial · Marketing) | **Preencher** (Cadastrar · L
 - `/planejamento/cadastro/indicadores` — indicadores por frente (nome, grupo, responsável, unidade, sentido, tipo, fonte, no Painel, ordem) e grade de metas com "Repetir em todos os meses".
 - `/planejamento/lancar` — indicadores manuais do mês para lançar, com observação.
 
+### Resumo do mês no Início
+Quem tem `comercial:ver` e `planejamento:ver` vê no `/inicio` o bloco "Resumo de {mês}": vendas (quantidade), faturamento e leads do mês atual, com os mesmos números do Painel. Cada um tem uma barra contra a meta do mês do plano e uma marca de "esperado hoje" (meta × dias passados ÷ dias do mês). A cor segue o ritmo, não a meta cheia: realizado ÷ esperado ≥ 100% ✔, 80–99% ⚠, < 80% ✖. Sem meta no mês: "Meta: —" e sem barra. Sem plano no ano: conta todas as vendas e fica sem meta. Regra em `regras/resumo-mes.ts`; serviço `obterResumoDoMes`.
+
 ## Fora do escopo (por enquanto)
 Financeiro (caixa, MRR, receita por competência, DRE e vesting), OKRs, Projetos e eventos, ligar a turma do plano à turma do Acadêmico, funil por produto e reuniões vindas do Kommo.
