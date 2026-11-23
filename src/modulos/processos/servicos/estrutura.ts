@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import type { Prisma } from "@/generated/prisma/client";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { ErroNegocio } from "@/lib/erros";
@@ -12,8 +13,13 @@ export type DocumentoNaArvore = { id: string; titulo: string; tipo: TipoDocument
 export type AreaNaArvore = { id: string; nome: string; descricao: string | null; documentos: DocumentoNaArvore[] };
 export type CategoriaNaArvore = { id: string; nome: string; descricao: string | null; icone: IconeCategoria; areas: AreaNaArvore[] };
 
+/** Ordem de leitura (árvore achatada), para "anterior/próximo". */
+export function documentosEmOrdem(arvore: CategoriaNaArvore[]) {
+  return arvore.flatMap((c) => c.areas.flatMap((a) => a.documentos.map((d) => ({ ...d, caminho: `${c.nome} · ${a.nome}` }))));
+}
+
 /** Categoria → Área → Documento. Quem só lê vê só documentos publicados, com o título publicado. */
-export async function obterArvore(ator: UsuarioAtual): Promise<CategoriaNaArvore[]> {
+export const obterArvore = cache(async (ator: UsuarioAtual): Promise<CategoriaNaArvore[]> => {
   exigir(ator, "processos:ver");
   const editor = podeEditar(ator);
   const categorias = await prisma.categoriaProcesso.findMany({
@@ -56,7 +62,7 @@ export async function obterArvore(ator: UsuarioAtual): Promise<CategoriaNaArvore
         .sort((x, y) => x.titulo.localeCompare(y.titulo, "pt-BR")),
     })),
   }));
-}
+});
 
 export async function listarOpcoesArea() {
   const areas = await prisma.areaProcesso.findMany({
@@ -67,7 +73,7 @@ export async function listarOpcoesArea() {
   return areas.map((a) => ({ valor: a.id, rotulo: `${a.categoria.nome} · ${a.nome}` }));
 }
 
-/** Pessoas do time interno, para dono do processo e responsável do indicador. */
+/** Pessoas do time interno, para dono do processo. */
 export async function listarOpcoesPessoas() {
   const pessoas = await prisma.usuario.findMany({
     where: { ativo: true, papel: { in: ["admin", "gestor", "colaborador", "comercial"] } },
@@ -203,7 +209,7 @@ export async function criarEstruturaInicial(ator: UsuarioAtual) {
           select: { id: true },
         });
         for (const doc of ar.documentos) {
-          const criado = await tx.documentoProcesso.create({
+          await tx.documentoProcesso.create({
             data: {
               areaId: area.id,
               tipo: doc.tipo,
@@ -221,11 +227,7 @@ export async function criarEstruturaInicial(ator: UsuarioAtual) {
               criadoPorId: ator.id,
               atualizadoPorId: ator.id,
             },
-            select: { id: true },
           });
-          for (const [ii, ind] of (doc.indicadores ?? []).entries()) {
-            await tx.indicadorProcesso.create({ data: { ...ind, documentoId: criado.id, ordem: ii + 1 } });
-          }
         }
       }
     }

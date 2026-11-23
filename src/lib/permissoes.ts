@@ -59,7 +59,6 @@ export type Permissao =
   | "espiao:configurar"
   | "processos:ver"
   | "processos:editar"
-  | "processos:registrar_medicao"
   | "planejamento:ver"
   | "planejamento:editar"
   | "planejamento:lancar";
@@ -104,7 +103,7 @@ const ACADEMICO_GESTAO: readonly Permissao[] = ["academico:ver", "academico:gere
 const WHATSAPP_GESTAO: readonly Permissao[] = ["whatsapp:gerenciar_numeros", "whatsapp:ver_grupos", "whatsapp:ver_equipe"];
 
 // Escrever e publicar os padrões da empresa é coisa de gestão.
-const PROCESSOS_GESTAO: readonly Permissao[] = ["processos:ver", "processos:editar", "processos:registrar_medicao"];
+const PROCESSOS_GESTAO: readonly Permissao[] = ["processos:ver", "processos:editar"];
 
 // O plano do ano (metas e números da empresa) é da gestão. O lançamento de resultados vale
 // também para o responsável de cada indicador (regra em src/modulos/planejamento/servicos/acesso.ts).
@@ -119,8 +118,7 @@ const PERMISSOES_COLABORADOR: readonly Permissao[] = [
   "agenda:editar_institucional",
   "academico:ver",
   "academico:gerenciar",
-  // Processos internos: todo o time lê; o lançamento de resultados vale para o
-  // responsável de cada indicador (regra em src/modulos/processos/servicos/acesso.ts).
+  // Processos internos (wiki da empresa): todo o time lê.
   "processos:ver",
   // Planejamento: só lança os indicadores em que é responsável (regra no serviço).
   "planejamento:lancar",

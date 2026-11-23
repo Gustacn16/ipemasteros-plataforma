@@ -19,10 +19,7 @@ A área de Processos internos guarda os padrões da empresa: texto, ficha do pro
   - `[[Título]]` vira link para outro documento;
   - as ligações da versão publicada ficam em `LigacaoDocumentoProcesso`, para mostrar "Citado por".
 - **Fluxo estruturado:** é uma lista de etapas (`etapa`/`decisao`/`fim`) em JSON, validada por Zod (até 30 etapas). As decisões apontam "Sim"/"Não" para outras etapas. O desenho fica no nosso componente, no estilo da referência visual.
-- **Indicadores não têm versão:**
-  - `IndicadorProcesso` e `MedicaoIndicador` são dados vivos do processo;
-  - cada medição guarda a meta vigente no lançamento, então mudar a meta não reescreve o farol do passado;
-  - o período é a data do primeiro dia (segunda-feira, dia 1 do mês ou do trimestre) e é único por indicador.
+- **Sem indicadores aqui (2026-11-23):** a primeira entrega tinha itens de controle por processo. Eles saíram porque metas e indicadores ficam no módulo Planejamento. Processos é só wiki. As tabelas `indicadores_processo` e `medicoes_indicador` foram removidas pela migration `20261123120000_processos_sem_indicadores`, e o enum `SentidoIndicador` ficou porque o Planejamento usa.
 
 ## Alternativas consideradas
 - **Editor rico (Tiptap) e desenho livre (React Flow):** é mais agradável para editar, mas traz dependências grandes e um formato próprio de conteúdo, e o desenho livre tende a ficar bagunçado. Pode voltar se o uso pedir.

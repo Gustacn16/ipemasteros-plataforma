@@ -1,19 +1,16 @@
-import { AlertTriangleIcon, CalendarClockIcon, FileTextIcon, FolderTreeIcon, SearchXIcon, WorkflowIcon } from "lucide-react";
+import { CalendarClockIcon, ClockIcon, FileTextIcon, FolderTreeIcon, SearchXIcon, WorkflowIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CartaoNumero } from "@/componentes/cartao-numero";
 import { EstadoVazio } from "@/componentes/estado-vazio";
 import { Button } from "@/componentes/ui/button";
 import { exigirPermissaoPagina } from "@/lib/sessao";
 import { formatarData } from "@/modulos/processos/componentes/datas";
 import { ICONE_CATEGORIA } from "@/modulos/processos/componentes/icones";
-import { NovoDocumento } from "@/modulos/processos/componentes/novo-documento";
 import { BotaoAcao } from "@/modulos/academico/componentes/campos";
 import { criarEstruturaInicialAcao } from "@/modulos/processos/acoes/processos";
 import { podeEditar } from "@/modulos/processos/servicos/acesso";
 import { buscarDocumentos, obterResumos } from "@/modulos/processos/servicos/documentos";
-import { listarOpcoesArea, obterArvore } from "@/modulos/processos/servicos/estrutura";
-import { obterPainel } from "@/modulos/processos/servicos/indicadores";
+import { obterArvore } from "@/modulos/processos/servicos/estrutura";
 
 export const metadata: Metadata = { title: "Processos internos — IPEMaster OS" };
 
@@ -59,12 +56,7 @@ export default async function PaginaProcessos({ searchParams }: PageProps<"/proc
   if (termo) return <Resultados termo={termo} />;
 
   const editor = podeEditar(usuario);
-  const [arvore, resumos, painel, areas] = await Promise.all([
-    obterArvore(usuario),
-    obterResumos(usuario),
-    obterPainel(usuario),
-    editor ? listarOpcoesArea() : Promise.resolve([]),
-  ]);
+  const [arvore, resumos] = await Promise.all([obterArvore(usuario), obterResumos(usuario)]);
 
   if (arvore.length === 0) {
     return (
@@ -90,76 +82,64 @@ export default async function PaginaProcessos({ searchParams }: PageProps<"/proc
     );
   }
 
-  const foraDaMeta = painel.filter((i) => i.situacao === "fora_da_meta");
-  const atrasados = painel.filter((i) => i.situacao === "atrasado");
-  const totalDocs = arvore.reduce((n, c) => n + c.areas.reduce((m, a) => m + a.documentos.length, 0), 0);
-  const totalProcessos = arvore.reduce((n, c) => n + c.areas.reduce((m, a) => m + a.documentos.filter((d) => d.tipo === "processo").length, 0), 0);
-
   return (
     <div className="grid gap-8">
-      {editor && (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-muted-foreground text-sm">
-            {resumos.rascunhos > 0 ? `${resumos.rascunhos} documento${resumos.rascunhos === 1 ? "" : "s"} ainda em rascunho (o time não vê).` : "Tudo publicado."}
-          </p>
-          <NovoDocumento areas={areas} />
-        </div>
+      {editor && resumos.rascunhos > 0 && (
+        <p className="text-muted-foreground flex items-center gap-2 text-sm">
+          <span className="bg-atencao size-2 rounded-full" aria-hidden />
+          {resumos.rascunhos} documento{resumos.rascunhos === 1 ? "" : "s"} em rascunho: o time só vê depois de publicar.
+        </p>
       )}
 
-      <section aria-label="Resumo" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <CartaoNumero rotulo="Documentos" icone={FileTextIcon} valor={totalDocs} />
-        <CartaoNumero rotulo="Processos" icone={WorkflowIcon} valor={totalProcessos} tom="informacao" />
-        <Link href="/processos/indicadores" className="focus-visible:ring-ring rounded-xl transition-opacity hover:opacity-80 focus-visible:ring-2">
-          <CartaoNumero rotulo="Fora da meta" icone={AlertTriangleIcon} valor={foraDaMeta.length} tom={foraDaMeta.length ? "perigo" : undefined}>
-            {atrasados.length ? `${atrasados.length} com lançamento atrasado` : "Ver indicadores →"}
-          </CartaoNumero>
-        </Link>
-        <CartaoNumero rotulo="Para revisar" icone={CalendarClockIcon} valor={resumos.paraRevisar.length} tom={resumos.paraRevisar.length ? "atencao" : undefined} />
-      </section>
+      {resumos.recentes.length > 0 && (
+        <section aria-labelledby="titulo-recentes" className="grid gap-3">
+          <h2 id="titulo-recentes" className="text-muted-foreground flex items-center gap-2 text-xs font-semibold tracking-wider uppercase">
+            <ClockIcon className="size-3.5" aria-hidden /> {editor ? "Mexidos recentemente" : "Atualizados recentemente"}
+          </h2>
+          <ul className="grid gap-2 sm:grid-cols-2 2xl:grid-cols-3">
+            {resumos.recentes.map((d) => (
+              <li key={d.id}>
+                <Link href={`/processos/documentos/${d.id}`} className="bg-card hover:border-primary/50 grid h-full gap-0.5 rounded-xl border px-4 py-3 transition-colors">
+                  <span className="text-muted-foreground truncate text-xs">{d.caminho}</span>
+                  <span className={d.rascunho ? "truncate font-medium italic" : "truncate font-medium"}>{d.titulo}</span>
+                  <span className="text-muted-foreground text-xs">
+                    {d.rascunho ? "Rascunho · " : ""}
+                    {formatarData(d.em)}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
-      {(foraDaMeta.length > 0 || resumos.paraRevisar.length > 0) && (
-        <section className="grid gap-3 md:grid-cols-2" aria-label="Pontos de atenção">
-          {foraDaMeta.length > 0 && (
-            <div className="border-perigo/30 bg-perigo-suave/40 grid content-start gap-2 rounded-xl border p-4">
-              <h2 className="text-sm font-semibold">Indicadores fora da meta</h2>
-              <ul className="grid gap-1 text-sm">
-                {foraDaMeta.slice(0, 6).map((i) => (
-                  <li key={i.id}>
-                    <Link href={`/processos/documentos/${i.documento.id}#titulo-indicadores`} className="hover:underline">
-                      <span className="font-medium">{i.nome}</span> <span className="text-muted-foreground">· {i.documento.titulo}</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {resumos.paraRevisar.length > 0 && (
-            <div className="border-atencao/30 bg-atencao-suave/40 grid content-start gap-2 rounded-xl border p-4">
-              <h2 className="text-sm font-semibold">Padrões com revisão vencida</h2>
-              <ul className="grid gap-1 text-sm">
-                {resumos.paraRevisar.slice(0, 6).map((d) => (
-                  <li key={d.id}>
-                    <Link href={`/processos/documentos/${d.id}`} className="hover:underline">
-                      <span className="font-medium">{d.titulo}</span> <span className="text-muted-foreground">· venceu em {formatarData(d.venceuEm)}</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+      {resumos.paraRevisar.length > 0 && (
+        <section aria-label="Para revisar" className="border-atencao/30 bg-atencao-suave/40 grid gap-2 rounded-xl border p-4">
+          <h2 className="flex items-center gap-2 text-sm font-semibold">
+            <CalendarClockIcon className="text-atencao size-4" aria-hidden /> Padrões com revisão vencida
+          </h2>
+          <ul className="grid gap-1 text-sm">
+            {resumos.paraRevisar.slice(0, 6).map((d) => (
+              <li key={d.id}>
+                <Link href={`/processos/documentos/${d.id}`} className="hover:underline">
+                  <span className="font-medium">{d.titulo}</span> <span className="text-muted-foreground">· venceu em {formatarData(d.venceuEm)}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 
       {arvore.map((c) => {
         const Icone = ICONE_CATEGORIA[c.icone] ?? ICONE_CATEGORIA.pasta;
         return (
-          <section key={c.id} aria-labelledby={`cat-${c.id}`} className="grid gap-3">
+          <section key={c.id} id={`cat-${c.id}`} aria-labelledby={`titulo-cat-${c.id}`} className="grid scroll-mt-6 gap-3">
             <div className="flex items-center gap-3">
               <span className="bg-primary/10 text-primary flex size-9 items-center justify-center rounded-lg">
                 <Icone className="size-5" aria-hidden />
               </span>
               <div>
-                <h2 id={`cat-${c.id}`} className="text-foreground text-lg font-semibold tracking-tight">
+                <h2 id={`titulo-cat-${c.id}`} className="text-foreground text-lg font-semibold tracking-tight">
                   {c.nome}
                 </h2>
                 {c.descricao && <p className="text-muted-foreground text-sm">{c.descricao}</p>}
@@ -167,7 +147,7 @@ export default async function PaginaProcessos({ searchParams }: PageProps<"/proc
             </div>
             <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
               {c.areas.map((a) => (
-                <div key={a.id} className="bg-card grid content-start gap-3 rounded-xl border p-4 shadow-sm">
+                <div key={a.id} id={`area-${a.id}`} className="bg-card grid scroll-mt-6 content-start gap-3 rounded-xl border p-4 shadow-sm target:ring-primary target:ring-2">
                   <div>
                     <h3 className="font-semibold">{a.nome}</h3>
                     {a.descricao && <p className="text-muted-foreground text-xs">{a.descricao}</p>}

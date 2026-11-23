@@ -79,3 +79,16 @@ A checagem é sempre no servidor. A regra "responsável do indicador" fica no se
 
 ## Decisões tomadas pelo construtor
 - O Gustavo pediu para seguir sem aprovações intermediárias. As escolhas acima (Markdown, fluxo por etapas, papéis) são minhas e ficam registradas aqui para ele revisar.
+
+## Revisão de 2026-11-23 (pedido do Gustavo)
+- **Sem indicadores:** metas e indicadores ficam no módulo Planejamento. Processos vira só wiki. O painel, os itens de controle, a permissão `processos:registrar_medicao` e as duas tabelas saíram.
+- **Navegação:**
+  - busca no cabeçalho com o atalho `/`;
+  - Organizar e Novo documento sempre à mão (as abas saíram);
+  - filtro na árvore;
+  - árvore numa janela no celular;
+  - índice "Nesta página";
+  - anterior e próximo;
+  - trilha clicável;
+  - "Atualizados recentemente" na visão geral.
+- **Cor:** verde-petróleo no lugar do roxo, só nesta área.

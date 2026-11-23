@@ -60,8 +60,6 @@ export type AcaoAuditoria =
   | "processos.documento_excluido"
   | "processos.categoria_excluida"
   | "processos.area_excluida"
-  | "processos.indicador_excluido"
-  | "processos.medicao_excluida"
   | "planejamento.plano_criado"
   | "planejamento.turma_excluida"
   | "planejamento.indicador_excluido"

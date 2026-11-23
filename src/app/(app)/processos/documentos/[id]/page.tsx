@@ -1,4 +1,4 @@
-import { CalendarClockIcon, FileTextIcon, HistoryIcon, Link2Icon, PencilIcon, WorkflowIcon } from "lucide-react";
+import { ArrowLeftIcon, ArrowRightIcon, CalendarClockIcon, FileTextIcon, HistoryIcon, Link2Icon, PencilIcon, WorkflowIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -11,13 +11,13 @@ import { exigirPermissaoPagina } from "@/lib/sessao";
 import { formatarData } from "@/modulos/processos/componentes/datas";
 import { FichaProcesso } from "@/modulos/processos/componentes/ficha";
 import { Fluxograma } from "@/modulos/processos/componentes/fluxograma";
-import { SecaoIndicadores } from "@/modulos/processos/componentes/indicadores";
+import { Sumario } from "@/modulos/processos/componentes/sumario";
 import { TextoProcesso } from "@/modulos/processos/componentes/texto-processo";
 import { ROTULO_TIPO_DOCUMENTO } from "@/modulos/processos/esquemas/processos";
 import { podeEditar } from "@/modulos/processos/servicos/acesso";
 import { obterDocumento } from "@/modulos/processos/servicos/documentos";
-import { listarOpcoesPessoas } from "@/modulos/processos/servicos/estrutura";
-import { listarIndicadoresDoDocumento } from "@/modulos/processos/servicos/indicadores";
+import { documentosEmOrdem, obterArvore } from "@/modulos/processos/servicos/estrutura";
+import { extrairSumario, vizinhos, type ItemSumario } from "@/modulos/processos/regras/sumario";
 
 export const metadata: Metadata = { title: "Processo — IPEMaster OS" };
 
@@ -36,23 +36,34 @@ export default async function PaginaDocumento({ params }: PageProps<"/processos/
   const { usuario, doc } = await carregar(id);
   const editor = podeEditar(usuario);
   const processo = doc.tipo === "processo";
-  const [indicadores, pessoas] = await Promise.all([
-    processo ? listarIndicadoresDoDocumento(usuario, id) : Promise.resolve([]),
-    editor && processo ? listarOpcoesPessoas() : Promise.resolve([]),
-  ]);
+  const arvore = await obterArvore(usuario);
+  const { anterior, proximo } = vizinhos(documentosEmOrdem(arvore), id);
   const vazio = !doc.conteudo && doc.fluxo.length === 0 && !doc.objetivo;
+  const temFicha = processo && Boolean(doc.objetivo || doc.donoNome || doc.entradas || doc.saidas);
+  const temFluxo = processo && doc.fluxo.length > 0;
+  const sumario: ItemSumario[] = [
+    ...(temFicha ? [{ nivel: 2 as const, texto: "Ficha do processo", id: "ficha" }] : []),
+    ...(temFluxo ? [{ nivel: 2 as const, texto: "Fluxo do processo", id: "titulo-fluxo" }] : []),
+    ...(doc.conteudo && processo ? [{ nivel: 2 as const, texto: "Procedimento", id: "procedimento" }] : []),
+    ...extrairSumario(doc.conteudo),
+  ];
 
   return (
-    <article className="grid gap-8">
+    <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_13rem]">
+    <article className="grid min-w-0 content-start gap-8">
       <header className="grid gap-3">
         <nav aria-label="Caminho" className="text-muted-foreground flex flex-wrap items-center gap-1 text-xs">
           <Link href="/processos" className="hover:text-foreground">
             Processos
           </Link>
           <span aria-hidden>/</span>
-          <span>{doc.area.categoria.nome}</span>
+          <Link href={`/processos#cat-${doc.area.categoria.id}`} className="hover:text-foreground">
+            {doc.area.categoria.nome}
+          </Link>
           <span aria-hidden>/</span>
-          <span>{doc.area.nome}</span>
+          <Link href={`/processos#area-${doc.area.id}`} className="hover:text-foreground">
+            {doc.area.nome}
+          </Link>
         </nav>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="grid min-w-0 gap-2">
@@ -118,11 +129,15 @@ export default async function PaginaDocumento({ params }: PageProps<"/processos/
         />
       )}
 
-      {processo && (doc.objetivo || doc.donoNome || doc.entradas || doc.saidas) && <FichaProcesso doc={doc} />}
+      {temFicha && (
+        <div id="ficha" className="scroll-mt-6">
+          <FichaProcesso doc={doc} />
+        </div>
+      )}
 
-      {processo && doc.fluxo.length > 0 && (
+      {temFluxo && (
         <section aria-labelledby="titulo-fluxo" className="grid gap-3">
-          <h2 id="titulo-fluxo" className="text-foreground text-lg font-semibold tracking-tight">
+          <h2 id="titulo-fluxo" className="text-foreground scroll-mt-6 text-lg font-semibold tracking-tight">
             Fluxo do processo
           </h2>
           <Fluxograma etapas={doc.fluxo} />
@@ -131,14 +146,16 @@ export default async function PaginaDocumento({ params }: PageProps<"/processos/
 
       {doc.conteudo && (
         <section aria-label="Texto" className={processo ? "grid gap-3" : undefined}>
-          {processo && <h2 className="text-foreground text-lg font-semibold tracking-tight">Procedimento</h2>}
+          {processo && (
+            <h2 id="procedimento" className="text-foreground scroll-mt-6 text-lg font-semibold tracking-tight">
+              Procedimento
+            </h2>
+          )}
           <div className="bg-card rounded-2xl border p-5 sm:p-8">
             <TextoProcesso texto={doc.conteudo} />
           </div>
         </section>
       )}
-
-      {processo && <SecaoIndicadores documentoId={id} indicadores={indicadores} editor={editor} pessoas={pessoas} />}
 
       <footer className="grid gap-3 border-t pt-4 text-sm">
         {doc.citadoPor.length > 0 && (
@@ -158,6 +175,31 @@ export default async function PaginaDocumento({ params }: PageProps<"/processos/
           </p>
         )}
       </footer>
+
+      {(anterior || proximo) && (
+        <nav aria-label="Outros documentos" className="grid gap-3 sm:grid-cols-2">
+          {anterior ? (
+            <Link href={`/processos/documentos/${anterior.id}`} className="bg-card hover:border-primary/50 grid gap-0.5 rounded-xl border px-4 py-3 transition-colors">
+              <span className="text-muted-foreground flex items-center gap-1 text-xs">
+                <ArrowLeftIcon className="size-3" aria-hidden /> Anterior · {anterior.caminho}
+              </span>
+              <span className="truncate font-medium">{anterior.titulo}</span>
+            </Link>
+          ) : (
+            <span />
+          )}
+          {proximo && (
+            <Link href={`/processos/documentos/${proximo.id}`} className="bg-card hover:border-primary/50 grid gap-0.5 rounded-xl border px-4 py-3 text-right transition-colors">
+              <span className="text-muted-foreground flex items-center justify-end gap-1 text-xs">
+                Próximo · {proximo.caminho} <ArrowRightIcon className="size-3" aria-hidden />
+              </span>
+              <span className="truncate font-medium">{proximo.titulo}</span>
+            </Link>
+          )}
+        </nav>
+      )}
     </article>
+    <Sumario itens={sumario} />
+    </div>
   );
 }

@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { isValidElement, type ReactNode } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { HREF_SEM_DOCUMENTO } from "../regras/ligacoes";
+import { ancoraDoTitulo, textoSemMarcacao } from "../regras/sumario";
 
 /** Só http, https, mailto e caminhos relativos; outros esquemas (javascript:, data:) viram vazio. */
 function urlSegura(url: string): string {
@@ -10,6 +12,15 @@ function urlSegura(url: string): string {
   if (/^[a-z][a-z0-9+.-]*:/i.test(t)) return "";
   return t;
 }
+
+/** Texto puro dos filhos de um título, para gerar a âncora igual à do sumário. */
+function textoDe(no: ReactNode): string {
+  if (typeof no === "string" || typeof no === "number") return String(no);
+  if (Array.isArray(no)) return no.map(textoDe).join("");
+  if (isValidElement<{ children?: ReactNode }>(no)) return textoDe(no.props.children);
+  return "";
+}
+const ancora = (filhos: ReactNode) => ancoraDoTitulo(textoSemMarcacao(textoDe(filhos)));
 
 function limpar<T extends { node?: unknown }>(props: T): Omit<T, "node"> {
   const { node, ...resto } = props;
@@ -26,9 +37,9 @@ export function TextoProcesso({ texto }: { texto: string }) {
         urlTransform={urlSegura}
         components={{
           img: () => null,
-          h1: (p) => <h2 className="text-foreground mt-8 mb-3 text-xl font-semibold tracking-tight first:mt-0" {...limpar(p)} />,
-          h2: (p) => <h2 className="text-foreground mt-8 mb-3 text-lg font-semibold tracking-tight first:mt-0" {...limpar(p)} />,
-          h3: (p) => <h3 className="text-foreground mt-6 mb-2 font-semibold first:mt-0" {...limpar(p)} />,
+          h1: (p) => <h2 id={ancora(p.children)} className="text-foreground mt-8 mb-3 scroll-mt-6 text-xl font-semibold tracking-tight first:mt-0" {...limpar(p)} />,
+          h2: (p) => <h2 id={ancora(p.children)} className="text-foreground mt-8 mb-3 scroll-mt-6 text-lg font-semibold tracking-tight first:mt-0" {...limpar(p)} />,
+          h3: (p) => <h3 id={ancora(p.children)} className="text-foreground mt-6 mb-2 scroll-mt-6 font-semibold first:mt-0" {...limpar(p)} />,
           p: (p) => <p className="my-3 first:mt-0 last:mb-0" {...limpar(p)} />,
           ul: (p) => <ul className="marker:text-primary my-3 list-disc space-y-1 pl-6" {...limpar(p)} />,
           ol: (p) => <ol className="marker:text-primary my-3 list-decimal space-y-1 pl-6 marker:font-semibold" {...limpar(p)} />,

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { dadosDoFormulario, idDaAcao, tratarErroAcao, type EstadoAcao } from "@/lib/acoes";
 import { exigirPermissao } from "@/lib/sessao";
-import { esquemaArea, esquemaCategoria, esquemaDocumento, esquemaIndicador, esquemaMedicao, esquemaNovoDocumento, esquemaPublicacao } from "../esquemas/processos";
+import { esquemaArea, esquemaCategoria, esquemaDocumento, esquemaNovoDocumento, esquemaPublicacao } from "../esquemas/processos";
 import { validarFluxo } from "../regras/fluxo";
 import { criarDocumento, excluirDocumento, publicarDocumento, restaurarVersao, salvarDocumento } from "../servicos/documentos";
 import {
@@ -18,7 +18,6 @@ import {
   moverArea,
   moverCategoria,
 } from "../servicos/estrutura";
-import { criarIndicador, editarIndicador, excluirIndicador, excluirMedicao, registrarMedicao } from "../servicos/indicadores";
 
 const revalidar = () => revalidatePath("/processos", "layout");
 
@@ -163,48 +162,5 @@ export async function excluirDocumentoAcao(id: string) {
     const ator = await exigirPermissao("processos:editar");
     await excluirDocumento(ator, idDaAcao(id));
     return "Documento excluído.";
-  });
-}
-
-// ─── Indicadores ────────────────────────────────────────────────────────────
-
-export async function criarIndicadorAcao(_: Estado, formData: FormData) {
-  return executar(async () => {
-    const ator = await exigirPermissao("processos:editar");
-    await criarIndicador(ator, idDaAcao(campo(formData, "documentoId")), esquemaIndicador.parse(dadosDoFormulario(formData)));
-    return "Indicador criado.";
-  });
-}
-
-export async function editarIndicadorAcao(_: Estado, formData: FormData) {
-  return executar(async () => {
-    const ator = await exigirPermissao("processos:editar");
-    await editarIndicador(ator, idDaAcao(campo(formData, "id")), esquemaIndicador.parse(dadosDoFormulario(formData)));
-    return "Indicador atualizado.";
-  });
-}
-
-export async function excluirIndicadorAcao(id: string) {
-  return executar(async () => {
-    const ator = await exigirPermissao("processos:editar");
-    await excluirIndicador(ator, idDaAcao(id));
-    return "Indicador excluído.";
-  });
-}
-
-/** Quem pode lançar é decidido no serviço (gestão ou responsável do indicador). */
-export async function registrarMedicaoAcao(_: Estado, formData: FormData) {
-  return executar(async () => {
-    const ator = await exigirPermissao("processos:ver");
-    await registrarMedicao(ator, idDaAcao(campo(formData, "indicadorId")), esquemaMedicao.parse(dadosDoFormulario(formData)));
-    return "Resultado lançado.";
-  });
-}
-
-export async function excluirMedicaoAcao(id: string) {
-  return executar(async () => {
-    const ator = await exigirPermissao("processos:ver");
-    await excluirMedicao(ator, idDaAcao(id));
-    return "Resultado excluído.";
   });
 }

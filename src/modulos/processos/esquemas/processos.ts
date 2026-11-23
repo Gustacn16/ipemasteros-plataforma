@@ -1,11 +1,10 @@
 import { z } from "zod";
-import { FREQUENCIAS, SENTIDOS, lerNumero } from "../regras/indicadores";
 
 export const TIPOS_DOCUMENTO = ["processo", "texto"] as const;
 export type TipoDocumento = (typeof TIPOS_DOCUMENTO)[number];
 export const ROTULO_TIPO_DOCUMENTO: Record<TipoDocumento, string> = { processo: "Processo", texto: "Documento" };
 export const AJUDA_TIPO_DOCUMENTO: Record<TipoDocumento, string> = {
-  processo: "Ficha do padrão, fluxograma, procedimento e indicadores.",
+  processo: "Ficha do padrão, fluxograma e procedimento.",
   texto: "Só texto: missão, políticas, guias.",
 };
 
@@ -99,47 +98,3 @@ export type DadosDocumento = z.infer<typeof esquemaDocumento>;
 export const esquemaPublicacao = z.object({
   nota: z.string().trim().min(3, "Conte em poucas palavras o que mudou").max(300, "Use até 300 caracteres"),
 });
-
-const numero = (obrigatorio: boolean) =>
-  z
-    .string()
-    .trim()
-    .optional()
-    .transform((v, ctx) => {
-      if (!v) {
-        if (obrigatorio) {
-          ctx.addIssue({ code: "custom", message: "Informe o valor" });
-          return z.NEVER;
-        }
-        return null;
-      }
-      const n = lerNumero(v);
-      if (n === null || Math.abs(n) >= 1e14) {
-        ctx.addIssue({ code: "custom", message: "Número inválido" });
-        return z.NEVER;
-      }
-      return n;
-    });
-
-export const esquemaIndicador = z.object({
-  nome: nome(120),
-  descricao: textoOpcional(2000),
-  unidade: z.string().trim().max(20, "Use até 20 caracteres").default(""),
-  sentido: z.enum(SENTIDOS),
-  meta: numero(false),
-  frequencia: z.enum(FREQUENCIAS),
-  responsavelId: idOpcional,
-});
-export type DadosIndicador = z.infer<typeof esquemaIndicador>;
-
-export const esquemaMedicao = z.object({
-  /** "aaaa-mm-dd" ou "aaaa-mm" (campo de mês). */
-  periodo: z
-    .string()
-    .trim()
-    .regex(/^\d{4}-\d{2}(-\d{2})?$/, "Escolha o período")
-    .transform((v) => (v.length === 7 ? `${v}-01` : v)),
-  valor: numero(true).transform((v) => v as number),
-  analise: textoOpcional(4000),
-});
-export type DadosMedicao = z.infer<typeof esquemaMedicao>;

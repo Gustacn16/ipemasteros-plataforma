@@ -211,13 +211,12 @@ export async function buscarDocumentos(ator: UsuarioAtual, termo: string) {
       ...selecaoCopia,
       tituloPublicado: true,
       versoes: { orderBy: { numero: "desc" }, take: 1, select: { dados: true } },
-      indicadores: { where: { excluidoEm: null }, select: { nome: true } },
     },
   });
   const resultados: { id: string; titulo: string; tipo: TipoDocumento; caminho: string; trecho: string | null }[] = [];
   for (const d of docs) {
     const dados = editor || !d.versoes[0] ? dadosDaCopia(d) : lerDadosVersao(d.versoes[0].dados);
-    const corpo = [dados.resumo, dados.conteudo, dados.objetivo, dados.entradas, dados.saidas, dados.clientes, dados.fornecedores, textoDoFluxo(dados.fluxo), d.indicadores.map((i) => i.nome).join(" ")]
+    const corpo = [dados.resumo, dados.conteudo, dados.objetivo, dados.entradas, dados.saidas, dados.clientes, dados.fornecedores, textoDoFluxo(dados.fluxo)]
       .filter(Boolean)
       .join(" \n ");
     if (!casaBusca(`${dados.titulo} ${corpo}`, termo)) continue;
@@ -239,7 +238,18 @@ export async function obterResumos(ator: UsuarioAtual) {
   const editor = podeEditar(ator);
   const docs = await prisma.documentoProcesso.findMany({
     where: { excluidoEm: null, ...(editor ? {} : { versaoPublicada: { gt: 0 } }) },
-    select: { id: true, titulo: true, tituloPublicado: true, resumo: true, resumoPublicado: true, publicadoEm: true, revisarACadaMeses: true, versaoPublicada: true },
+    select: {
+      id: true,
+      titulo: true,
+      tituloPublicado: true,
+      resumo: true,
+      resumoPublicado: true,
+      publicadoEm: true,
+      atualizadoEm: true,
+      revisarACadaMeses: true,
+      versaoPublicada: true,
+      area: { select: { nome: true, categoria: { select: { nome: true } } } },
+    },
   });
   const agora = new Date();
   const resumos = new Map(docs.map((d) => [d.id, editor ? d.resumo : d.resumoPublicado]));
@@ -247,7 +257,19 @@ export async function obterResumos(ator: UsuarioAtual) {
     .filter((d) => revisaoVencida(d.publicadoEm, d.revisarACadaMeses, agora))
     .map((d) => ({ id: d.id, titulo: editor ? d.titulo : (d.tituloPublicado ?? d.titulo), venceuEm: proximaRevisao(d.publicadoEm, d.revisarACadaMeses)! }));
   const rascunhos = editor ? docs.filter((d) => d.versaoPublicada === 0).length : 0;
-  return { resumos, paraRevisar, rascunhos, total: docs.length };
+  // Quem edita vê o que mudou no rascunho; quem lê, o que foi publicado.
+  const quando = (d: (typeof docs)[number]) => (editor ? d.atualizadoEm : (d.publicadoEm ?? d.atualizadoEm));
+  const recentes = [...docs]
+    .sort((a, b) => quando(b).getTime() - quando(a).getTime())
+    .slice(0, 6)
+    .map((d) => ({
+      id: d.id,
+      titulo: editor ? d.titulo : (d.tituloPublicado ?? d.titulo),
+      caminho: `${d.area.categoria.nome} · ${d.area.nome}`,
+      em: quando(d),
+      rascunho: d.versaoPublicada === 0,
+    }));
+  return { resumos, paraRevisar, rascunhos, recentes, total: docs.length };
 }
 
 // ─── Escrita ────────────────────────────────────────────────────────────────

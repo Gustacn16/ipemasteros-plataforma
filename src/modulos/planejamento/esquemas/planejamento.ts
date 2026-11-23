@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { lerReais } from "@/lib/dinheiro";
-import { lerNumero } from "@/modulos/processos/regras/indicadores";
+import { lerNumero } from "@/lib/numeros";
 import { FONTES, esquemaParametrosFonte } from "../regras/fontes";
 
 // Campos chegam como strings de formulário.

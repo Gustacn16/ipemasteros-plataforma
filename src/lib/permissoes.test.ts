@@ -344,14 +344,8 @@ describe("permissões de Processos internos", () => {
     expect(temPermissao("aluno", "processos:ver")).toBe(false);
   });
 
-  it("só admin e gestor editam e lançam qualquer indicador", () => {
-    for (const papel of ["admin", "gestor"] as const) {
-      expect(temPermissao(papel, "processos:editar")).toBe(true);
-      expect(temPermissao(papel, "processos:registrar_medicao")).toBe(true);
-    }
-    for (const papel of ["colaborador", "comercial", "professor"] as const) {
-      expect(temPermissao(papel, "processos:editar")).toBe(false);
-      expect(temPermissao(papel, "processos:registrar_medicao")).toBe(false);
-    }
+  it("só admin e gestor editam", () => {
+    for (const papel of ["admin", "gestor"] as const) expect(temPermissao(papel, "processos:editar")).toBe(true);
+    for (const papel of ["colaborador", "comercial", "professor"] as const) expect(temPermissao(papel, "processos:editar")).toBe(false);
   });
 });

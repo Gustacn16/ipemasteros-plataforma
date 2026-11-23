@@ -25,7 +25,7 @@ Visão geral das entidades e de como os módulos se relacionam. Os campos detalh
 | Comercial | `Produto`, `OfertaProduto`, `LinkProduto`, `CanalVenda`, `Venda`, `MetaVenda` (Kommo e Meta Ads depois) |
 | WhatsApp | `NumeroWhatsapp`, `ComandoWhatsapp`, `ContatoWhatsapp`, `ConversaWhatsapp`, `NumeroNoGrupo`, `MensagemWhatsapp` |
 | Planejamento | `PlanoAnual`, `PremissaProdutoPlano`, `TurmaPlano`, `MetaAvulsaPlano`, `FechamentoMesPlano`, `IndicadorPlano`, `MetaMensalIndicador`, `RealizadoMensalIndicador` |
-| Processos | `CategoriaProcesso`, `AreaProcesso`, `DocumentoProcesso`, `VersaoDocumentoProcesso`, `LigacaoDocumentoProcesso`, `IndicadorProcesso`, `MedicaoIndicador` |
+| Processos | `CategoriaProcesso`, `AreaProcesso`, `DocumentoProcesso`, `VersaoDocumentoProcesso`, `LigacaoDocumentoProcesso` |
 
 ## Diagrama (relações principais)
 ```mermaid

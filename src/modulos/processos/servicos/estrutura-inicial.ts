@@ -1,6 +1,5 @@
 import type { IconeCategoria, TipoDocumento } from "../esquemas/processos";
 import type { Etapa } from "../regras/fluxo";
-import type { Frequencia, Sentido } from "../regras/indicadores";
 
 // Estrutura sugerida para começar. Tudo entra como rascunho: o time só vê
 // depois que alguém revisar e publicar.
@@ -18,7 +17,6 @@ type DocInicial = {
   frequencia?: string;
   revisarACadaMeses?: number;
   fluxo?: Etapa[];
-  indicadores?: { nome: string; descricao: string; unidade: string; sentido: Sentido; frequencia: Frequencia }[];
 };
 
 const etapa = (id: string, titulo: string, descricao: string, extra: Partial<Etapa> = {}): Etapa => ({
@@ -81,8 +79,8 @@ _Aonde queremos chegar nos próximos anos? Seja concreto: número, posição, pr
           {
             titulo: "Como documentar um processo",
             tipo: "texto",
-            resumo: "O método que usamos aqui: padrão, fluxo, itens de controle e análise das anomalias.",
-            conteudo: `Aqui cada processo segue o **gerenciamento da rotina** (Vicente Falconi): primeiro padronizar, depois controlar e, quando sair da meta, agir na causa.
+            resumo: "Como escrever um processo aqui: ficha, fluxo, procedimento e revisão.",
+            conteudo: `Aqui cada processo segue o **gerenciamento da rotina** (Vicente Falconi): primeiro padronizar, para que todos façam do mesmo jeito. As metas e os indicadores ficam no Planejamento.
 
 ## 1. Padrão (a ficha)
 - **Objetivo:** para que o processo existe.
@@ -93,13 +91,10 @@ _Aonde queremos chegar nos próximos anos? Seja concreto: número, posição, pr
 ## 2. Fluxo
 Desenhe as etapas na ordem. Use **Decisão** quando houver um "sim ou não", por exemplo: "O lead respondeu?".
 
-## 3. Itens de controle
-São os indicadores que mostram se o processo entrega o resultado. Cada um tem **meta**, **frequência** e **responsável**. O responsável lança o resultado de cada período.
+## 3. Procedimento
+O passo a passo em texto: detalhes de cada etapa, regras, modelos e links das ferramentas.
 
-## 4. Anomalias
-Quando um resultado sai da meta, quem lança escreve a **análise**: o que aconteceu, a causa e o que será feito. É assim que o padrão melhora.
-
-## 5. Revisão
+## 4. Revisão
 Defina a cada quantos meses o padrão é revisado. O sistema avisa quando vence.
 
 Para citar outro documento, escreva o título entre colchetes duplos, assim: [[Missão, visão e valores]].`,
@@ -144,10 +139,6 @@ Ver também: [[Funil de marketing]].`,
               { ...etapa("e5", "Lead entregue", "Comercial faz o primeiro contato"), tipo: "fim" },
               { ...etapa("e6", "Descartar e ajustar campanha", "Registrar o motivo e revisar o público"), tipo: "fim" },
             ],
-            indicadores: [
-              { nome: "Leads captados", descricao: "Total de leads válidos no período.", unidade: "leads", sentido: "maior_melhor", frequencia: "mensal" },
-              { nome: "Custo por lead (CPL)", descricao: "Investimento do período ÷ leads válidos.", unidade: "R$", sentido: "menor_melhor", frequencia: "mensal" },
-            ],
           },
         ],
       },
@@ -176,9 +167,6 @@ Ver também: [[Funil de marketing]].`,
               etapa("f3", "Lead", "Contato registrado"),
               etapa("f4", "Oportunidade", "Atendimento comercial"),
               { ...etapa("f5", "Matrícula", "Aluno IPEMaster"), tipo: "fim" },
-            ],
-            indicadores: [
-              { nome: "Conversão lead → matrícula", descricao: "Matrículas ÷ leads do período × 100.", unidade: "%", sentido: "maior_melhor", frequencia: "mensal" },
             ],
           },
         ],

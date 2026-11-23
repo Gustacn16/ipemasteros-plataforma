@@ -57,13 +57,12 @@ Enquanto não há aulas nem ligação do professor com as turmas, valem estas pe
 | `academico:importar_alunos` (importar a planilha de alunos) | ✅ | ✅ | — | — | — |
 
 ### Processos internos
-Todo o time interno lê os documentos publicados. Só a gestão escreve e publica. O lançamento de resultados vale para a gestão e para o responsável de cada indicador (regra no serviço `src/modulos/processos/servicos/acesso.ts`).
+Wiki da empresa: todo o time interno lê os documentos publicados. Só a gestão escreve e publica.
 
 | Permissão | admin | gestor | colaborador | comercial | professor |
 |---|---|---|---|---|---|
-| `processos:ver` (ler documentos publicados, histórico e painel de indicadores) | ✅ | ✅ | ✅ | ✅ | — |
-| `processos:editar` (categorias, áreas, documentos, indicadores, publicar e restaurar) | ✅ | ✅ | — | — | — |
-| `processos:registrar_medicao` (lançar resultado de qualquer indicador) | ✅ | ✅ | 🔸 só onde é responsável | 🔸 só onde é responsável | — |
+| `processos:ver` (ler documentos publicados e o histórico) | ✅ | ✅ | ✅ | ✅ | — |
+| `processos:editar` (categorias, áreas, documentos, publicar e restaurar) | ✅ | ✅ | — | — | — |
 
 ### Planejamento
 O plano do ano é da gestão. O lançamento de resultados vale também para o responsável de cada indicador manual (regra em `src/modulos/planejamento/servicos/acesso.ts`).
