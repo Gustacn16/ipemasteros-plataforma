@@ -53,7 +53,13 @@ export function mensalidades(v: Pick<VendaParaAviso, "numeroParcelas" | "valorPa
   return v.numeroParcelas > 0 ? `${v.numeroParcelas}x de ${reais(v.valorParcela)}` : "À vista";
 }
 
-export function montarAvisoVenda(v: VendaParaAviso): { value: string } {
+export type CorpoAvisoVenda = Record<string, string> & { value: string };
+
+/**
+ * Os campos vão soltos (para mapear direto no Make, ex.: "Mensagem") e também
+ * dentro de value, em texto JSON, como a plataforma antiga mandava.
+ */
+export function montarAvisoVenda(v: VendaParaAviso): CorpoAvisoVenda {
   const campos = {
     Tipo: titulo(v.produtoTipo),
     Curso: v.produtoNome,
@@ -92,7 +98,8 @@ export function montarAvisoVenda(v: VendaParaAviso): { value: string } {
     "",
     `Próximas ações: ${campos["Próximas ações"]}`,
   ];
-  return { value: JSON.stringify({ ...campos, Mensagem: linhas.join("\n") }) };
+  const completo = { ...campos, Mensagem: linhas.join("\n") };
+  return { ...completo, value: JSON.stringify(completo) };
 }
 
 /**

@@ -23,10 +23,12 @@ const venda: VendaParaAviso = {
 const ler = (v: VendaParaAviso) => JSON.parse(montarAvisoVenda(v).value) as Record<string, string>;
 
 describe("montarAvisoVenda", () => {
-  it("manda tudo dentro de value, em texto JSON, com a mensagem pronta no formato antigo", () => {
+  it("manda os campos soltos e também dentro de value, com a mensagem pronta no formato antigo", () => {
     const corpo = montarAvisoVenda(venda);
-    expect(Object.keys(corpo)).toEqual(["value"]);
     expect(typeof corpo.value).toBe("string");
+    const { value, ...soltos } = corpo;
+    expect(JSON.parse(value)).toEqual(soltos);
+    expect(corpo.Mensagem).toMatch(/^VENDA DE PÓS\/CURSO/);
     const c = ler(venda);
     expect(c).toMatchObject({
       Curso: "Pós-Graduação em Psiquiatria EAD",
