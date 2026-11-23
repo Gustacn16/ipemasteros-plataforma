@@ -9,7 +9,7 @@ import { formatarPct, formatarValor, ROTULO_STATUS, rotuloMesLongo, SIMBOLO_STAT
 const BARRA: Record<Status, string> = { ok: "bg-sucesso", atencao: "bg-atencao", ruim: "bg-perigo" };
 const TEXTO: Record<Status, string> = { ok: "text-sucesso", atencao: "text-atencao", ruim: "text-perigo" };
 
-function Numero({ rotulo, icone: Icone, unidade, item }: { rotulo: string; icone: LucideIcon; unidade: "numero" | "reais"; item: ItemResumo }) {
+function Numero({ rotulo, icone: Icone, unidade, item, vazio }: { rotulo: string; icone: LucideIcon; unidade: "numero" | "reais"; item: ItemResumo; vazio?: boolean }) {
   const { status } = item;
   return (
     <div className="bg-card text-card-foreground flex min-w-0 flex-col gap-2 rounded-xl border p-4">
@@ -23,7 +23,7 @@ function Numero({ rotulo, icone: Icone, unidade, item }: { rotulo: string; icone
           </span>
         )}
       </div>
-      <span className="text-foreground text-3xl font-semibold tabular-nums">{formatarValor(unidade, item.realizado)}</span>
+      <span className="text-foreground text-3xl font-semibold tabular-nums">{vazio ? "—" : formatarValor(unidade, item.realizado)}</span>
       {item.pct !== null && item.esperadoPct !== null && status ? (
         <>
           <div
@@ -52,23 +52,31 @@ function Numero({ rotulo, icone: Icone, unidade, item }: { rotulo: string; icone
   );
 }
 
-/** Bloco do Início: como está o mês em vendas, faturamento e leads. */
-export function ResumoMesInicio({ resumo }: { resumo: ResumoDoMes }) {
+const SEM_DADO: ItemResumo = { realizado: 0, meta: null, pct: null, esperadoPct: null, status: null };
+
+/** Bloco do Início: como está o mês em vendas, faturamento e leads. `resumo` nulo = não carregou. */
+export function ResumoMesInicio({ mes, resumo }: { mes: string; resumo: ResumoDoMes | null }) {
+  const falhou = resumo === null;
   return (
     <section className="grid gap-3" aria-labelledby="resumo-mes-titulo">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 id="resumo-mes-titulo" className="text-base font-semibold">
-          Resumo de {rotuloMesLongo(resumo.mes)}
+          Resumo de {rotuloMesLongo(mes)}
         </h2>
         <Link href="/planejamento" className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm">
-          {resumo.temPlano ? "Ver o Painel" : `Sem plano para ${resumo.ano}`}
+          {resumo && !resumo.temPlano ? `Sem plano para ${resumo.ano}` : "Ver o Painel"}
           <ArrowRightIcon className="size-3.5" aria-hidden />
         </Link>
       </div>
+      {falhou && (
+        <p className="text-atencao text-sm" role="status">
+          Não deu para carregar os números do mês agora. Recarregue a página em instantes.
+        </p>
+      )}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Numero rotulo="Vendas do mês" icone={ShoppingBagIcon} unidade="numero" item={resumo.vendas} />
-        <Numero rotulo="Faturamento" icone={BanknoteIcon} unidade="reais" item={resumo.faturamento} />
-        <Numero rotulo="Leads gerados" icone={MegaphoneIcon} unidade="numero" item={resumo.leads} />
+        <Numero rotulo="Vendas do mês" icone={ShoppingBagIcon} unidade="numero" item={resumo?.vendas ?? SEM_DADO} vazio={falhou} />
+        <Numero rotulo="Faturamento" icone={BanknoteIcon} unidade="reais" item={resumo?.faturamento ?? SEM_DADO} vazio={falhou} />
+        <Numero rotulo="Leads gerados" icone={MegaphoneIcon} unidade="numero" item={resumo?.leads ?? SEM_DADO} vazio={falhou} />
       </div>
     </section>
   );

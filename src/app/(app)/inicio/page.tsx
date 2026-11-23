@@ -35,11 +35,11 @@ export default async function PaginaInicio({
     comAgenda
       ? listarEventos(usuario, { de: hoje, ate: somarDias(hoje, DIAS_INICIO) })
       : [],
-    // Um erro no resumo não pode derrubar o Início.
+    // Um erro no resumo não pode derrubar o Início: o bloco aparece com "—" e um aviso.
     comResumo
       ? obterResumoDoMes(usuario).catch((e: unknown) => {
           console.error("Resumo do mês no Início falhou", e);
-          return null;
+          return "falhou" as const;
         })
       : null,
   ]);
@@ -57,7 +57,14 @@ export default async function PaginaInicio({
       agora={agora}
       erro={erro}
       aviso={<AvisoAniversarios usuario={usuario} />}
-      resumo={resumo ? <ResumoMesInicio resumo={resumo} /> : undefined}
+      resumo={
+        resumo ? (
+          <ResumoMesInicio
+            mes={hoje.slice(0, 7)}
+            resumo={resumo === "falhou" ? null : resumo}
+          />
+        ) : undefined
+      }
     />
   );
 }
