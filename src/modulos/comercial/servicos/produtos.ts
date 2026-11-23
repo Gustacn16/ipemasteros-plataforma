@@ -2,6 +2,7 @@ import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
 import { ErroNegocio } from "@/lib/erros";
 import { prisma } from "@/lib/prisma";
+import { turmasAbertasPorProduto } from "@/modulos/academico/servicos/venda-aluno";
 import type { UsuarioAtual } from "@/lib/sessao";
 import type { DadosLink, DadosOferta, DadosProduto, FiltrosProdutos, FormaPagamento } from "../esquemas/produto";
 import { ficaPadrao, podeExcluirProduto } from "../regras/produto";
@@ -274,6 +275,7 @@ export async function excluirLink(ator: UsuarioAtual, linkId: string) {
 
 /** Produtos ativos com as ofertas, para o formulário de venda preencher os campos. */
 export async function listarProdutosParaVenda() {
+  const turmas = await turmasAbertasPorProduto();
   const produtos = await prisma.produto.findMany({
     where: { excluidoEm: null, ativo: true },
     orderBy: [{ tipo: "asc" }, { nome: "asc" }],
@@ -289,6 +291,8 @@ export async function listarProdutosParaVenda() {
   });
   return produtos.map((p) => ({
     ...p,
+    /** Turmas abertas do produto, para matricular o aluno da venda. */
+    turmas: turmas.get(p.id) ?? [],
     ofertas: p.ofertas.map((o) => ({
       ...o,
       precoCheio: texto(o.precoCheio),

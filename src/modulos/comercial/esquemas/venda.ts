@@ -48,6 +48,8 @@ export const esquemaVenda = z
   .object({
     produtoId: z.string("Escolha o produto").min(1, "Escolha o produto"),
     ofertaId: idOpcional,
+    /** Turma do aluno no Acadêmico (obrigatória ao criar, se o produto tem turma aberta). */
+    turmaId: idOpcional,
     vendedorId: z.string("Escolha o vendedor").min(1, "Escolha o vendedor"),
     dataVenda: dia,
     dataEntradaLead: diaOpcional,

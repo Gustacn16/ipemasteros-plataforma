@@ -5,6 +5,12 @@ import { ErroNegocio } from "@/lib/erros";
 import { ErroPermissao, temPermissao } from "@/lib/permissoes";
 import { prisma } from "@/lib/prisma";
 import type { UsuarioAtual } from "@/lib/sessao";
+import {
+  cancelarMatriculaDaVenda,
+  exigirTurmaDaVenda,
+  lancarAlunoDaVenda,
+  moverMatriculaDaVenda,
+} from "@/modulos/academico/servicos/venda-aluno";
 import { intervaloDoPeriodo } from "@/modulos/tarefas/regras/relatorio";
 import type { DadosVenda, FiltrosVendas } from "../esquemas/venda";
 import { podeEditarVenda, valorTotal, vendedorPermitido } from "../regras/venda";
@@ -62,6 +68,7 @@ const selecaoVenda = {
   oferta: { select: { nome: true } },
   vendedor: { select: { nome: true } },
   canal: { select: { nome: true } },
+  matricula: { select: { turmaId: true, turma: { select: { nome: true } } } },
 } satisfies Prisma.VendaSelect;
 
 export async function listarVendas(ator: UsuarioAtual, filtros: FiltrosVendas) {
@@ -83,8 +90,10 @@ export async function listarVendas(ator: UsuarioAtual, filtros: FiltrosVendas) {
     select: selecaoVenda,
   });
 
-  const linhas = vendas.map(({ criadoEm, produto, oferta, vendedor, canal, ...v }) => ({
+  const linhas = vendas.map(({ criadoEm, produto, oferta, vendedor, canal, matricula, ...v }) => ({
     ...v,
+    turmaId: matricula?.turmaId ?? null,
+    turmaNome: matricula?.turma.nome ?? null,
     dataVenda: paraDia(v.dataVenda),
     dataEntradaLead: diaOuNulo(v.dataEntradaLead),
     dataEntrega: diaOuNulo(v.dataEntrega),
@@ -159,7 +168,9 @@ export async function criarVenda(ator: UsuarioAtual, dados: DadosVenda) {
   return prisma.$transaction(async (tx) => {
     await validarReferencias(tx, dados);
     const campos = camposDaVenda(dados);
+    await exigirTurmaDaVenda(tx, dados.produtoId, dados.turmaId, { criando: true, turmaAtualId: null });
     const venda = await tx.venda.create({ data: { ...campos, criadoPorId: ator.id }, select: { id: true } });
+    if (dados.turmaId) await lancarAlunoDaVenda(tx, ator.id, { vendaId: venda.id, turmaId: dados.turmaId, nome: dados.nomeCliente, whatsapp: dados.whatsappCliente, dataVenda: dados.dataVenda });
     // Sem nome nem WhatsApp do cliente no log.
     await registrarAuditoria(
       { usuarioId: ator.id, acao: "venda.criada", entidade: "Venda", entidadeId: venda.id, diff: { valorTotal: campos.valorTotal } },
@@ -183,6 +194,8 @@ export async function editarVenda(ator: UsuarioAtual, id: string, dados: DadosVe
   await prisma.$transaction(async (tx) => {
     const atual = await exigirVendaEditavel(tx, ator, id);
     await validarReferencias(tx, dados, atual);
+    const turmaAtualId = atual.matricula?.turmaId ?? null;
+    await exigirTurmaDaVenda(tx, dados.produtoId, dados.turmaId, { criando: false, turmaAtualId });
     const campos = camposDaVenda(dados);
     // Só os nomes dos campos alterados, nunca os valores pessoais.
     const antes = camposDaVenda({
@@ -197,6 +210,12 @@ export async function editarVenda(ator: UsuarioAtual, id: string, dados: DadosVe
     });
     const alterados = (Object.keys(campos) as (keyof typeof campos)[]).filter((k) => comparavel(campos[k]) !== comparavel(antes[k]));
     await tx.venda.update({ where: { id }, data: campos });
+    if (dados.turmaId && dados.turmaId !== turmaAtualId) {
+      const movida = await moverMatriculaDaVenda(tx, ator.id, id, dados.turmaId);
+      if (movida === "sem_matricula") {
+        await lancarAlunoDaVenda(tx, ator.id, { vendaId: id, turmaId: dados.turmaId, nome: dados.nomeCliente, whatsapp: dados.whatsappCliente, dataVenda: dados.dataVenda });
+      }
+    }
     await registrarAuditoria(
       {
         usuarioId: ator.id,
@@ -215,6 +234,7 @@ export async function excluirVenda(ator: UsuarioAtual, id: string) {
   await prisma.$transaction(async (tx) => {
     const venda = await exigirVendaEditavel(tx, ator, id);
     await tx.venda.update({ where: { id }, data: { excluidoEm: new Date() } });
+    await cancelarMatriculaDaVenda(tx, ator.id, id);
     await registrarAuditoria(
       { usuarioId: ator.id, acao: "venda.excluida", entidade: "Venda", entidadeId: id, diff: { valorTotal: venda.valorTotal.toFixed(2) } },
       tx,

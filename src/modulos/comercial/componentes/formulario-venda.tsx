@@ -83,11 +83,13 @@ export function FormularioVenda({
 
   const [produtoId, setProdutoId] = useState(venda?.produtoId ?? "");
   const [ofertaId, setOfertaId] = useState(venda?.ofertaId ?? "");
+  const [turmaId, setTurmaId] = useState(venda?.turmaId ?? "");
   const [entrada, setEntrada] = useState(venda ? paraCampo(venda.entrada) : "");
   const [parcelas, setParcelas] = useState(venda ? String(venda.numeroParcelas) : "1");
   const [valorParcela, setValorParcela] = useState(venda ? paraCampo(venda.valorParcela) : "");
 
   const ofertas = opcoesProduto.find((p) => p.id === produtoId)?.ofertas ?? [];
+  const turmas = opcoesProduto.find((p) => p.id === produtoId)?.turmas ?? [];
 
   function aplicarOferta(id: string) {
     setOfertaId(id);
@@ -102,6 +104,7 @@ export function FormularioVenda({
 
   function escolherProduto(id: string) {
     setProdutoId(id);
+    setTurmaId("");
     const doProduto = opcoesProduto.find((p) => p.id === id)?.ofertas ?? [];
     const padrao = doProduto.find((o) => o.padrao) ?? doProduto[0];
     if (!padrao) {
@@ -157,6 +160,28 @@ export function FormularioVenda({
               </option>
             ))}
           </Selecao>
+          {turmas.length > 0 && (
+            <div className="grid gap-1">
+              <Selecao
+                id="v-turma"
+                name="turmaId"
+                rotulo="Turma"
+                obrigatorio={!venda}
+                required={!venda}
+                value={turmaId}
+                onChange={(ev) => setTurmaId(ev.target.value)}
+                erros={e?.turmaId}
+              >
+                <option value="">{venda ? "Sem turma" : "Selecione a turma"}</option>
+                {turmas.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.nome}
+                  </option>
+                ))}
+              </Selecao>
+              <p className="text-muted-foreground text-xs">O aluno entra no Acadêmico nesta turma.</p>
+            </div>
+          )}
           <Campo
             rotulo="Data da venda *"
             name="dataVenda"

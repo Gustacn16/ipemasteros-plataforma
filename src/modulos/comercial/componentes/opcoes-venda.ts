@@ -1,6 +1,7 @@
 // Opções dos campos de escolha do formulário de venda. Ao editar uma venda antiga,
 // mantém o produto (com a oferta escolhida), o vendedor e o canal que ela já tinha,
 // mesmo que tenham sido desativados depois — senão o campo vazio apagaria o dado ao salvar.
+// O mesmo vale para a turma em que o aluno da venda entrou.
 import type { ProdutoParaVenda } from "../servicos/produtos";
 
 type Pessoa = { id: string; nome: string };
@@ -14,13 +15,15 @@ type VendaAtual = {
   vendedorNome: string;
   canalId: string | null;
   canalNome: string | null;
+  turmaId: string | null;
+  turmaNome: string | null;
 };
 
 export function opcoesDoFormulario(o: { produtos: ProdutoParaVenda[]; vendedores: Pessoa[]; canais: Pessoa[]; venda: VendaAtual | null }) {
   const { venda } = o;
   if (!venda) return { produtos: o.produtos, vendedores: o.vendedores, canais: o.canais };
 
-  const produtos = o.produtos.some((p) => p.id === venda.produtoId)
+  const comProduto = o.produtos.some((p) => p.id === venda.produtoId)
     ? o.produtos
     : [
         ...o.produtos,
@@ -42,8 +45,13 @@ export function opcoesDoFormulario(o: { produtos: ProdutoParaVenda[]; vendedores
                 },
               ]
             : [],
+          turmas: [],
         },
       ];
+  const turma = venda.turmaId ? { id: venda.turmaId, nome: venda.turmaNome ?? "" } : null;
+  const produtos = comProduto.map((p) =>
+    p.id === venda.produtoId && turma && !p.turmas.some((t) => t.id === turma.id) ? { ...p, turmas: [...p.turmas, turma] } : p,
+  );
   const vendedores = o.vendedores.some((v) => v.id === venda.vendedorId)
     ? o.vendedores
     : [...o.vendedores, { id: venda.vendedorId, nome: venda.vendedorNome }];

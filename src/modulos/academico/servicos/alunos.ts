@@ -47,7 +47,10 @@ export async function obterAluno(ator: UsuarioAtual, id: string) {
       matriculas: {
         where: { turma: { excluidoEm: null } },
         orderBy: { criadoEm: "asc" },
-        include: { turma: { select: { id: true, nome: true, produto: { select: { nome: true } } } } },
+        include: {
+          turma: { select: { id: true, nome: true, produto: { select: { nome: true } } } },
+          venda: { select: { dataVenda: true } },
+        },
       },
     },
   });
@@ -59,6 +62,7 @@ export async function obterAluno(ator: UsuarioAtual, id: string) {
       ...m,
       dataInicio: deDia(m.dataInicio),
       dataFormatura: deDia(m.dataFormatura),
+      venda: m.venda ? { dataVenda: deDia(m.venda.dataVenda)! } : null,
     })),
   };
 }

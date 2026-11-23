@@ -65,7 +65,7 @@ export default async function PaginaAluno({ params }: PageProps<"/academico/alun
             matriculas={aluno.matriculas.map((m) => ({
               ...m,
               titulo: m.turma.nome,
-              subtitulo: m.turma.produto.nome,
+              subtitulo: m.venda ? `${m.turma.produto.nome} · Veio da venda de ${dataCurta(m.venda.dataVenda)}` : m.turma.produto.nome,
               href: `/academico/turmas/${m.turma.id}`,
             }))}
           />
