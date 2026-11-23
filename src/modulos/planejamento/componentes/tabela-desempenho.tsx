@@ -43,7 +43,7 @@ export function TabelaDesempenho({ linhas, mostrarFrente = true }: { linhas: Lin
             <th className={th}>Realizado</th>
             <th className={th}>%</th>
             <th className="px-2 py-2 font-normal">Status</th>
-            <th className={cn(th, "border-l")}>Meta acumulada</th>
+            <th className={cn(th, "border-l")} title="Do 1º mês até o escolhido, sem o mês em andamento">Meta acumulada</th>
             <th className={th}>Real acumulado</th>
             <th className={th}>% acum.</th>
             <th className="px-2 py-2 font-normal">Status acum.</th>

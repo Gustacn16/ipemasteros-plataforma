@@ -14,6 +14,12 @@ export function escolherMetaDoMes(mes: string, hoje: string, retratos: Record<st
   return mesFechado(mes, hoje) && retratos[mes] ? retratos[mes] : calculado;
 }
 
-export function mesesParaCongelar(ano: number, hoje: string, jaCongelados: string[]): string[] {
-  return mesesDoAno(ano).filter((m) => mesFechado(m, hoje) && !jaCongelados.includes(m));
+/**
+ * Mês cuja meta não muda mais: já fechou e fechou com o plano existindo. Meses que fecharam
+ * antes de o plano ser criado continuam editáveis (para preencher um ano já começado).
+ */
+export const mesTravado = (mes: string, hoje: string, mesCriacao: string) => mesFechado(mes, hoje) && mes >= mesCriacao;
+
+export function mesesParaCongelar(ano: number, hoje: string, jaCongelados: string[], mesCriacao = "0000-00"): string[] {
+  return mesesDoAno(ano).filter((m) => mesTravado(m, hoje, mesCriacao) && !jaCongelados.includes(m));
 }

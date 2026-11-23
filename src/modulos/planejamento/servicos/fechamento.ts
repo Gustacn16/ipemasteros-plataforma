@@ -6,6 +6,7 @@ import { escolherMetaDoMes, mesesParaCongelar, retratarMes, type RetratoMes } fr
 import type { PremissasFunil } from "../regras/funil";
 import { dataDoMes, mesDaData, mesesDoAno } from "../regras/meses";
 import { metasDeVendas, type MetasPorProduto } from "../regras/turmas";
+import { diaEmSaoPaulo } from "@/modulos/tarefas/regras/prazo";
 import { centavos } from "./acesso";
 
 type Cliente = Prisma.TransactionClient | typeof prisma;
@@ -24,6 +25,9 @@ async function lerPlano(db: Cliente, planoId: string) {
   return plano;
 }
 type PlanoLido = Awaited<ReturnType<typeof lerPlano>>;
+
+/** Mês (São Paulo) em que o plano foi criado: meses fechados antes disso não congelam. */
+export const mesDeCriacao = (criadoEm: Date) => diaEmSaoPaulo(criadoEm).slice(0, 7);
 
 export const premissasFunilDe = (p: {
   convLeadAgendada: { toNumber(): number };
@@ -71,7 +75,7 @@ function calcular(plano: PlanoLido) {
 /** Guarda o retrato dos meses fechados que ainda não têm. Chamar antes de qualquer mudança no plano. */
 export async function congelarMesesFechados(planoId: string, hoje: string, db: Cliente = prisma) {
   const plano = await lerPlano(db, planoId);
-  const faltam = mesesParaCongelar(plano.ano, hoje, plano.fechamentos.map((f) => mesDaData(f.mes)));
+  const faltam = mesesParaCongelar(plano.ano, hoje, plano.fechamentos.map((f) => mesDaData(f.mes)), mesDeCriacao(plano.criadoEm));
   if (faltam.length === 0) return;
   const { porMes, premissasFunil } = calcular(plano);
   await db.fechamentoMesPlano.createMany({

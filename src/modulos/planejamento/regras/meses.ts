@@ -26,5 +26,16 @@ export const mesDaData = (d: Date) => d.toISOString().slice(0, 7);
 export function anoPadrao(anos: number[], hoje: string): number {
   const atual = Number(hoje.slice(0, 4));
   if (anos.includes(atual)) return atual;
+  if (anos.length === 0) return Number(hoje.slice(5, 7)) >= 10 ? atual + 1 : atual; // no fim do ano, planeja-se o seguinte
   return anos.find((a) => a > atual) ?? anos.at(-1) ?? atual;
+}
+
+/**
+ * Meses que entram no acumulado: do 1º até o escolhido, sem o mês em andamento (a meta dele
+ * ainda não pode ser cobrada inteira). Se só sobra o mês em andamento, usa ele.
+ */
+export function mesesDoAcumulado(meses: string[], escolhido: string, hoje: string): string[] {
+  const ate = meses.filter((m) => m <= escolhido && mesComecou(m, hoje));
+  const fechados = ate.filter((m) => mesFechado(m, hoje));
+  return fechados.length ? fechados : ate;
 }

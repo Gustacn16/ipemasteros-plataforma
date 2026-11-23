@@ -28,3 +28,7 @@ const mesCurto = new Intl.DateTimeFormat("pt-BR", { month: "short", timeZone: "U
 export const rotuloMesCurto = (mes: string) => mesCurto.format(new Date(`${mes}-01T00:00:00Z`)).replace(".", "");
 const mesLongo = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" });
 export const rotuloMesLongo = (mes: string) => mesLongo.format(new Date(`${mes}-01T00:00:00Z`));
+
+/** Número para preencher um campo ("7", "35,5"), sem resto de ponto flutuante. */
+export const numeroParaCampo = (v: number | null | undefined) =>
+  v === null || v === undefined ? "" : v.toLocaleString("pt-BR", { maximumFractionDigits: 4, useGrouping: false });

@@ -7,9 +7,10 @@ import { Button } from "@/componentes/ui/button";
 import { avisar } from "@/modulos/tarefas/componentes/avisar";
 import { excluirIndicadorAcao, moverIndicadorAcao, salvarIndicadorAcao, salvarMetasIndicadorAcao } from "../acoes/planejamento";
 import { FONTES, ROTULO_FONTE, type Fonte, type ParametrosFonte } from "../regras/fontes";
-import { mesFechado, mesesDoAno } from "../regras/meses";
+import { mesTravado } from "../regras/fechamento";
+import { mesesDoAno } from "../regras/meses";
 import type { IndicadorCadastro, OpcoesIndicador } from "../servicos/indicadores";
-import { rotuloMesCurto } from "./formatar";
+import { numeroParaCampo, rotuloMesCurto } from "./formatar";
 import { CampoSimples, Escolha, classeCampo, useAcao } from "./ui-plano";
 
 const ROTULO_FRENTE = { comercial: "Comercial", marketing: "Marketing" } as const;
@@ -124,12 +125,13 @@ function FormIndicador({ planoId, indicador, opcoes, frente, aoSalvar }: { plano
   );
 }
 
-function GradeMetas({ indicador, ano, hoje }: { indicador: IndicadorCadastro; ano: number; hoje: string }) {
+function GradeMetas({ indicador, ano, hoje, mesCriacao }: { indicador: IndicadorCadastro; ano: number; hoje: string; mesCriacao: string }) {
+  const travado = (m: string) => mesTravado(m, hoje, mesCriacao);
   const meses = mesesDoAno(ano);
-  const inicial = Object.fromEntries(meses.map((m) => [m, indicador.metas[m] === undefined ? "" : String(indicador.metas[m]).replace(".", ",")]));
+  const inicial = Object.fromEntries(meses.map((m) => [m, numeroParaCampo(indicador.metas[m])]));
   const [valores, setValores] = useState<Record<string, string>>(inicial);
   const [, executar, salvando] = useAcao(salvarMetasIndicadorAcao);
-  const abertos = meses.filter((m) => !mesFechado(m, hoje));
+  const abertos = meses.filter((m) => !travado(m));
   const repetir = () => {
     const primeiro = valores[abertos[0]] ?? "";
     setValores((v) => ({ ...v, ...Object.fromEntries(abertos.map((m) => [m, primeiro])) }));
@@ -154,8 +156,8 @@ function GradeMetas({ indicador, ano, hoje }: { indicador: IndicadorCadastro; an
               name={`mes:${m}`}
               inputMode="decimal"
               value={valores[m]}
-              disabled={mesFechado(m, hoje)}
-              title={mesFechado(m, hoje) ? "Mês fechado: a meta não muda mais." : undefined}
+              disabled={travado(m)}
+              title={travado(m) ? "Mês fechado: a meta não muda mais." : undefined}
               onChange={(ev) => setValores((v) => ({ ...v, [m]: ev.target.value }))}
               className={`${classeCampo} h-8 px-2`}
             />
@@ -171,7 +173,7 @@ function GradeMetas({ indicador, ano, hoje }: { indicador: IndicadorCadastro; an
   );
 }
 
-function LinhaIndicador({ i, planoId, opcoes, ano, hoje, primeiro, ultimo }: { i: IndicadorCadastro; planoId: string; opcoes: OpcoesIndicador; ano: number; hoje: string; primeiro: boolean; ultimo: boolean }) {
+function LinhaIndicador({ i, planoId, opcoes, ano, hoje, mesCriacao, primeiro, ultimo }: { i: IndicadorCadastro; planoId: string; opcoes: OpcoesIndicador; ano: number; hoje: string; mesCriacao: string; primeiro: boolean; ultimo: boolean }) {
   const router = useRouter();
   const [pendente, iniciar] = useTransition();
   const rodar = (fn: () => Promise<{ ok: boolean; mensagem?: string }>) =>
@@ -218,14 +220,14 @@ function LinhaIndicador({ i, planoId, opcoes, ano, hoje, primeiro, ultimo }: { i
         {i.metaCalculada ? (
           <p className="text-muted-foreground text-sm">A meta deste indicador é calculada pelo plano (turmas, metas avulsas e premissas do funil).</p>
         ) : (
-          <GradeMetas indicador={i} ano={ano} hoje={hoje} />
+          <GradeMetas indicador={i} ano={ano} hoje={hoje} mesCriacao={mesCriacao} />
         )}
       </div>
     </details>
   );
 }
 
-export function IndicadoresCadastro({ planoId, ano, hoje, indicadores, opcoes }: { planoId: string; ano: number; hoje: string; indicadores: IndicadorCadastro[]; opcoes: OpcoesIndicador }) {
+export function IndicadoresCadastro({ planoId, ano, hoje, mesCriacao, indicadores, opcoes }: { planoId: string; ano: number; hoje: string; mesCriacao: string; indicadores: IndicadorCadastro[]; opcoes: OpcoesIndicador }) {
   const [chaves, setChaves] = useState({ comercial: 0, marketing: 0 });
   return (
     <div className="grid gap-8">
@@ -235,7 +237,7 @@ export function IndicadoresCadastro({ planoId, ano, hoje, indicadores, opcoes }:
           <section key={frente} className="grid gap-2">
             <h2 className="font-semibold">{ROTULO_FRENTE[frente]}</h2>
             {lista.map((i, idx) => (
-              <LinhaIndicador key={i.id} i={i} planoId={planoId} opcoes={opcoes} ano={ano} hoje={hoje} primeiro={idx === 0} ultimo={idx === lista.length - 1} />
+              <LinhaIndicador key={i.id} i={i} planoId={planoId} opcoes={opcoes} ano={ano} hoje={hoje} mesCriacao={mesCriacao} primeiro={idx === 0} ultimo={idx === lista.length - 1} />
             ))}
             <details key={chaves[frente]} className="rounded-lg border border-dashed">
               <summary className="cursor-pointer px-3 py-2 text-sm font-medium">+ Novo indicador de {ROTULO_FRENTE[frente]}</summary>

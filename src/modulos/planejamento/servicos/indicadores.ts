@@ -6,12 +6,20 @@ import { prisma } from "@/lib/prisma";
 import type { UsuarioAtual } from "@/lib/sessao";
 import type { DadosIndicador, DadosMetasIndicador } from "../esquemas/planejamento";
 import { validarParametrosFonte, type ParametrosFonte } from "../regras/fontes";
-import { dataDoMes, mesDaData, mesFechado } from "../regras/meses";
+import { mesTravado } from "../regras/fechamento";
+import { dataDoMes, mesDaData } from "../regras/meses";
 import { exigir, garantirPessoa, hojeSp } from "./acesso";
+import { mesDeCriacao } from "./fechamento";
 
 /** Percentual é digitado como "35" e guardado como 0.35. */
 export const paraBanco = (unidade: string, v: number) => (unidade === "percentual" ? v / 100 : v);
 export const paraTela = (unidade: string, v: number) => (unidade === "percentual" ? v * 100 : v);
+
+/** Mês de criação do plano (para travar só os meses fechados depois dele). */
+export async function mesCriacaoDoPlano(planoId: string) {
+  const p = await prisma.planoAnual.findUniqueOrThrow({ where: { id: planoId }, select: { criadoEm: true } });
+  return mesDeCriacao(p.criadoEm);
+}
 
 export async function listarIndicadoresDoPlano(ator: UsuarioAtual, planoId: string) {
   exigir(ator, "planejamento:ver");
@@ -120,7 +128,7 @@ export async function salvarMetasIndicador(ator: UsuarioAtual, d: DadosMetasIndi
   exigir(ator, "planejamento:editar");
   const ind = await prisma.indicadorPlano.findFirst({
     where: { id: d.indicadorId, excluidoEm: null },
-    select: { unidade: true, metaCalculada: true, plano: { select: { ano: true } }, metas: { select: { mes: true, valor: true } } },
+    select: { unidade: true, metaCalculada: true, plano: { select: { ano: true, criadoEm: true } }, metas: { select: { mes: true, valor: true } } },
   });
   if (!ind) throw new ErroNegocio("Indicador não encontrado.");
   if (ind.metaCalculada) throw new ErroNegocio("A meta deste indicador vem do plano (turmas e funil).");
@@ -132,7 +140,7 @@ export async function salvarMetasIndicador(ator: UsuarioAtual, d: DadosMetasIndi
     const valor = valorTela === null ? null : paraBanco(ind.unidade, valorTela);
     const antes = atuais[mes] ?? null;
     if (valor === antes || (valor !== null && antes !== null && Math.abs(valor - antes) < 1e-9)) continue;
-    if (mesFechado(mes, hoje)) throw new ErroNegocio("A meta de um mês fechado não muda.");
+    if (mesTravado(mes, hoje, mesDeCriacao(ind.plano.criadoEm))) throw new ErroNegocio("A meta de um mês fechado não muda.");
     const chave = { indicadorId_mes: { indicadorId: d.indicadorId, mes: dataDoMes(mes) } };
     ops.push(
       valor === null

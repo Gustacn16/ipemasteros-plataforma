@@ -3,7 +3,7 @@
 import { Button } from "@/componentes/ui/button";
 import { lancarResultadoAcao } from "../acoes/planejamento";
 import type { ItemLancamento } from "../servicos/lancamento";
-import { formatarValor } from "./formatar";
+import { formatarValor, numeroParaCampo } from "./formatar";
 import { classeCampo, useAcao } from "./ui-plano";
 
 function Item({ item, mes }: { item: ItemLancamento; mes: string }) {
@@ -24,7 +24,7 @@ function Item({ item, mes }: { item: ItemLancamento; mes: string }) {
       </div>
       <label className="grid gap-0.5 text-xs">
         <span className="text-muted-foreground">Realizado {sufixo && `(${sufixo})`}</span>
-        <input name="valor" inputMode="decimal" defaultValue={item.valor === null ? "" : String(item.valor).replace(".", ",")} className={classeCampo} aria-label={`Realizado de ${item.nome}`} />
+        <input name="valor" inputMode="decimal" defaultValue={numeroParaCampo(item.valor)} className={classeCampo} aria-label={`Realizado de ${item.nome}`} />
       </label>
       <label className="grid gap-0.5 text-xs">
         <span className="text-muted-foreground">Observação (opcional)</span>

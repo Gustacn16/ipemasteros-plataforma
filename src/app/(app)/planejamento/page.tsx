@@ -33,10 +33,12 @@ export default async function PaginaPainel({ searchParams }: PageProps<"/planeja
       <section
         className={cn(
           "grid gap-1 rounded-xl border p-4",
-          proporcao === null ? "bg-muted/40" : proporcao >= 1 ? "border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40" : proporcao >= 0.8 ? "border-amber-300 bg-amber-50 dark:bg-amber-950/40" : "border-red-300 bg-red-50 dark:bg-red-950/40",
+          proporcao === null || dados.parcial ? "bg-muted/40" : proporcao >= 1 ? "border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40" : proporcao >= 0.8 ? "border-amber-300 bg-amber-50 dark:bg-amber-950/40" : "border-red-300 bg-red-50 dark:bg-red-950/40",
         )}
       >
-        <p className="text-muted-foreground text-xs tracking-wide uppercase">Status geral · <span className="capitalize">{rotuloMesLongo(mes)}</span></p>
+        <p className="text-muted-foreground text-xs tracking-wide uppercase">Status geral · <span className="capitalize">{rotuloMesLongo(mes)}</span>
+          {dados.parcial && " · mês em andamento (parcial)"}
+        </p>
         {comDado === 0 ? (
           <p className="text-lg font-semibold">Nenhum realizado ainda neste mês.</p>
         ) : (
@@ -47,6 +49,7 @@ export default async function PaginaPainel({ searchParams }: PageProps<"/planeja
         )}
       </section>
       <TabelaDesempenho linhas={dados.linhas} />
+      <p className="text-muted-foreground -mt-4 text-xs">O acumulado vai do 1º mês até o escolhido, sem o mês em andamento: a meta dele só é cobrada quando o mês fecha.</p>
       <div className="grid gap-4 lg:grid-cols-2">
         <GraficoMetaRealizado titulo="Vendas (R$): meta × realizado" dados={dados.graficoVendas} reais />
         <GraficoMetaRealizado titulo="Leads: necessários × gerados" dados={dados.graficoLeads} rotuloMeta="Necessários" />

@@ -5,7 +5,7 @@ import { exigirPermissaoComercial } from "@/modulos/comercial/servicos/acesso";
 import { acumular, desempenho, razaoAcumulada, statusDe, type Sentido, type Status, type Tipo } from "../regras/desempenho";
 import type { RetratoMes } from "../regras/fechamento";
 import { fonteAutomatica, type ChaveMetaCalculada } from "../regras/fontes";
-import { mesComecou, mesDaData, mesDoDia, mesesDoAno } from "../regras/meses";
+import { mesComecou, mesDaData, mesDoDia, mesesDoAcumulado, mesesDoAno } from "../regras/meses";
 import { totalDoMes, type MetaProdutoMes } from "../regras/turmas";
 import { exigir, hojeSp } from "./acesso";
 import { carregarPlanoCalculado, type PlanoCalculado } from "./fechamento";
@@ -95,7 +95,7 @@ async function montar(planoId: string, mesEscolhido: string) {
   );
   const meses = mesesDoAno(calc.plano.ano);
   const atual = mesDoDia(hoje);
-  const ateEscolhido = meses.filter((m) => m <= mesEscolhido && mesComecou(m, hoje));
+  const ateEscolhido = mesesDoAcumulado(meses, mesEscolhido, hoje);
 
   const linhas: LinhaIndicador[] = indicadores.map((i) => {
     const sentido = i.sentido as Sentido;
@@ -141,6 +141,7 @@ export async function obterPainel(ator: UsuarioAtual, ano: number, mes: string) 
   return {
     ano,
     mes,
+    parcial: mes === mesDoDia(hoje),
     statusGeral: { noCaminho: comDado.filter((l) => l.mesEscolhido.status === "ok").length, comDado: comDado.length, total: noPainel.length },
     linhas: noPainel,
     graficoVendas: meses.map((m) => ({
