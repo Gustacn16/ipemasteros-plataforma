@@ -11,16 +11,13 @@ export type SerieMensal = Record<string, number | null>;
 
 type IndicadorFonte = { id: string; fonte: string; fonteParametros: unknown };
 
-/**
- * Vendas, leads e investimento de cada mês do ano (para as fontes e para o CAC e a conversão).
- * `produtosDoPlano` nulo = todas as vendas (ano ainda sem plano).
- */
-export async function baseDoAno(ano: number, produtosDoPlano: string[] | null): Promise<Record<string, BaseMes>> {
+/** Vendas, leads e investimento de cada mês do ano (para as fontes e para o CAC e a conversão). */
+async function baseDoAno(ano: number, produtosDoPlano: string[]): Promise<Record<string, BaseMes>> {
   const inicio = dataDoMes(`${ano}-01`);
   const fim = dataDoMes(`${ano + 1}-01`);
   const [vendas, metricas] = await Promise.all([
     prisma.venda.findMany({
-      where: { excluidoEm: null, ...(produtosDoPlano ? { produtoId: { in: produtosDoPlano } } : {}), dataVenda: { gte: inicio, lt: fim } },
+      where: { excluidoEm: null, produtoId: { in: produtosDoPlano }, dataVenda: { gte: inicio, lt: fim } },
       select: { dataVenda: true, valorTotal: true },
     }),
     // Mesmas contas da visão Mídia do Comercial: ativas e em reais.

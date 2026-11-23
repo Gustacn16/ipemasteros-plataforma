@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fracaoDoMes, itemDoResumo } from "./resumo-mes";
+import { fracaoDoMes, itemDoResumo, resumoDoInicio } from "./resumo-mes";
 
 describe("fracaoDoMes", () => {
   it("conta o dia de hoje como passado", () => expect(fracaoDoMes("2026-11-15")).toBe(0.5));
@@ -33,5 +33,48 @@ describe("itemDoResumo", () => {
     const r = itemDoResumo(30, 20, "2026-11-15");
     expect(r.pct).toBe(1.5);
     expect(r.status).toBe("ok");
+  });
+});
+
+describe("itemDoResumo sem realizado", () => {
+  it("realizado nulo não tem barra nem status, mas guarda a meta", () => {
+    expect(itemDoResumo(null, 300, "2026-11-15")).toEqual({ realizado: null, meta: 300, pct: null, esperadoPct: null, status: null });
+  });
+});
+
+describe("resumoDoInicio", () => {
+  const numeros = { vendido: "57000.00", quantidade: 2, metaValor: "120000.00", metaQuantidade: 4 };
+  const plano = { alunos: 10, valorReais: 500000, leads: 800 };
+
+  it("vendas e faturamento são exatamente os números do dashboard do Comercial", () => {
+    const r = resumoDoInicio({ numeros, leads: 360, plano: null }, "2026-11-15");
+    expect(r.vendas.realizado).toBe(numeros.quantidade);
+    expect(r.faturamento.realizado).toBe(Number(numeros.vendido));
+    expect(r.vendas.meta).toBe(numeros.metaQuantidade);
+    expect(r.faturamento.meta).toBe(Number(numeros.metaValor));
+    expect(r.metaDe).toEqual({ vendas: "comercial", faturamento: "comercial", leads: null });
+  });
+  it("a meta do Comercial vence a do Planejamento", () => {
+    const r = resumoDoInicio({ numeros, leads: 360, plano }, "2026-11-15");
+    expect(r.vendas.meta).toBe(4);
+    expect(r.faturamento.meta).toBe(120000);
+  });
+  it("sem meta no Comercial, usa a do Planejamento", () => {
+    const r = resumoDoInicio({ numeros: { ...numeros, metaValor: "0.00", metaQuantidade: 0 }, leads: 360, plano }, "2026-11-15");
+    expect(r.vendas.meta).toBe(10);
+    expect(r.faturamento.meta).toBe(500000);
+    expect(r.metaDe.vendas).toBe("planejamento");
+  });
+  it("leads: os do Comercial, com a meta do Planejamento", () => {
+    const r = resumoDoInicio({ numeros, leads: 360, plano }, "2026-11-15");
+    expect(r.leads.realizado).toBe(360);
+    expect(r.leads.meta).toBe(800);
+    expect(r.metaDe.leads).toBe("planejamento");
+  });
+  it("sem meta em lugar nenhum, fica sem meta", () => {
+    const r = resumoDoInicio({ numeros: { ...numeros, metaValor: "0.00", metaQuantidade: 0 }, leads: null, plano: null }, "2026-11-15");
+    expect(r.vendas.meta).toBeNull();
+    expect(r.faturamento.meta).toBeNull();
+    expect(r.leads).toEqual({ realizado: null, meta: null, pct: null, esperadoPct: null, status: null });
   });
 });

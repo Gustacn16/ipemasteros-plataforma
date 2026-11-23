@@ -6,7 +6,7 @@ import { podeVerInstitucional } from "@/modulos/agenda/regras/visibilidade";
 import { listarEventos } from "@/modulos/agenda/servicos/eventos";
 import { PainelInicio } from "@/modulos/core/componentes/painel-inicio";
 import { ResumoMesInicio } from "@/modulos/planejamento/componentes/resumo-mes-inicio";
-import { obterResumoDoMes } from "@/modulos/planejamento/servicos/visoes";
+import { obterResumoDoInicio } from "@/modulos/planejamento/servicos/visoes";
 import { DIAS_INICIO } from "@/modulos/core/regras/inicio";
 import { diaEmSaoPaulo, somarDias } from "@/modulos/tarefas/regras/prazo";
 import { navegaEmEspacos } from "@/modulos/tarefas/servicos/acesso";
@@ -26,9 +26,7 @@ export default async function PaginaInicio({
     temPermissao(usuario.papel, "agenda:usar") &&
     podeVerInstitucional(usuario.papel);
 
-  const comResumo =
-    temPermissao(usuario.papel, "comercial:ver") &&
-    temPermissao(usuario.papel, "planejamento:ver");
+  const comResumo = temPermissao(usuario.papel, "comercial:ver");
 
   const [grupos, eventos, resumo] = await Promise.all([
     comTarefas ? listarMinhasTarefas(usuario) : null,
@@ -37,7 +35,7 @@ export default async function PaginaInicio({
       : [],
     // Um erro no resumo não pode derrubar o Início: o bloco aparece com "—" e um aviso.
     comResumo
-      ? obterResumoDoMes(usuario).catch((e: unknown) => {
+      ? obterResumoDoInicio(usuario).catch((e: unknown) => {
           console.error("Resumo do mês no Início falhou", e);
           return "falhou" as const;
         })

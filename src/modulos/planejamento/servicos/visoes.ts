@@ -1,17 +1,20 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import type { UsuarioAtual } from "@/lib/sessao";
+import { esquemaFiltrosDashboard } from "@/modulos/comercial/esquemas/dashboard";
 import { exigirPermissaoComercial } from "@/modulos/comercial/servicos/acesso";
+import { obterDashboard } from "@/modulos/comercial/servicos/dashboard";
+import { obterProjecao } from "@/modulos/comercial/servicos/projecao";
 import { acumular, desempenho, razaoAcumulada, statusDe, type Sentido, type Status, type Tipo } from "../regras/desempenho";
 import type { RetratoMes } from "../regras/fechamento";
 import { fonteAutomatica, type ChaveMetaCalculada } from "../regras/fontes";
 import { mesComecou, mesDaData, mesDoDia, mesesDoAcumulado, mesesDoAno } from "../regras/meses";
-import { itemDoResumo } from "../regras/resumo-mes";
+import { resumoDoInicio } from "../regras/resumo-mes";
 import { totalDoMes, type MetaProdutoMes } from "../regras/turmas";
-import { exigir, hojeSp } from "./acesso";
+import { exigir, hojeSp, podeVer } from "./acesso";
 import { carregarPlanoCalculado, type PlanoCalculado } from "./fechamento";
 import { idDoPlano } from "./planos";
-import { baseDoAno, realizadoAutomatico, type BaseMes } from "./realizado";
+import { realizadoAutomatico, type BaseMes } from "./realizado";
 
 export type LinhaMes = { mes: string; meta: number | null; realizado: number | null; pct: number | null; status: Status | null; parcial: boolean; comecou: boolean };
 export type Resumo = { meta: number | null; realizado: number | null; pct: number | null; status: Status | null };
@@ -222,26 +225,29 @@ export async function obterPlanoDoMesParaMetas(ator: UsuarioAtual, mes: string):
 }
 
 /**
- * Resumo do mês em andamento para o Início: vendas, faturamento e leads contra a meta do plano.
- * Mesmos números do Painel. Sem plano no ano, conta todas as vendas e fica sem meta.
+ * Resumo do mês em andamento para o Início. Vendas, faturamento e leads vêm do dashboard do
+ * Comercial (mesmas funções, mesmos filtros padrão). A meta do Planejamento só entra onde o
+ * Comercial não tem meta, e só para quem vê o Planejamento.
  */
-export async function obterResumoDoMes(ator: UsuarioAtual) {
-  exigir(ator, "planejamento:ver");
-  exigir(ator, "comercial:ver");
+export async function obterResumoDoInicio(ator: UsuarioAtual) {
+  exigirPermissaoComercial(ator, "comercial:ver");
+  const filtros = esquemaFiltrosDashboard(new Date()).parse({});
   const hoje = hojeSp();
-  const mes = mesDoDia(hoje);
-  const ano = Number(hoje.slice(0, 4));
-  const planoId = await idDoPlano(ano);
-  const calc = planoId ? await carregarPlanoCalculado(planoId, hoje) : null;
-  const base = (await baseDoAno(ano, calc?.produtosDoPlano ?? null))[mes];
-  const f = calc?.porMes[mes].funil;
+  const [dashboard, projecao, plano] = await Promise.all([
+    obterDashboard(ator, filtros),
+    obterProjecao(ator, filtros),
+    podeVer(ator) ? metaDoPlanoNoMes(filtros.mes, hoje) : null,
+  ]);
   return {
-    mes,
-    ano,
-    temPlano: calc !== null,
-    vendas: itemDoResumo(base.alunos, f ? f.alunos : null, hoje),
-    faturamento: itemDoResumo(base.vendasCentavos / 100, f ? f.valorCentavos / 100 : null, hoje),
-    leads: itemDoResumo(base.leads, f ? f.leads : null, hoje),
+    mes: filtros.mes,
+    ...resumoDoInicio({ numeros: dashboard.numeros, leads: projecao.leads, plano }, hoje),
   };
 }
-export type ResumoDoMes = Awaited<ReturnType<typeof obterResumoDoMes>>;
+export type ResumoDoInicio = Awaited<ReturnType<typeof obterResumoDoInicio>>;
+
+async function metaDoPlanoNoMes(mes: string, hoje: string) {
+  const planoId = await idDoPlano(Number(mes.slice(0, 4)));
+  if (!planoId) return null;
+  const f = (await carregarPlanoCalculado(planoId, hoje)).porMes[mes]?.funil;
+  return f ? { alunos: f.alunos, valorReais: f.valorCentavos / 100, leads: f.leads } : null;
+}

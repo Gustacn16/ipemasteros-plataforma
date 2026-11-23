@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { itemDoResumo } from "../regras/resumo-mes";
+import { resumoDoInicio } from "../regras/resumo-mes";
 import { ResumoMesInicio } from "./resumo-mes-inicio";
 
 const html = (resumo: Parameters<typeof ResumoMesInicio>[0]["resumo"]) =>
@@ -18,14 +18,19 @@ describe("ResumoMesInicio", () => {
   it("com meta, mostra a barra; sem meta, Meta: —", () => {
     const h = html({
       mes: "2026-11",
-      ano: 2026,
-      temPlano: true,
-      vendas: itemDoResumo(10, 20, "2026-11-15"),
-      faturamento: itemDoResumo(5000, null, "2026-11-15"),
-      leads: itemDoResumo(100, 200, "2026-11-15"),
+      ...resumoDoInicio(
+        {
+          numeros: { vendido: "5000.00", quantidade: 10, metaValor: "0.00", metaQuantidade: 20 },
+          leads: 100,
+          plano: { alunos: 0, valorReais: 0, leads: 200 },
+        },
+        "2026-11-15",
+      ),
     });
     expect(h.match(/role="progressbar"/g)?.length).toBe(2);
     expect(h).toContain("Meta: —");
     expect(h).not.toContain("Não deu para carregar");
+    expect(h).toContain("(Planejamento)");
+    expect(h).toContain('href="/comercial"');
   });
 });
