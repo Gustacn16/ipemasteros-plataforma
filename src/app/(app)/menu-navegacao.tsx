@@ -6,6 +6,7 @@ import {
   CalendarIcon,
   ClapperboardIcon,
   CrosshairIcon,
+  GoalIcon,
   GraduationCapIcon,
   HeartPulseIcon,
   HouseIcon,
@@ -41,6 +42,7 @@ const ICONES = {
   espiao: <CrosshairIcon />,
   saude: <HeartPulseIcon />,
   processos: <WorkflowIcon />,
+  planejamento: <GoalIcon />,
 };
 
 export type ItemMenu = { href: string; rotulo: string; icone: keyof typeof ICONES; emBreve?: boolean; contador?: number };

@@ -59,7 +59,10 @@ export type Permissao =
   | "espiao:configurar"
   | "processos:ver"
   | "processos:editar"
-  | "processos:registrar_medicao";
+  | "processos:registrar_medicao"
+  | "planejamento:ver"
+  | "planejamento:editar"
+  | "planejamento:lancar";
 
 // Colaborador e professor têm regras por registro (membro do espaço, tarefas
 // atribuídas) em src/modulos/tarefas/servicos/acesso.ts.
@@ -103,6 +106,10 @@ const WHATSAPP_GESTAO: readonly Permissao[] = ["whatsapp:gerenciar_numeros", "wh
 // Escrever e publicar os padrões da empresa é coisa de gestão.
 const PROCESSOS_GESTAO: readonly Permissao[] = ["processos:ver", "processos:editar", "processos:registrar_medicao"];
 
+// O plano do ano (metas e números da empresa) é da gestão. O lançamento de resultados vale
+// também para o responsável de cada indicador (regra em src/modulos/planejamento/servicos/acesso.ts).
+const PLANEJAMENTO_GESTAO: readonly Permissao[] = ["planejamento:ver", "planejamento:editar", "planejamento:lancar"];
+
 const PERMISSOES_COLABORADOR: readonly Permissao[] = [
   "tarefas:gerenciar_listas",
   "tarefas:usar",
@@ -115,6 +122,8 @@ const PERMISSOES_COLABORADOR: readonly Permissao[] = [
   // Processos internos: todo o time lê; o lançamento de resultados vale para o
   // responsável de cada indicador (regra em src/modulos/processos/servicos/acesso.ts).
   "processos:ver",
+  // Planejamento: só lança os indicadores em que é responsável (regra no serviço).
+  "planejamento:lancar",
   // O Nexu (assistente de IA) vale para todo mundo que usa o sistema no dia a dia; professor e aluno ficam de fora.
   "nexu:usar",
 ];
@@ -133,6 +142,7 @@ const PERMISSOES_POR_PAPEL: Record<Papel, readonly Permissao[]> = {
     ...ACADEMICO_GESTAO,
     ...WHATSAPP_GESTAO,
     ...PROCESSOS_GESTAO,
+    ...PLANEJAMENTO_GESTAO,
     "nexu:usar",
     // Só o admin escolhe o modelo e os limites do Nexu.
     "nexu:configurar",
@@ -159,6 +169,7 @@ const PERMISSOES_POR_PAPEL: Record<Papel, readonly Permissao[]> = {
     ...ACADEMICO_GESTAO,
     ...WHATSAPP_GESTAO,
     ...PROCESSOS_GESTAO,
+    ...PLANEJAMENTO_GESTAO,
     "nexu:usar",
     "espiao:ver",
   ],

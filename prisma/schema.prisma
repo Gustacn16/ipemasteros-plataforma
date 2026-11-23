@@ -74,14 +74,17 @@ model Usuario {
   configuracoesIaAlteradas       ConfiguracaoIa[]
   configuracoesWhatsappAlteradas ConfiguracaoWhatsapp[]
 
-  espiaoVistoEm                  DateTime?                 @map("espiao_visto_em")
+  espiaoVistoEm                  DateTime?                  @map("espiao_visto_em")
   gastosEspiao                   GastoEspiao[]
-  documentosProcessoDono         DocumentoProcesso[]       @relation("DocumentoProcessoDono")
-  documentosProcessoCriados      DocumentoProcesso[]       @relation("DocumentoProcessoCriadoPor")
-  documentosProcessoAtualizados  DocumentoProcesso[]       @relation("DocumentoProcessoAtualizadoPor")
-  versoesProcessoPublicadas      VersaoDocumentoProcesso[] @relation("VersaoProcessoPublicadaPor")
-  indicadoresProcessoResponsavel IndicadorProcesso[]       @relation("IndicadorProcessoResponsavel")
-  medicoesIndicadorRegistradas   MedicaoIndicador[]        @relation("MedicaoRegistradaPor")
+  documentosProcessoDono         DocumentoProcesso[]        @relation("DocumentoProcessoDono")
+  documentosProcessoCriados      DocumentoProcesso[]        @relation("DocumentoProcessoCriadoPor")
+  documentosProcessoAtualizados  DocumentoProcesso[]        @relation("DocumentoProcessoAtualizadoPor")
+  versoesProcessoPublicadas      VersaoDocumentoProcesso[]  @relation("VersaoProcessoPublicadaPor")
+  indicadoresProcessoResponsavel IndicadorProcesso[]        @relation("IndicadorProcessoResponsavel")
+  medicoesIndicadorRegistradas   MedicaoIndicador[]         @relation("MedicaoRegistradaPor")
+  planosCriados                  PlanoAnual[]               @relation("PlanoCriadoPor")
+  indicadoresPlanoResponsavel    IndicadorPlano[]           @relation("IndicadorPlanoResponsavel")
+  realizadosPlanoRegistrados     RealizadoMensalIndicador[] @relation("RealizadoPlanoRegistradoPor")
 
   @@map("usuarios")
 }
@@ -713,12 +716,15 @@ model Produto {
   criadoEm               DateTime     @default(now()) @map("criado_em")
   atualizadoEm           DateTime     @updatedAt @map("atualizado_em")
 
-  ofertas          OfertaProduto[]
-  links            LinkProduto[]
-  vendas           Venda[]
-  metas            MetaVenda[]
-  campanhasAnuncio CampanhaAnuncio[]
-  turmas           Turma[]
+  ofertas           OfertaProduto[]
+  links             LinkProduto[]
+  vendas            Venda[]
+  metas             MetaVenda[]
+  campanhasAnuncio  CampanhaAnuncio[]
+  turmas            Turma[]
+  premissasPlano    PremissaProdutoPlano[]
+  turmasPlano       TurmaPlano[]
+  metasAvulsasPlano MetaAvulsaPlano[]
 
   @@index([sku])
   @@index([tipo, ativo])
@@ -2066,4 +2072,182 @@ model MedicaoIndicador {
 
   @@unique([indicadorId, periodo])
   @@map("medicoes_indicador")
+}
+
+// ─── Planejamento ────────────────────────────────────────────────────────────
+// Plano anual: turmas → meta de vendas → funil, indicadores com meta mensal (spec 2026-11-23).
+
+enum FrenteIndicador {
+  comercial
+  marketing
+}
+
+enum UnidadeIndicador {
+  numero
+  reais
+  percentual
+}
+
+enum TipoIndicador {
+  fluxo
+  estoque
+  taxa
+}
+
+/// Plano de um ano civil, com as premissas do funil comercial (percentuais como fração).
+model PlanoAnual {
+  id               String   @id @default(cuid())
+  ano              Int      @unique
+  observacoes      String?  @db.Text
+  convLeadAgendada Decimal  @default(0) @map("conv_lead_agendada") @db.Decimal(18, 4)
+  comparecimento   Decimal  @default(0) @db.Decimal(18, 4)
+  convReuniaoVenda Decimal  @default(0) @map("conv_reuniao_venda") @db.Decimal(18, 4)
+  custoPorLead     Decimal  @default(0) @map("custo_por_lead") @db.Decimal(12, 2)
+  comissaoPct      Decimal  @default(0) @map("comissao_pct") @db.Decimal(18, 4)
+  tetoCacPct       Decimal  @default(0) @map("teto_cac_pct") @db.Decimal(18, 4)
+  criadoPorId      String   @map("criado_por_id")
+  criadoEm         DateTime @default(now()) @map("criado_em")
+  atualizadoEm     DateTime @updatedAt @map("atualizado_em")
+
+  criadoPor    Usuario                @relation("PlanoCriadoPor", fields: [criadoPorId], references: [id])
+  premissas    PremissaProdutoPlano[]
+  turmas       TurmaPlano[]
+  metasAvulsas MetaAvulsaPlano[]
+  fechamentos  FechamentoMesPlano[]
+  indicadores  IndicadorPlano[]
+
+  @@map("planos_anuais")
+}
+
+model PremissaProdutoPlano {
+  id                String  @id @default(cuid())
+  planoId           String  @map("plano_id")
+  produtoId         String  @map("produto_id")
+  contratoMedio     Decimal @map("contrato_medio") @db.Decimal(12, 2)
+  alunosPorTurma    Int     @map("alunos_por_turma")
+  janelaVendasMeses Int     @map("janela_vendas_meses")
+  duracaoMeses      Int     @map("duracao_meses")
+
+  plano   PlanoAnual @relation(fields: [planoId], references: [id], onDelete: Cascade)
+  produto Produto    @relation(fields: [produtoId], references: [id])
+
+  @@unique([planoId, produtoId])
+  @@index([produtoId])
+  @@map("premissas_produto_plano")
+}
+
+/// Turma planejada. Campos vazios usam a premissa do produto.
+model TurmaPlano {
+  id                String    @id @default(cuid())
+  planoId           String    @map("plano_id")
+  produtoId         String    @map("produto_id")
+  codigo            String    @db.VarChar(20)
+  mesAbertura       DateTime  @map("mes_abertura") @db.Date
+  alunos            Int?
+  contratoMedio     Decimal?  @map("contrato_medio") @db.Decimal(12, 2)
+  janelaVendasMeses Int?      @map("janela_vendas_meses")
+  duracaoMeses      Int?      @map("duracao_meses")
+  observacoes       String?   @db.VarChar(300)
+  excluidoEm        DateTime? @map("excluido_em")
+  criadoEm          DateTime  @default(now()) @map("criado_em")
+  atualizadoEm      DateTime  @updatedAt @map("atualizado_em")
+
+  plano   PlanoAnual @relation(fields: [planoId], references: [id], onDelete: Cascade)
+  produto Produto    @relation(fields: [produtoId], references: [id])
+
+  @@index([planoId])
+  @@index([produtoId])
+  @@map("turmas_plano")
+}
+
+/// Meta sem turma (curso livre, paciente modelo, assinatura).
+model MetaAvulsaPlano {
+  id        String   @id @default(cuid())
+  planoId   String   @map("plano_id")
+  produtoId String   @map("produto_id")
+  mes       DateTime @db.Date
+  alunos    Int      @default(0)
+  valor     Decimal  @default(0) @db.Decimal(12, 2)
+
+  plano   PlanoAnual @relation(fields: [planoId], references: [id], onDelete: Cascade)
+  produto Produto    @relation(fields: [produtoId], references: [id])
+
+  @@unique([planoId, produtoId, mes])
+  @@index([produtoId])
+  @@map("metas_avulsas_plano")
+}
+
+/// Retrato das metas calculadas de um mês fechado (não muda mais).
+model FechamentoMesPlano {
+  id       String   @id @default(cuid())
+  planoId  String   @map("plano_id")
+  mes      DateTime @db.Date
+  dados    Json
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  plano PlanoAnual @relation(fields: [planoId], references: [id], onDelete: Cascade)
+
+  @@unique([planoId, mes])
+  @@map("fechamentos_mes_plano")
+}
+
+model IndicadorPlano {
+  id              String           @id @default(cuid())
+  planoId         String           @map("plano_id")
+  frente          FrenteIndicador
+  grupo           String           @default("") @db.VarChar(60)
+  nome            String           @db.VarChar(120)
+  unidade         UnidadeIndicador @default(numero)
+  sentido         SentidoIndicador @default(maior_melhor)
+  tipo            TipoIndicador    @default(fluxo)
+  /// Chave da meta calculada pelo plano (regras/fontes.ts); nulo = meta digitada.
+  metaCalculada   String?          @map("meta_calculada") @db.VarChar(40)
+  /// Chave da fonte do realizado (regras/fontes.ts).
+  fonte           String           @default("manual") @db.VarChar(40)
+  fonteParametros Json?            @map("fonte_parametros")
+  responsavelId   String?          @map("responsavel_id")
+  noPainel        Boolean          @default(true) @map("no_painel")
+  ordem           Int              @default(0)
+  excluidoEm      DateTime?        @map("excluido_em")
+  criadoEm        DateTime         @default(now()) @map("criado_em")
+  atualizadoEm    DateTime         @updatedAt @map("atualizado_em")
+
+  plano       PlanoAnual                 @relation(fields: [planoId], references: [id], onDelete: Cascade)
+  responsavel Usuario?                   @relation("IndicadorPlanoResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
+  metas       MetaMensalIndicador[]
+  realizados  RealizadoMensalIndicador[]
+
+  @@index([planoId])
+  @@index([responsavelId])
+  @@map("indicadores_plano")
+}
+
+model MetaMensalIndicador {
+  id          String   @id @default(cuid())
+  indicadorId String   @map("indicador_id")
+  mes         DateTime @db.Date
+  valor       Decimal  @db.Decimal(18, 4)
+
+  indicador IndicadorPlano @relation(fields: [indicadorId], references: [id], onDelete: Cascade)
+
+  @@unique([indicadorId, mes])
+  @@map("metas_mensais_indicador")
+}
+
+model RealizadoMensalIndicador {
+  id              String   @id @default(cuid())
+  indicadorId     String   @map("indicador_id")
+  mes             DateTime @db.Date
+  valor           Decimal  @db.Decimal(18, 4)
+  observacao      String?  @db.VarChar(300)
+  registradoPorId String   @map("registrado_por_id")
+  criadoEm        DateTime @default(now()) @map("criado_em")
+  atualizadoEm    DateTime @updatedAt @map("atualizado_em")
+
+  indicador     IndicadorPlano @relation(fields: [indicadorId], references: [id], onDelete: Cascade)
+  registradoPor Usuario        @relation("RealizadoPlanoRegistradoPor", fields: [registradoPorId], references: [id])
+
+  @@unique([indicadorId, mes])
+  @@index([registradoPorId])
+  @@map("realizados_mensais_indicador")
 }

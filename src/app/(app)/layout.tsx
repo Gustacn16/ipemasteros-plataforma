@@ -3,12 +3,19 @@ import { iaConfigurada } from "@/lib/ia/cliente";
 import { exigirUsuario } from "@/lib/sessao";
 import { contarSinaisNovos } from "@/modulos/espiao/servicos/visao";
 import { PainelNexu } from "@/modulos/nexu/componentes/painel-nexu";
+import { ehResponsavelNoPlanejamento } from "@/modulos/planejamento/servicos/lancamento";
 import { MenuNavegacao, type ItemMenu } from "./menu-navegacao";
 
 export default async function LayoutApp({ children }: { children: React.ReactNode }) {
   const usuario = await exigirUsuario();
   // Falhar a contagem não pode derrubar o menu.
   const sinaisNovos = temPermissao(usuario.papel, "espiao:ver") ? await contarSinaisNovos(usuario.id).catch(() => 0) : 0;
+  // Quem não vê o planejamento, mas é responsável por algum indicador, entra só para lançar.
+  const verPlanejamento = temPermissao(usuario.papel, "planejamento:ver");
+  const lancaPlanejamento =
+    !verPlanejamento && temPermissao(usuario.papel, "planejamento:lancar")
+      ? await ehResponsavelNoPlanejamento(usuario.id).catch(() => false)
+      : false;
   const modulos: ItemMenu[] = [
     { href: "/inicio", rotulo: "Início", icone: "inicio" },
     ...(temPermissao(usuario.papel, "tarefas:usar") ? [{ href: "/tarefas", rotulo: "Tarefas", icone: "tarefas" } as const] : []),
@@ -17,6 +24,9 @@ export default async function LayoutApp({ children }: { children: React.ReactNod
     ...(temPermissao(usuario.papel, "academico:ver") ? [{ href: "/academico", rotulo: "Acadêmico", icone: "academico" } as const] : []),
     ...(temPermissao(usuario.papel, "processos:ver") ? [{ href: "/processos", rotulo: "Processos", icone: "processos" } as const] : []),
     ...(temPermissao(usuario.papel, "comercial:ver") ? [{ href: "/comercial", rotulo: "Comercial", icone: "comercial" } as const] : []),
+    ...(verPlanejamento || lancaPlanejamento
+      ? [{ href: verPlanejamento ? "/planejamento" : "/planejamento/lancar", rotulo: "Planejamento", icone: "planejamento" } as const]
+      : []),
     ...(temPermissao(usuario.papel, "espiao:ver") ? [{ href: "/espiao", rotulo: "Espião", icone: "espiao", contador: sinaisNovos } as const] : []),
     ...(temPermissao(usuario.papel, "nexu:usar") ? [{ href: "/nexu", rotulo: "Nexu", icone: "nexu" } as const] : []),
     ...(temPermissao(usuario.papel, "whatsapp:gerenciar_numeros") ||
