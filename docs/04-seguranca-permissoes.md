@@ -65,6 +65,15 @@ Todo o time interno lê os documentos publicados. Só a gestão escreve e public
 | `processos:editar` (categorias, áreas, documentos, indicadores, publicar e restaurar) | ✅ | ✅ | — | — | — |
 | `processos:registrar_medicao` (lançar resultado de qualquer indicador) | ✅ | ✅ | 🔸 só onde é responsável | 🔸 só onde é responsável | — |
 
+### Planejamento
+O plano do ano é da gestão. O lançamento de resultados vale também para o responsável de cada indicador manual (regra em `src/modulos/planejamento/servicos/acesso.ts`).
+
+| Permissão | admin | gestor | colaborador | comercial | professor |
+|---|---|---|---|---|---|
+| `planejamento:ver` (Painel, plano comercial e de marketing) | ✅ | ✅ | — | — | — |
+| `planejamento:editar` (plano, premissas, turmas, metas avulsas, indicadores e metas) | ✅ | ✅ | — | — | — |
+| `planejamento:lancar` (lançar resultados) | ✅ | ✅ | 🔸 só onde é responsável | 🔸 só onde é responsável | — |
+
 ### Comercial
 O papel `comercial` tem, nos outros módulos, as mesmas permissões do colaborador. Colaborador e professor não entram no Comercial.
 

@@ -24,6 +24,7 @@ Visão geral das entidades e de como os módulos se relacionam. Os campos detalh
 | Conteúdo | `Canal`, `Campanha`, `Publicacao`, `PublicacaoCanal`, `MidiaPublicacao` |
 | Comercial | `Produto`, `OfertaProduto`, `LinkProduto`, `CanalVenda`, `Venda`, `MetaVenda` (Kommo e Meta Ads depois) |
 | WhatsApp | `NumeroWhatsapp`, `ComandoWhatsapp`, `ContatoWhatsapp`, `ConversaWhatsapp`, `NumeroNoGrupo`, `MensagemWhatsapp` |
+| Planejamento | `PlanoAnual`, `PremissaProdutoPlano`, `TurmaPlano`, `MetaAvulsaPlano`, `FechamentoMesPlano`, `IndicadorPlano`, `MetaMensalIndicador`, `RealizadoMensalIndicador` |
 | Processos | `CategoriaProcesso`, `AreaProcesso`, `DocumentoProcesso`, `VersaoDocumentoProcesso`, `LigacaoDocumentoProcesso`, `IndicadorProcesso`, `MedicaoIndicador` |
 
 ## Diagrama (relações principais)
@@ -87,6 +88,7 @@ erDiagram
 - **Professor ↔ Usuario:** `Professor.usuarioId?` é opcional. Um professor pode ser cadastrado antes de receber acesso.
 - **Comercial ↔ Acadêmico:** o `Produto` do Comercial é o catálogo único; as turmas do Acadêmico vão apontar para ele (ver `modulos/comercial.md`).
 - **WhatsApp ↔ Acadêmico e Core:** `ContatoWhatsapp` liga-se a `Aluno` ou `Usuario` pelo telefone (`alunoId?`, `usuarioId?`, `SetNull` ao apagar). O grupo (`ConversaWhatsapp` com `tipo = grupo`) pode apontar para uma `Turma` (`turmaId?`). `ResumoGrupo` (resumo diário por grupo, único por conversa + dia, apagado junto com a conversa) liga-se a `ConversaWhatsapp` e, opcionalmente, a `LoteIa` (`SetNull`); `ConfiguracaoWhatsapp` guarda modelo e limite mensal da IA do WhatsApp. O WhatsApp nunca grava nas tabelas desses módulos. Detalhes em `modulos/whatsapp.md`.
+- **Planejamento ↔ Comercial e Conteúdo:** `PremissaProdutoPlano`, `TurmaPlano` e `MetaAvulsaPlano` apontam para `Produto`. O realizado é lido na hora de `Venda`, `MetricaDiariaAnuncio`, `MetricaContaInstagram` e `Publicacao`; o Planejamento nunca grava nessas tabelas. A meta do mês fechado fica em `FechamentoMesPlano` (retrato JSON). Detalhes em `modulos/planejamento.md`.
 
 ## Seed
 `prisma/seed.ts` cria um admin de desenvolvimento, papéis de exemplo, um espaço de tarefas e uma turma fictícia com alunos **fictícios**. Nunca usar dados reais no seed.
