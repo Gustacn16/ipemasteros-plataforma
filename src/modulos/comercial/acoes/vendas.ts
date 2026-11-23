@@ -1,9 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { dadosDoFormulario, idDaAcao, tratarErroAcao, type EstadoAcao } from "@/lib/acoes";
 import { exigirPermissao } from "@/lib/sessao";
 import { esquemaVenda } from "../esquemas/venda";
+import { avisarVendaNova } from "../servicos/aviso-venda";
 import { criarVenda, editarVenda, excluirVenda } from "../servicos/vendas";
 
 const revalidarComercial = () => revalidatePath("/comercial", "layout");
@@ -15,7 +17,11 @@ export async function salvarVendaAcao(_: EstadoAcao, formData: FormData): Promis
     const { id, ...campos } = dadosDoFormulario(formData);
     const dados = esquemaVenda.parse(campos);
     if (id) await editarVenda(ator, id, dados);
-    else await criarVenda(ator, dados);
+    else {
+      const venda = await criarVenda(ator, dados);
+      // Aviso no grupo do C.S depois da resposta: se o Make falhar, a venda já está salva.
+      after(() => avisarVendaNova(venda.id));
+    }
     revalidarComercial();
     return { ok: true, mensagem: id ? "Venda atualizada." : "Venda registrada." };
   } catch (erro) {

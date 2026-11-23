@@ -12,6 +12,7 @@ export default async function LayoutComercial({ children }: { children: React.Re
         <AbasComercial
           podeGerenciar={temPermissao(usuario.papel, "comercial:gerenciar_produtos")}
           podeIntegrarMeta={temPermissao(usuario.papel, "comercial:gerenciar_integracao_meta")}
+          podeAvisoVenda={temPermissao(usuario.papel, "comercial:gerenciar_aviso_venda")}
         />
       </div>
       {children}

@@ -5,7 +5,15 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 /** Abas do módulo Comercial. */
-export function AbasComercial({ podeGerenciar, podeIntegrarMeta }: { podeGerenciar: boolean; podeIntegrarMeta: boolean }) {
+export function AbasComercial({
+  podeGerenciar,
+  podeIntegrarMeta,
+  podeAvisoVenda,
+}: {
+  podeGerenciar: boolean;
+  podeIntegrarMeta: boolean;
+  podeAvisoVenda: boolean;
+}) {
   const caminho = usePathname();
   const abas = [
     { href: "/comercial", rotulo: "Dashboard" },
@@ -15,6 +23,7 @@ export function AbasComercial({ podeGerenciar, podeIntegrarMeta }: { podeGerenci
     { href: "/comercial/produtos", rotulo: "Produtos" },
     ...(podeGerenciar ? [{ href: "/comercial/canais", rotulo: "Canais" }] : []),
     ...(podeIntegrarMeta ? [{ href: "/comercial/integracao-meta", rotulo: "Meta Ads" }] : []),
+    ...(podeAvisoVenda ? [{ href: "/comercial/aviso-venda", rotulo: "Aviso de venda" }] : []),
   ];
   return (
     <nav aria-label="Comercial" className="flex gap-1 border-b">

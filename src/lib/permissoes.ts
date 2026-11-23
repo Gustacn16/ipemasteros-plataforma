@@ -45,6 +45,7 @@ export type Permissao =
   | "comercial:atribuir_campanhas"
   | "comercial:gerenciar_integracao_meta"
   | "comercial:importar_historico"
+  | "comercial:gerenciar_aviso_venda"
   | "academico:ver"
   | "academico:gerenciar"
   | "academico:importar_alunos"
@@ -153,6 +154,8 @@ const PERMISSOES_POR_PAPEL: Record<Papel, readonly Permissao[]> = {
     "comercial:gerenciar_integracao_meta",
     // Só o admin importa o histórico da plataforma antiga (vendas com dados de clientes).
     "comercial:importar_historico",
+    // Só o admin mexe no aviso de venda do grupo do C.S (link do Make).
+    "comercial:gerenciar_aviso_venda",
     // Só o admin mexe na integração com o Instagram (contas, canais e atualização).
     "conteudo:gerenciar_integracao_instagram",
   ],

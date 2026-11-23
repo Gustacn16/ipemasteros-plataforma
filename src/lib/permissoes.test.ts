@@ -188,6 +188,15 @@ describe("importar histórico comercial", () => {
   });
 });
 
+describe("aviso de venda", () => {
+  it("só o admin configura o aviso de venda no grupo", () => {
+    expect(temPermissao("admin", "comercial:gerenciar_aviso_venda")).toBe(true);
+    for (const papel of ["gestor", "comercial", "colaborador", "professor", "aluno"] as const) {
+      expect(temPermissao(papel, "comercial:gerenciar_aviso_venda")).toBe(false);
+    }
+  });
+});
+
 describe("apagar produtos", () => {
   it("só o admin apaga produtos", () => {
     expect(temPermissao("admin", "comercial:excluir_produtos")).toBe(true);

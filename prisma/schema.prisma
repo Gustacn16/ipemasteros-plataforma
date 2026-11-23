@@ -853,6 +853,17 @@ model MetaVenda {
   @@map("metas_venda")
 }
 
+/// Configuração única do Comercial (id "unica"). O webhook do aviso de venda fica cifrado (AES-256-GCM).
+model ConfiguracaoComercial {
+  id                  String   @id
+  webhookVendaCifrado String?  @map("webhook_venda_cifrado") @db.Text
+  avisoVendaAtivo     Boolean  @default(true) @map("aviso_venda_ativo")
+  atualizadoPorId     String?  @map("atualizado_por_id")
+  atualizadoEm        DateTime @updatedAt @map("atualizado_em")
+
+  @@map("configuracoes_comercial")
+}
+
 // ─── Acadêmico ──────────────────────────────────────────────────────────────
 
 enum SituacaoTurma {

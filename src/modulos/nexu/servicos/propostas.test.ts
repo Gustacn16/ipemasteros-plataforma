@@ -47,6 +47,10 @@ vi.mock("@/modulos/tarefas/servicos/acesso", () => ({
 vi.mock("@/modulos/agenda/servicos/eventos", () => ({ criarEvento: m.criarEvento }));
 vi.mock("@/modulos/conteudo/servicos/conteudos", () => ({ criarConteudo: m.criarConteudo }));
 vi.mock("@/modulos/comercial/servicos/vendas", () => ({ criarVenda: m.criarVenda }));
+// O aviso no grupo roda depois da resposta (`after`); aqui só conferimos que foi agendado.
+const aviso = vi.hoisted(() => ({ after: vi.fn(), avisarVendaNova: vi.fn() }));
+vi.mock("next/server", () => ({ after: aviso.after }));
+vi.mock("@/modulos/comercial/servicos/aviso-venda", () => ({ avisarVendaNova: aviso.avisarVendaNova }));
 
 const { confirmarProposta, recusarProposta } = await import("./propostas");
 const { ferramentaProporCriarTarefa } = await import("../ferramentas/acoes");
@@ -203,6 +207,10 @@ describe("confirmarProposta: dados e links", () => {
     m.criarVenda.mockResolvedValue({ id: "v1" });
     const r = await confirmarProposta(quemConfirma, "p1");
     expect(r).toMatchObject({ status: "confirmada", resultadoUrl: "/comercial/vendas" });
+    // O aviso no grupo do C.S é agendado para depois da resposta, com o id da venda criada.
+    expect(aviso.after).toHaveBeenCalledTimes(1);
+    aviso.after.mock.calls[0][0]();
+    expect(aviso.avisarVendaNova).toHaveBeenCalledWith("v1");
     expect(m.criarVenda.mock.calls[0][0]).toBe(quemConfirma);
     expect(m.criarVenda.mock.calls[0][1]).toMatchObject({
       produtoId: "pr1",

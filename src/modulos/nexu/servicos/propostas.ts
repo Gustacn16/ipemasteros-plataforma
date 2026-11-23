@@ -1,4 +1,5 @@
 import "server-only";
+import { after } from "next/server";
 import { descreverErro } from "./descrever-erro";
 import { z } from "zod";
 import type { Prisma, TipoPropostaNexu } from "@/generated/prisma/client";
@@ -11,6 +12,7 @@ import { prisma } from "@/lib/prisma";
 import type { UsuarioAtual } from "@/lib/sessao";
 import { criarEvento } from "@/modulos/agenda/servicos/eventos";
 import { valorTotal, vendedorPermitido } from "@/modulos/comercial/regras/venda";
+import { avisarVendaNova } from "@/modulos/comercial/servicos/aviso-venda";
 import { criarVenda } from "@/modulos/comercial/servicos/vendas";
 import { criarConteudo } from "@/modulos/conteudo/servicos/conteudos";
 import { exigirLista, exigirTarefa, filtroEspacosVisiveis, podeEditarTarefa, usuariosAtribuiveis } from "@/modulos/tarefas/servicos/acesso";
@@ -344,6 +346,8 @@ async function executarNoModulo(ator: UsuarioAtual, d: DadosProposta): Promise<{
     }
     case "registrar_venda": {
       const criada = await criarVenda(ator, semTipo(d));
+      // Mesmo aviso no grupo do C.S que a venda feita pela tela, depois da resposta.
+      after(() => avisarVendaNova(criada.id));
       // Vendas não têm página própria: o link vai para a lista.
       return { resultadoId: criada.id, resultadoUrl: "/comercial/vendas" };
     }
