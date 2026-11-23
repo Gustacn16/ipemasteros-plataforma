@@ -34,3 +34,10 @@ export function acumular(tipo: Tipo, meses: Mes[]): { meta: number | null; reali
     realizado: reais.length ? reais.reduce((s, v) => s + v, 0) : null,
   };
 }
+
+/** Razão do período somando antes de dividir (ex.: CAC do ano = custo do ano ÷ alunos do ano). */
+export function razaoAcumulada(itens: { num: number; den: number }[]): number | null {
+  const num = itens.reduce((s, i) => s + i.num, 0);
+  const den = itens.reduce((s, i) => s + i.den, 0);
+  return den === 0 ? null : num / den;
+}

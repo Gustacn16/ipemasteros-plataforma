@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { acumular, desempenho, statusDe } from "./desempenho";
+import { acumular, desempenho, razaoAcumulada, statusDe } from "./desempenho";
 
 describe("desempenho", () => {
   it("maior é melhor: realizado ÷ meta", () => expect(desempenho(190, 190, "maior_melhor")).toBe(1));
@@ -49,4 +49,11 @@ describe("acumular", () => {
       ]),
     ).toEqual({ meta: 0.35, realizado: 0.35 });
   });
+});
+
+describe("razaoAcumulada", () => {
+  it("soma numeradores e denominadores antes de dividir (CAC e conversão do ano)", () => {
+    expect(razaoAcumulada([{ num: 10, den: 100 }, { num: 0, den: 300 }])).toBe(0.025);
+  });
+  it("sem denominador fica vazio", () => expect(razaoAcumulada([{ num: 5, den: 0 }])).toBeNull());
 });

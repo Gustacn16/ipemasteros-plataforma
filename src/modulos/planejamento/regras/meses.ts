@@ -21,3 +21,10 @@ export const mesComecou = (mes: string, hoje: string) => mes <= mesDoDia(hoje);
 /** Coluna @db.Date do dia 1 do mês. */
 export const dataDoMes = (mes: string) => new Date(`${mes}-01T00:00:00.000Z`);
 export const mesDaData = (d: Date) => d.toISOString().slice(0, 7);
+
+/** Ano que a tela abre: o atual se tiver plano; senão o próximo plano; senão o último. */
+export function anoPadrao(anos: number[], hoje: string): number {
+  const atual = Number(hoje.slice(0, 4));
+  if (anos.includes(atual)) return atual;
+  return anos.find((a) => a > atual) ?? anos.at(-1) ?? atual;
+}
