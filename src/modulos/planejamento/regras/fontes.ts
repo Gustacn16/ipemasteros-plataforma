@@ -43,7 +43,8 @@ export const ROTULO_FONTE: Record<Fonte, string> = {
 
 export const fonteAutomatica = (f: string) => f !== "manual";
 
-export type ParametrosFonte = { contaId?: string; canalId?: string; formatoId?: string };
+/** Conteúdos: canal e, se houver, os formatos do canal que contam (vazio = todos). */
+export type ParametrosFonte = { contaId?: string; canalId?: string; formatoIds?: string[] };
 
 /** Parâmetros de cada fonte: Instagram pede a conta; conteúdos pedem o canal (formato opcional). */
 export function validarParametrosFonte(fonte: Fonte, p: ParametrosFonte): string | null {
@@ -55,5 +56,5 @@ export function validarParametrosFonte(fonte: Fonte, p: ParametrosFonte): string
 export const esquemaParametrosFonte = z.object({
   contaId: z.string().min(1).optional(),
   canalId: z.string().min(1).optional(),
-  formatoId: z.string().min(1).optional(),
+  formatoIds: z.array(z.string().min(1)).optional(),
 });
