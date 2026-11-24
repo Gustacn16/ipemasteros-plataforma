@@ -13,10 +13,9 @@ import {
   excluirCategoriaAcao,
 } from "@/modulos/processos/acoes/processos";
 import { ICONE_CATEGORIA, ROTULO_ICONE } from "@/modulos/processos/componentes/icones";
-import { NovoDocumento } from "@/modulos/processos/componentes/novo-documento";
 import { SetasOrdem } from "@/modulos/processos/componentes/organizar";
 import { ICONES_CATEGORIA } from "@/modulos/processos/esquemas/processos";
-import { listarOpcoesArea, obterArvore, type CategoriaNaArvore } from "@/modulos/processos/servicos/estrutura";
+import { obterArvore, type CategoriaNaArvore } from "@/modulos/processos/servicos/estrutura";
 
 export const metadata: Metadata = { title: "Organizar processos — IPEMaster OS" };
 
@@ -34,7 +33,7 @@ function CamposCategoria({ c }: { c?: CategoriaNaArvore }) {
 
 export default async function PaginaOrganizar() {
   const usuario = await exigirPermissaoPagina("processos:editar");
-  const [arvore, areas] = await Promise.all([obterArvore(usuario), listarOpcoesArea()]);
+  const arvore = await obterArvore(usuario);
   const opcoesCategoria = arvore.map((c) => ({ valor: c.id, rotulo: c.nome }));
 
   return (
@@ -47,7 +46,6 @@ export default async function PaginaOrganizar() {
               <CamposCategoria />
             </FormularioAcao>
           </Dialogo>
-          <NovoDocumento areas={areas} />
         </div>
       </div>
 

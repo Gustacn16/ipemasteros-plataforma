@@ -45,13 +45,13 @@ function Desvios({ etapas, i }: { etapas: Etapa[]; i: number }) {
   const nao = destinoNao(etapas, i);
   const rotulo = (k: number | null) => (k === null ? "fim" : `${k + 1}. ${etapas[k]!.titulo}`);
   return (
-    <div className="mt-2 grid w-full gap-1 text-xs">
-      <span className="text-foreground flex items-center gap-1">
+    <div className="mt-2 grid w-full min-w-0 grid-cols-1 gap-1 text-xs">
+      <span className="text-foreground flex min-w-0 items-center gap-1">
         <CornerDownRightIcon className="text-sucesso size-3.5 shrink-0" aria-hidden />
         <span className="font-semibold">Sim:</span> <span className="truncate">{sim === i + 1 ? "segue para a próxima" : rotulo(sim)}</span>
       </span>
       {nao !== null && (
-        <span className="text-primary border-primary/50 flex items-center gap-1 rounded-md border border-dotted px-1.5 py-0.5">
+        <span className="text-primary border-primary/50 flex min-w-0 items-center gap-1 rounded-md border border-dotted px-1.5 py-0.5">
           <CornerDownRightIcon className="size-3.5 shrink-0" aria-hidden />
           <span className="font-semibold">Não:</span> <span className="truncate">{nao < i ? `volta para ${rotulo(nao)}` : rotulo(nao)}</span>
         </span>
@@ -64,7 +64,7 @@ function Cartao({ etapas, i }: { etapas: Etapa[]; i: number }) {
   const e = etapas[i]!;
   if (e.tipo === "decisao") {
     return (
-      <div className="flex h-full flex-col items-center">
+      <div className="flex h-full min-w-0 flex-col items-center">
         <div className="relative flex min-h-36 w-full items-center justify-center px-12 py-8">
           <svg aria-hidden viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full">
             <polygon points="50,2 98,50 50,98 2,50" className="fill-primary/8 stroke-primary" strokeWidth="1.2" vectorEffect="non-scaling-stroke" />
@@ -84,7 +84,7 @@ function Cartao({ etapas, i }: { etapas: Etapa[]; i: number }) {
     <div
       className={cn(
         "flex h-full gap-3 rounded-xl border p-4 shadow-sm",
-        fim ? "border-transparent bg-[#111416] text-white dark:bg-[#1d1f2b] dark:ring-1 dark:ring-primary/40" : "bg-card",
+        fim ? "border-transparent bg-[#111416] text-white dark:border-primary/60 dark:bg-primary/15" : "bg-card",
       )}
     >
       <Numero n={i + 1} invertido={fim} />
