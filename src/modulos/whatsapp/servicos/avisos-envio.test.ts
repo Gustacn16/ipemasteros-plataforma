@@ -213,6 +213,26 @@ describe("dispararAvisosDaHora", () => {
     expect(banco.estado.comandos[0]).toMatchObject({ tipo: "enviar_grupo", executarApos: AGORA });
   });
 
+  it("dois avisos no mesmo número na mesma rodada: o segundo começa depois do último do primeiro", async () => {
+    banco.estado.avisos = [aviso("a1", { agendadoPara: seg(-120) }), aviso("a2", { agendadoPara: seg(-60) })];
+    banco.estado.envios = [
+      envio("e1", "a1", "g1"), envio("e2", "a1", "g2"),
+      envio("e3", "a2", "g3"),
+    ];
+    banco.estado.noGrupo = ["g1", "g2", "g3"].map((conversaId) => ({ numeroId: "n1", conversaId }));
+    await dispararAvisosDaHora(AGORA, () => 0);
+    expect(banco.estado.comandos.map((c) => c.executarApos)).toEqual([AGORA, seg(8), seg(16)]);
+  });
+
+  it("número diferente no segundo aviso não espera", async () => {
+    banco.estado.numeros.push(numero("n2"));
+    banco.estado.avisos = [aviso("a1", { agendadoPara: seg(-120) }), aviso("a2", { agendadoPara: seg(-60) })];
+    banco.estado.envios = [envio("e1", "a1", "g1"), envio("e2", "a1", "g2"), envio("e3", "a2", "g3")];
+    banco.estado.noGrupo = [{ numeroId: "n1", conversaId: "g1" }, { numeroId: "n1", conversaId: "g2" }, { numeroId: "n2", conversaId: "g3" }];
+    await dispararAvisosDaHora(AGORA, () => 0);
+    expect(banco.estado.comandos.map((c) => [c.numeroId, c.executarApos])).toEqual([["n1", AGORA], ["n1", seg(8)], ["n2", AGORA]]);
+  });
+
   it("dois crons ao mesmo tempo não criam comandos duas vezes", async () => {
     banco.estado.avisos = [aviso("a1")];
     banco.estado.envios = [envio("e1", "a1", "g1"), envio("e2", "a1", "g2")];
@@ -276,7 +296,7 @@ describe("conferirEventosMudados", () => {
     expect(banco.estado.envios.map((e) => [e.situacao, e.erro])).toEqual([
       ["enviado", null], ["aguardando", null], ["falhou", "Cancelado: o evento mudou."],
     ]);
-    expect(banco.estado.avisos[0]!.situacao).toBe("enviando"); // espera o c2
+    expect(banco.estado.avisos[0]).toMatchObject({ situacao: "enviando", alerta: "O evento mudou durante o envio." }); // espera o c2
   });
 
   it("enviando sem nada em andamento fecha o aviso", async () => {
@@ -313,6 +333,38 @@ describe("conclusão dos envios", () => {
     expect(banco.estado.avisos[0]!.situacao).toBe("enviando");
     expect(banco.estado.envios[0]).toMatchObject({ situacao: "falhou", erro: "sem rede" });
     await concluirComando("c2", { situacao: "falhou" });
+    expect(banco.estado.avisos[0]!.situacao).toBe("falhou");
+  });
+
+  it("um falhou atrasado depois do concluido não desfaz o enviado", async () => {
+    banco.estado.avisos = [aviso("a1", { situacao: "enviando" })];
+    banco.estado.envios = [envio("e1", "a1", "g1", { comandoId: "c1" })];
+    banco.estado.comandos = [{ id: "c1", numeroId: "n1", tipo: "enviar_grupo", situacao: "em_andamento" }];
+    await concluirComando("c1", { situacao: "concluido" });
+    await concluirComando("c1", { situacao: "falhou", erro: "tarde" });
+    expect(banco.estado.envios[0]).toMatchObject({ situacao: "enviado", erro: null });
+    expect(banco.estado.avisos[0]!.situacao).toBe("concluido");
+  });
+
+  it("concluido que chega depois do prazo corrige o envio falhou", async () => {
+    banco.estado.avisos = [aviso("a1", { situacao: "falhou" })];
+    banco.estado.envios = [envio("e1", "a1", "g1", { comandoId: "c1", situacao: "falhou", erro: "O motor não confirmou o envio." })];
+    banco.estado.comandos = [{ id: "c1", numeroId: "n1", tipo: "enviar_grupo", situacao: "falhou" }];
+    await concluirComando("c1", { situacao: "concluido" });
+    expect(banco.estado.envios[0]).toMatchObject({ situacao: "enviado", erro: null });
+    expect(banco.estado.avisos[0]!.situacao).toBe("concluido");
+  });
+
+  it("pendente vencido há mais de 30 min falha o envio e fecha o aviso", async () => {
+    banco.estado.avisos = [aviso("a1", { situacao: "enviando" })];
+    banco.estado.envios = [envio("e1", "a1", "g1", { comandoId: "c1" })];
+    banco.estado.comandos = [{
+      id: "c1", numeroId: "n1", tipo: "enviar_grupo", situacao: "pendente", tentativas: 0, executarApos: seg(-31 * 60), criadoEm: seg(-40 * 60),
+      dados: { jid: "g1@g.us", texto: "Aviso", envioId: "e1" },
+    }];
+    expect(await entregarComandos(AGORA, { recursos: ["enviar_grupo"] })).toEqual([]);
+    expect(banco.estado.comandos[0]).toMatchObject({ situacao: "falhou", erro: "Passou do horário (o motor ficou parado)." });
+    expect(banco.estado.envios[0]).toMatchObject({ situacao: "falhou", erro: "Passou do horário (o motor ficou parado)." });
     expect(banco.estado.avisos[0]!.situacao).toBe("falhou");
   });
 

@@ -94,10 +94,14 @@ describe("cron envios-whatsapp", () => {
     expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain("secreto");
   });
 
-  it("falha na conferência não dispara nada", async () => {
+  it("falha na conferência não dispara nada e responde ok:false com o que já foi feito, sem a mensagem", async () => {
     mocks.gerarRascunhosDaSemana.mockResolvedValue({ criados: 0, jaExistiam: 0 });
-    mocks.conferirEventosMudados.mockRejectedValue(new Error("banco"));
-    await expect(chamar("envios-whatsapp")).rejects.toThrow();
+    mocks.conferirEventosMudados.mockRejectedValue(new Error("jid 1203@g.us"));
+    const r = await chamar("envios-whatsapp");
+    expect(r.status).toBe(200);
+    expect(await r.json()).toEqual({ ok: false, rascunhos: { criados: 0, jaExistiam: 0 } });
     expect(mocks.dispararAvisosDaHora).not.toHaveBeenCalled();
+    expect(console.error).toHaveBeenCalledWith(expect.any(String), "Error");
+    expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain("1203");
   });
 });

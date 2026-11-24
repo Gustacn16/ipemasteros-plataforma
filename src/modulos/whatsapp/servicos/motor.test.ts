@@ -352,6 +352,16 @@ describe("entregarComandos: enviar_grupo", () => {
     expect(banco.estado.comandos[0]!.tentativas).toBe(1);
   });
 
+  it("vencido há mais de 30 min (motor parado) não sai: falha o comando e o envio", async () => {
+    banco.estado.comandos = [envioGrupo("g1", { executarApos: minAtras(31) }), envioGrupo("g2", { executarApos: minAtras(29) })];
+    const r = await entregarComandos(AGORA, { recursos: ["enviar_grupo"] });
+    expect(r.map((c) => c.id)).toEqual(["g2"]);
+    expect(banco.estado.comandos[0]).toMatchObject({ situacao: "falhou", erro: "Passou do horário (o motor ficou parado).", tentativas: 0 });
+    expect(envio.registrarResultadoEnvio).toHaveBeenCalledWith(
+      expect.anything(), "g1", { situacao: "falhou", erro: "Passou do horário (o motor ficou parado)." }, AGORA,
+    );
+  });
+
   it("em andamento há 1 min não é reentregue", async () => {
     banco.estado.comandos = [envioGrupo("g1", { situacao: "em_andamento", tentativas: 1, iniciadoEm: minAtras(1) })];
     expect(await entregarComandos(AGORA, { recursos: ["enviar_grupo"] })).toEqual([]);

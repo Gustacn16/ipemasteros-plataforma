@@ -7,6 +7,7 @@ import { atrasosEnvio, escolherNumero, MAX_ENVIOS_NUMERO_DIA } from "../regras/a
 export const ALERTA_EVENTO_MUDOU = "O evento mudou depois da aprovação. Confira e aprove de novo.";
 export const ALERTA_EVENTO_EXCLUIDO = "O evento foi excluído.";
 export const ERRO_CANCELADO_EVENTO = "Cancelado: o evento mudou.";
+export const ALERTA_MUDOU_DURANTE_ENVIO = "O evento mudou durante o envio.";
 export const ERRO_LIMITE_DIA = "Limite de envios do dia atingido.";
 export const ALERTA_ATRASADO = "Não saiu no horário (o sistema ficou parado). Reagende o aviso.";
 export const ERRO_PASSOU_HORARIO = "Passou do horário.";
@@ -51,13 +52,19 @@ export async function registrarResultadoEnvio(
 ): Promise<void> {
   const envio = await cliente.envioAvisoGrupo.findUnique({ where: { comandoId }, select: { id: true, avisoId: true } });
   if (!envio) return;
-  await cliente.envioAvisoGrupo.update({
-    where: { id: envio.id },
-    data:
-      resultado.situacao === "concluido"
-        ? { situacao: "enviado", enviadoEm: agora, erro: null }
-        : { situacao: "falhou", erro: (resultado.erro || "O motor não conseguiu enviar.").slice(0, 255) },
-  });
+  // Condicional: um envio `enviado` nunca volta a `falhou` (resposta atrasada ou repetida do motor).
+  // Vale aguardando → enviado/falhou e falhou → enviado (confirmação que chegou depois do prazo).
+  if (resultado.situacao === "concluido") {
+    await cliente.envioAvisoGrupo.updateMany({
+      where: { id: envio.id, situacao: { in: ["aguardando", "falhou"] } },
+      data: { situacao: "enviado", enviadoEm: agora, erro: null },
+    });
+  } else {
+    await cliente.envioAvisoGrupo.updateMany({
+      where: { id: envio.id, situacao: "aguardando" },
+      data: { situacao: "falhou", erro: (resultado.erro || "O motor não conseguiu enviar.").slice(0, 255) },
+    });
+  }
   await fecharAvisoSeTerminou(cliente, envio.avisoId);
 }
 
@@ -120,24 +127,32 @@ export async function conferirEventosMudados(agora: Date): Promise<{ voltaram: n
       continue;
     }
 
-    // `enviando`: cancela só o que o motor ainda não pegou. Cada comando é reivindicado sozinho,
-    // para marcar o envio apenas quando o cancelamento venceu a busca do motor.
+    // `enviando`: avisa na tela e cancela só o que o motor ainda não pegou. Cada comando é
+    // reivindicado sozinho, junto com o envio dele numa transação, para marcar o envio apenas
+    // quando o cancelamento venceu a busca do motor.
+    await prisma.avisoGrupo.updateMany({
+      where: { id: aviso.id, situacao: "enviando" },
+      data: { alerta: ALERTA_MUDOU_DURANTE_ENVIO },
+    });
     const envios = await prisma.envioAvisoGrupo.findMany({
       where: { avisoId: aviso.id, situacao: "aguardando", comandoId: { not: null } },
       select: { id: true, comandoId: true },
     });
     let cancelados = 0;
     for (const envio of envios) {
-      const { count } = await prisma.comandoWhatsapp.updateMany({
-        where: { id: envio.comandoId!, situacao: "pendente" },
-        data: { situacao: "falhou", concluidoEm: agora, erro: ERRO_CANCELADO_EVENTO },
+      const cancelou = await prisma.$transaction(async (tx) => {
+        const { count } = await tx.comandoWhatsapp.updateMany({
+          where: { id: envio.comandoId!, situacao: "pendente" },
+          data: { situacao: "falhou", concluidoEm: agora, erro: ERRO_CANCELADO_EVENTO },
+        });
+        if (count === 0) return false;
+        await tx.envioAvisoGrupo.updateMany({
+          where: { id: envio.id, situacao: "aguardando" },
+          data: { situacao: "falhou", erro: ERRO_CANCELADO_EVENTO },
+        });
+        return true;
       });
-      if (count === 0) continue;
-      await prisma.envioAvisoGrupo.updateMany({
-        where: { id: envio.id, situacao: "aguardando" },
-        data: { situacao: "falhou", erro: ERRO_CANCELADO_EVENTO },
-      });
-      cancelados++;
+      if (cancelou) cancelados++;
     }
     if (cancelados > 0) {
       interrompidos++;
@@ -181,6 +196,9 @@ export async function dispararAvisosDaHora(
     });
     if (atrasou) total.atrasados++;
   }
+  // Último atraso (s) já marcado por número nesta rodada: o aviso seguinte no mesmo número
+  // começa depois dele, com uma nova espera de 8 a 20 s.
+  const ultimoAtraso = new Map<string, number>();
   const inicioDia = inicioDoDiaSaoPaulo(agora);
   const fimDia = new Date(inicioDia.getTime() + MS_DIA);
 
@@ -249,7 +267,13 @@ export async function dispararAvisosDaHora(
           aEnviar.push({ envio, numeroId });
         }
 
-        const atrasos = atrasosEnvio(aEnviar.length, aleatorio);
+        const anteriores = aEnviar.map((a) => ultimoAtraso.get(a.numeroId)).filter((v) => v !== undefined);
+        const atrasos =
+          anteriores.length === 0
+            ? atrasosEnvio(aEnviar.length, aleatorio)
+            : atrasosEnvio(aEnviar.length + 1, aleatorio)
+                .slice(1)
+                .map((a) => Math.max(...anteriores) + a);
         for (const [i, { envio, numeroId }] of aEnviar.entries()) {
           const dados: DadosEnviarGrupo = { jid: envio.conversa.jid, texto: aviso!.texto, envioId: envio.id };
           const comando = await tx.comandoWhatsapp.create({
@@ -271,6 +295,7 @@ export async function dispararAvisosDaHora(
             continue;
           }
           res.comandos++;
+          ultimoAtraso.set(numeroId, Math.max(ultimoAtraso.get(numeroId) ?? 0, atrasos[i]!));
         }
 
         if (res.comandos === 0) {

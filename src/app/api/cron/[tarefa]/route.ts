@@ -86,18 +86,24 @@ const TAREFAS: Record<string, () => Promise<Record<string, unknown>>> = {
   "envios-whatsapp": async () => {
     // A cada 5 min, em sequência. Só contagens na resposta: nada de texto do aviso nem jid.
     const agora = new Date();
-    // Falha nos rascunhos não segura os envios já aprovados.
-    let rascunhos: Record<string, unknown>;
+    const feito: Record<string, unknown> = {};
     try {
-      rascunhos = await gerarRascunhosDaSemana(agora);
+      // Falha nos rascunhos não segura os envios já aprovados.
+      try {
+        feito.rascunhos = await gerarRascunhosDaSemana(agora);
+      } catch (e) {
+        console.error("[whatsapp] falha nos rascunhos de aviso:", descreverErro(e));
+        feito.rascunhos = { criados: 0, motivo: "erro" };
+      }
+      // Conferir o evento vem antes de disparar: se falhar, nada é enviado nesta rodada.
+      feito.eventos = await conferirEventosMudados(agora);
+      feito.envios = await dispararAvisosDaHora(agora);
+      return { ok: true, ...feito };
     } catch (e) {
-      console.error("[whatsapp] falha nos rascunhos de aviso:", descreverErro(e));
-      rascunhos = { criados: 0, motivo: "erro" };
+      // Só o tipo e o código do erro: a mensagem pode trazer dados do aviso.
+      console.error("[whatsapp] falha nos envios de aviso:", descreverErro(e));
+      return { ok: false, ...feito };
     }
-    // Conferir o evento vem antes de disparar: se falhar, nada é enviado nesta rodada.
-    const eventos = await conferirEventosMudados(agora);
-    const envios = await dispararAvisosDaHora(agora);
-    return { ok: true, rascunhos, eventos, envios };
   },
   "importar-stories-instagram": async () => {
     const r = await atualizarInstagram({ tipo: "stories", origem: "agendada" });
