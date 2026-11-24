@@ -597,15 +597,18 @@ model Publicacao {
 
 /// Tipo de evento institucional (cor e ordem na agenda). Não há exclusão, só desativação.
 model TipoEvento {
-  id           String   @id @default(cuid())
-  nome         String   @unique @db.VarChar(40)
-  cor          String   @db.VarChar(7)
-  ordem        Int
-  ativo        Boolean  @default(true)
-  criadoEm     DateTime @default(now()) @map("criado_em")
-  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+  id                String   @id @default(cuid())
+  nome              String   @unique @db.VarChar(40)
+  cor               String   @db.VarChar(7)
+  ordem             Int
+  ativo             Boolean  @default(true)
+  /// Eventos deste tipo viram aviso nos grupos de WhatsApp.
+  divulgarNosGrupos Boolean  @default(false) @map("divulgar_nos_grupos")
+  criadoEm          DateTime @default(now()) @map("criado_em")
+  atualizadoEm      DateTime @updatedAt @map("atualizado_em")
 
-  eventos EventoInstitucional[]
+  eventos      EventoInstitucional[]
+  gruposPadrao GrupoPadraoTipoEvento[]
 
   @@map("tipos_evento")
 }
@@ -629,8 +632,9 @@ model EventoInstitucional {
   criadoEm           DateTime  @default(now()) @map("criado_em")
   atualizadoEm       DateTime  @updatedAt @map("atualizado_em")
 
-  tipo      TipoEvento @relation(fields: [tipoId], references: [id])
-  criadoPor Usuario    @relation("EventoCriadoPor", fields: [criadoPorId], references: [id])
+  tipo      TipoEvento  @relation(fields: [tipoId], references: [id])
+  criadoPor Usuario     @relation("EventoCriadoPor", fields: [criadoPorId], references: [id])
+  aviso     AvisoGrupo?
 
   @@index([dataInicio, dataFim])
   @@index([loteId])
@@ -1367,6 +1371,7 @@ enum SituacaoNumeroWhatsapp {
 enum TipoComandoWhatsapp {
   conectar
   desconectar
+  enviar_grupo
 }
 
 enum SituacaoComandoWhatsapp {
@@ -1424,6 +1429,8 @@ model ComandoWhatsapp {
   tentativas   Int                     @default(0)
   iniciadoEm   DateTime?               @map("iniciado_em")
   concluidoEm  DateTime?               @map("concluido_em")
+  /// Só para enviar_grupo: o motor não pega o comando antes desse instante.
+  executarApos DateTime?               @map("executar_apos")
   erro         String?                 @db.VarChar(255)
   criadoEm     DateTime                @default(now()) @map("criado_em")
   atualizadoEm DateTime                @updatedAt @map("atualizado_em")
@@ -1499,13 +1506,15 @@ model ConversaWhatsapp {
   criadoEm         DateTime                  @default(now()) @map("criado_em")
   atualizadoEm     DateTime                  @updatedAt @map("atualizado_em")
 
-  numero     NumeroWhatsapp?     @relation(fields: [numeroId], references: [id])
-  contato    ContatoWhatsapp?    @relation(fields: [contatoId], references: [id])
-  turma      Turma?              @relation(fields: [turmaId], references: [id], onDelete: SetNull)
-  nosGrupo   NumeroNoGrupo[]
-  mensagens  MensagemWhatsapp[]
-  resumos    ResumoGrupo[]
-  avaliacoes AvaliacaoConversa[]
+  numero             NumeroWhatsapp?         @relation(fields: [numeroId], references: [id])
+  contato            ContatoWhatsapp?        @relation(fields: [contatoId], references: [id])
+  turma              Turma?                  @relation(fields: [turmaId], references: [id], onDelete: SetNull)
+  nosGrupo           NumeroNoGrupo[]
+  mensagens          MensagemWhatsapp[]
+  resumos            ResumoGrupo[]
+  avaliacoes         AvaliacaoConversa[]
+  enviosAviso        EnvioAvisoGrupo[]
+  gruposPadraoEvento GrupoPadraoTipoEvento[]
 
   @@unique([numeroId, jid])
   @@index([tipo, monitorada])
@@ -2213,4 +2222,82 @@ model RealizadoMensalIndicador {
   @@unique([indicadorId, mes])
   @@index([registradoPorId])
   @@map("realizados_mensais_indicador")
+}
+
+enum SituacaoAvisoGrupo {
+  rascunho
+  aprovado
+  enviando
+  concluido
+  cancelado
+  falhou
+}
+
+enum OrigemAvisoGrupo {
+  agenda
+  avulso
+}
+
+enum SituacaoEnvioAviso {
+  aguardando
+  enviado
+  falhou
+  sem_numero
+  cancelado
+}
+
+/// Aviso a enviar aos grupos de WhatsApp (da agenda ou avulso).
+model AvisoGrupo {
+  id            String             @id @default(cuid())
+  eventoId      String?            @unique @map("evento_id")
+  texto         String             @db.Text
+  agendadoPara  DateTime           @map("agendado_para")
+  situacao      SituacaoAvisoGrupo @default(rascunho)
+  origem        OrigemAvisoGrupo
+  /// Dados do evento no momento da aprovação (titulo, dataInicio ISO, horaInicio, local).
+  retratoEvento Json?              @map("retrato_evento")
+  alerta        String?            @db.VarChar(255)
+  textoPorIa    Boolean            @default(false) @map("texto_por_ia")
+  aprovadoPorId String?            @map("aprovado_por_id")
+  aprovadoEm    DateTime?          @map("aprovado_em")
+  /// Nulo quando o aviso nasceu do sistema.
+  criadoPorId   String?            @map("criado_por_id")
+  canceladoEm   DateTime?          @map("cancelado_em")
+  criadoEm      DateTime           @default(now()) @map("criado_em")
+  atualizadoEm  DateTime           @updatedAt @map("atualizado_em")
+
+  evento EventoInstitucional? @relation(fields: [eventoId], references: [id], onDelete: SetNull)
+  envios EnvioAvisoGrupo[]
+
+  @@index([situacao, agendadoPara])
+  @@map("avisos_grupo")
+}
+
+model EnvioAvisoGrupo {
+  id         String             @id @default(cuid())
+  avisoId    String             @map("aviso_id")
+  conversaId String             @map("conversa_id")
+  numeroId   String?            @map("numero_id")
+  comandoId  String?            @unique @map("comando_id")
+  situacao   SituacaoEnvioAviso @default(aguardando)
+  erro       String?            @db.VarChar(255)
+  enviadoEm  DateTime?          @map("enviado_em")
+
+  aviso    AvisoGrupo       @relation(fields: [avisoId], references: [id], onDelete: Cascade)
+  conversa ConversaWhatsapp @relation(fields: [conversaId], references: [id], onDelete: Cascade)
+
+  @@unique([avisoId, conversaId])
+  @@map("envios_aviso_grupo")
+}
+
+/// Grupos marcados por padrão ao criar um aviso de um tipo de evento.
+model GrupoPadraoTipoEvento {
+  tipoId     String @map("tipo_id")
+  conversaId String @map("conversa_id")
+
+  tipo     TipoEvento       @relation(fields: [tipoId], references: [id], onDelete: Cascade)
+  conversa ConversaWhatsapp @relation(fields: [conversaId], references: [id], onDelete: Cascade)
+
+  @@id([tipoId, conversaId])
+  @@map("grupos_padrao_tipo_evento")
 }

@@ -358,3 +358,14 @@ describe("permissões de Processos internos", () => {
     for (const papel of ["colaborador", "comercial", "professor"] as const) expect(temPermissao(papel, "processos:editar")).toBe(false);
   });
 });
+
+describe("permissão dos avisos nos grupos", () => {
+  it("admin e gestor enviam avisos; os demais papéis não", () => {
+    for (const papel of ["admin", "gestor"] as const) {
+      expect(temPermissao(papel, "whatsapp:avisos")).toBe(true);
+    }
+    for (const papel of ["comercial", "colaborador", "professor", "aluno"] as const) {
+      expect(temPermissao(papel, "whatsapp:avisos")).toBe(false);
+    }
+  });
+});

@@ -54,6 +54,7 @@ export type Permissao =
   | "whatsapp:ver_grupos"
   | "whatsapp:ver_equipe"
   | "whatsapp:ver_proprio"
+  | "whatsapp:avisos"
   | "nexu:usar"
   | "nexu:configurar"
   | "espiao:ver"
@@ -101,7 +102,7 @@ const ACADEMICO_GESTAO: readonly Permissao[] = ["academico:ver", "academico:gere
 
 // Cadastrar e excluir números do WhatsApp é coisa de gestão; o comercial só conecta o próprio.
 // Gestão também vê os grupos e todas as conversas individuais.
-const WHATSAPP_GESTAO: readonly Permissao[] = ["whatsapp:gerenciar_numeros", "whatsapp:ver_grupos", "whatsapp:ver_equipe"];
+const WHATSAPP_GESTAO: readonly Permissao[] = ["whatsapp:gerenciar_numeros", "whatsapp:ver_grupos", "whatsapp:ver_equipe", "whatsapp:avisos"];
 
 // Escrever e publicar os padrões da empresa é coisa de gestão.
 const PROCESSOS_GESTAO: readonly Permissao[] = ["processos:ver", "processos:editar"];
