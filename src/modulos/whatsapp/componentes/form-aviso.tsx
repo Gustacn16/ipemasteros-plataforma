@@ -23,6 +23,8 @@ type Estado = { ok: boolean; mensagem?: string; erros?: Record<string, string[] 
 /** Formulário de um aviso: texto, data e hora, grupos (com busca no cliente) e botões Salvar / Aprovar / Cancelar. */
 export function FormAviso({ aviso, grupos, aoConcluir }: { aviso: DadosFormAviso; grupos: GrupoOpcao[]; aoConcluir?: () => void }) {
   const [escolhidos, setEscolhidos] = useState<Set<string>>(() => new Set(aviso.grupos));
+  const [texto, setTexto] = useState(aviso.texto);
+  const [agendadoPara, setAgendadoPara] = useState(aviso.agendadoPara);
   const [busca, setBusca] = useState("");
   const termo = busca.trim().toLowerCase();
 
@@ -71,13 +73,14 @@ export function FormAviso({ aviso, grupos, aoConcluir }: { aviso: DadosFormAviso
           required
           rows={6}
           maxLength={MAX_TEXTO_AVISO}
-          defaultValue={aviso.texto}
+          value={texto}
+          onChange={(e) => setTexto(e.target.value)}
           className="border-input bg-background min-h-24 w-full rounded-md border px-3 py-2 text-sm"
         />
       </label>
       <label className="grid gap-1 text-sm">
         Data e hora do envio (horário de São Paulo)
-        <Input type="datetime-local" name="agendadoPara" required defaultValue={aviso.agendadoPara} className="w-64" />
+        <Input type="datetime-local" name="agendadoPara" required value={agendadoPara} onChange={(e) => setAgendadoPara(e.target.value)} className="w-64" />
       </label>
       <fieldset className="grid gap-2">
         <legend className="text-sm">
@@ -107,7 +110,12 @@ export function FormAviso({ aviso, grupos, aoConcluir }: { aviso: DadosFormAviso
           </Button>
         )}
         {aviso.id && (
-          <Button type="submit" name="intencao" value="cancelar" size="sm" variant="outline" formNoValidate disabled={pendente}>
+          <Button type="submit" name="intencao" value="cancelar" size="sm" variant="outline" formNoValidate
+            disabled={pendente}
+            onClick={(e) => {
+              if (!window.confirm("Cancelar este aviso? Ele não será enviado.")) e.preventDefault();
+            }}
+          >
             Cancelar aviso
           </Button>
         )}

@@ -55,14 +55,18 @@ const DIAS_RASCUNHOS = 30;
 async function avisosDoPanorama(ator: UsuarioAtual, agora: Date): Promise<AvisosPanorama> {
   try {
     const dia = 86_400_000;
-    const lista = await listarAvisos(ator, agora, new Date(agora.getTime() + DIAS_RASCUNHOS * dia));
-    const limite = agora.getTime() + DIAS_PROXIMOS_ENVIOS * dia;
-    const proximos = lista
-      .filter((a) => (a.situacao === "aprovado" || a.situacao === "enviando") && a.agendadoPara.getTime() <= limite)
+    const t = agora.getTime();
+    // "Enviando" costuma já ter passado do horário agendado, por isso a janela começa 1 dia antes.
+    const [proximosR, rascunhosR] = await Promise.all([
+      listarAvisos(ator, new Date(t - dia), new Date(t + DIAS_PROXIMOS_ENVIOS * dia)),
+      listarAvisos(ator, new Date(t - DIAS_RASCUNHOS * dia), new Date(t + DIAS_RASCUNHOS * dia)),
+    ]);
+    const proximos = proximosR
+      .filter((a) => a.situacao === "aprovado" || a.situacao === "enviando")
       .sort((x, y) => x.agendadoPara.getTime() - y.agendadoPara.getTime())
       .slice(0, MAX_PROXIMOS_ENVIOS)
       .map((a) => ({ id: a.id, titulo: a.evento?.titulo ?? "Aviso avulso", agendadoPara: a.agendadoPara, grupos: a.grupos.length }));
-    return { falhou: false, proximos, rascunhos: lista.filter((a) => a.situacao === "rascunho").length };
+    return { falhou: false, proximos, rascunhos: rascunhosR.filter((a) => a.situacao === "rascunho").length };
   } catch {
     return { falhou: true, proximos: [], rascunhos: 0 };
   }

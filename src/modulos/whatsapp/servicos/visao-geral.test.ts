@@ -111,23 +111,26 @@ describe("panoramaWhatsapp", () => {
   });
 
   describe("avisos", () => {
-    it("lista até 5 aprovados/enviando dos próximos 7 dias e conta rascunhos", async () => {
-      m.listarAvisos.mockResolvedValue([
-        aviso("a1", "aprovado", 30),
-        aviso("a2", "enviando", 2, null, 3),
-        aviso("a3", "aprovado", 24 * 8),
-        aviso("a4", "concluido", 5),
-        aviso("a5", "rascunho", 10),
-        aviso("a6", "rascunho", 24 * 20),
-        ...[1, 2, 3, 4, 5].map((i) => aviso(`b${i}`, "aprovado", 40 + i)),
-      ]);
+    it("consulta as janelas certas e lista até 5 aprovados/enviando, inclusive já passados", async () => {
+      m.listarAvisos.mockImplementation(async (_a: unknown, de: Date) =>
+        de.getTime() === AGORA.getTime() - HORA * 24
+          ? [
+              aviso("a1", "aprovado", 30),
+              aviso("a2", "enviando", -2, null, 3),
+              aviso("a4", "concluido", 5),
+              aviso("a5", "rascunho", 10),
+              ...[1, 2, 3, 4, 5].map((i) => aviso(`b${i}`, "aprovado", 40 + i)),
+            ]
+          : [aviso("r1", "rascunho", -48), aviso("r2", "rascunho", 10), aviso("r3", "rascunho", 24 * 20), aviso("x", "aprovado", 3)],
+      );
       const p = await panoramaWhatsapp(gestor, AGORA);
+      expect(m.listarAvisos).toHaveBeenCalledWith(gestor, new Date(AGORA.getTime() - 24 * HORA), new Date(AGORA.getTime() + 7 * 24 * HORA));
+      expect(m.listarAvisos).toHaveBeenCalledWith(gestor, new Date(AGORA.getTime() - 30 * 24 * HORA), new Date(AGORA.getTime() + 30 * 24 * HORA));
       expect(p.avisos?.falhou).toBe(false);
-      expect(p.avisos?.rascunhos).toBe(2);
+      expect(p.avisos?.rascunhos).toBe(3);
       expect(p.avisos?.proximos).toHaveLength(5);
       expect(p.avisos?.proximos[0]).toMatchObject({ id: "a2", titulo: "Aviso avulso", grupos: 3 });
       expect(p.avisos?.proximos[1].id).toBe("a1");
-      expect(p.avisos?.proximos.map((x) => x.id)).not.toContain("a3");
     });
 
     it("falha em listarAvisos marca avisos.falhou sem derrubar o resto", async () => {
