@@ -31,21 +31,21 @@ export function horarioSugerido(dataInicio: Date): Date {
   return new Date(`${vespera}T09:00:00-03:00`);
 }
 
-function horaDecimalEmSaoPaulo(d: Date): number {
+function segundosDoDiaEmSaoPaulo(d: Date): number {
   const s = new Date(d.getTime() - OFFSET_MS);
-  return s.getUTCHours() + s.getUTCMinutes() / 60 + s.getUTCSeconds() / 3600;
+  return s.getUTCHours() * 3600 + s.getUTCMinutes() * 60 + s.getUTCSeconds();
 }
 
 /** Devolve a mensagem de erro ou null se o aviso cabe na janela de envio. */
 export function validarJanela(agendadoPara: Date, grupos: number): string | null {
   if (grupos < 1) return "Escolha ao menos um grupo.";
   if (grupos > MAX_GRUPOS_POR_AVISO) return `Um aviso vai a no máximo ${MAX_GRUPOS_POR_AVISO} grupos.`;
-  if (horaDecimalEmSaoPaulo(agendadoPara) < HORA_INICIO_ENVIO) return `Os avisos saem a partir das ${HORA_INICIO_ENVIO}h.`;
-  // O último envio sai depois de (grupos - 1) esperas, no pior caso a máxima.
-  const ultimo = new Date(agendadoPara.getTime() + (grupos - 1) * ESPERA_MAX_S * 1000);
-  const h = horaDecimalEmSaoPaulo(ultimo);
-  const mesmoDia = diaEmSaoPaulo(ultimo) === diaEmSaoPaulo(agendadoPara);
-  if (!mesmoDia || h > HORA_FIM_ENVIO) return `O último envio passaria das ${HORA_FIM_ENVIO}h. Marque um horário mais cedo ou escolha menos grupos.`;
+  const inicio = segundosDoDiaEmSaoPaulo(agendadoPara);
+  if (inicio < HORA_INICIO_ENVIO * 3600) return `Os avisos saem a partir das ${HORA_INICIO_ENVIO}h.`;
+  // Pior caso: cada grupo gasta a espera máxima, então o fim é início + grupos × 20 s.
+  if (inicio + grupos * ESPERA_MAX_S > HORA_FIM_ENVIO * 3600) {
+    return `O último envio passaria das ${HORA_FIM_ENVIO}h. Marque um horário mais cedo ou escolha menos grupos.`;
+  }
   return null;
 }
 
@@ -66,8 +66,8 @@ const DIAS = ["domingo", "segunda-feira", "terça-feira", "quarta-feira", "quint
 export function textoPadrao(e: { titulo: string; dataInicio: Date; horaInicio: string | null; local: string | null; descricao: string | null }): string {
   const iso = e.dataInicio.toISOString().slice(0, 10);
   const data = `${DIAS[e.dataInicio.getUTCDay()]}, ${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
-  const linhas = [`*${e.titulo}*`, `Data: ${data}${e.horaInicio ? ` às ${e.horaInicio}` : ""}`];
-  if (e.local) linhas.push(`Local: ${e.local}`);
+  const linhas = [`📢 ${e.titulo}`, `🗓️ ${data}${e.horaInicio ? ` às ${e.horaInicio}` : ""}`];
+  if (e.local) linhas.push(`📍 ${e.local}`);
   if (e.descricao) linhas.push(e.descricao);
   return linhas.join("\n");
 }

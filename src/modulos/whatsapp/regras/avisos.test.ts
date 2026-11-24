@@ -44,6 +44,15 @@ describe("validarJanela", () => {
   it("recusa quando o último envio passa das 20h", () => {
     expect(validarJanela(new Date("2026-12-02T22:55:00Z"), 30)).toContain("20h");
   });
+  it("19h50 com 30 grupos fecha exatamente às 20h", () => {
+    expect(validarJanela(new Date("2026-12-02T22:50:00Z"), 30)).toBeNull();
+  });
+  it("19h50m01s com 30 grupos passa das 20h", () => {
+    expect(validarJanela(new Date("2026-12-02T22:50:01Z"), 30)).toContain("20h");
+  });
+  it("20h com 1 grupo passa das 20h", () => {
+    expect(validarJanela(new Date("2026-12-02T23:00:00Z"), 1)).toContain("20h");
+  });
   it("recusa mais de 30 grupos", () => {
     expect(validarJanela(new Date("2026-12-02T13:00:00Z"), 31)).toContain("30 grupos");
   });
@@ -66,17 +75,13 @@ describe("atrasosEnvio", () => {
 });
 
 describe("textoPadrao", () => {
-  it("sem hora, local e descrição tem só duas linhas", () => {
+  it("só título e data", () => {
     const t = textoPadrao({ titulo: "Aula inaugural", dataInicio: new Date("2026-12-03T00:00:00Z"), horaInicio: null, local: null, descricao: null });
-    expect(t.split("\n")).toHaveLength(2);
-    expect(t).toContain("quinta-feira, 03/12");
-    expect(t).toContain("Aula inaugural");
+    expect(t).toBe("📢 Aula inaugural\n🗓️ quinta-feira, 03/12");
   });
-  it("inclui hora, local e descrição quando existem", () => {
+  it("com todos os campos", () => {
     const t = textoPadrao({ titulo: "Aula", dataInicio: new Date("2026-12-03T00:00:00Z"), horaInicio: "19:00", local: "Sala 2", descricao: "Traga o jaleco" });
-    expect(t).toContain("19:00");
-    expect(t).toContain("Sala 2");
-    expect(t).toContain("Traga o jaleco");
+    expect(t).toBe("📢 Aula\n🗓️ quinta-feira, 03/12 às 19:00\n📍 Sala 2\nTraga o jaleco");
   });
 });
 
