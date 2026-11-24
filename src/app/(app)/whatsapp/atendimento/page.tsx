@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CabecalhoPagina } from "@/componentes/cabecalho-pagina";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/componentes/ui/card";
+import { temPermissao } from "@/lib/permissoes";
 import { exigirPermissaoPagina } from "@/lib/sessao";
 import { somarDias } from "@/modulos/tarefas/regras/prazo";
 import { AbasWhatsapp } from "@/modulos/whatsapp/componentes/abas-whatsapp";
 import { GraficoAtendimento } from "@/modulos/whatsapp/componentes/grafico-atendimento";
-import { RegrasAtendimentoForm } from "@/modulos/whatsapp/componentes/regras-atendimento";
 import { ListaPioresNotas, ListaSemResposta, TabelaAtendimento, TextoRegras } from "@/modulos/whatsapp/componentes/tabela-atendimento";
 import { semanaDaConsulta, ultimasSemanas } from "@/modulos/whatsapp/regras/dia";
 import { temFollowup } from "@/modulos/whatsapp/regras/time";
@@ -116,9 +116,17 @@ export default async function PaginaAtendimento({ searchParams }: { searchParams
       <Card>
         <CardHeader>
           <CardTitle>Regras do atendimento</CardTitle>
-          {usuario.papel !== "admin" && <CardDescription>Só o admin altera estas regras.</CardDescription>}
+          {temPermissao(usuario.papel, "whatsapp:gerenciar_numeros") && (
+            <CardDescription>
+              <Link href="/whatsapp/configuracoes" className="underline-offset-4 hover:underline">
+                Alterar em Configurações → Ajustes
+              </Link>
+            </CardDescription>
+          )}
         </CardHeader>
-        <CardContent>{usuario.papel === "admin" ? <RegrasAtendimentoForm regras={regras} /> : <TextoRegras regras={regras} />}</CardContent>
+        <CardContent>
+          <TextoRegras regras={regras} />
+        </CardContent>
       </Card>
     </div>
   );

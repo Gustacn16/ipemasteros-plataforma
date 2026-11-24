@@ -29,6 +29,14 @@ A tela nunca fala com o motor: grava comandos no banco e o motor os busca. O mot
 - `whatsapp:ver_proprio` (papel `comercial`): vê e categoriza só as conversas dos números dos quais é dono.
 - Abas **Atendimento** e **CS**: só `whatsapp:ver_equipe`. Mudar o time de um número: `whatsapp:gerenciar_numeros`. Editar as regras do atendimento: só o papel `admin`.
 
+## Organização da área
+O menu do WhatsApp tem quatro seções. Cada pessoa só vê as que pode usar; ao abrir `/whatsapp`, vai para a primeira disponível (gestão: Visão geral; vendedor: Conversas).
+
+- **Visão geral** (`/whatsapp/visao-geral`): resumo para a gestão. Mostra os números do momento, as oportunidades e os pontos de atenção.
+- **Grupos** (`/whatsapp/grupos`): grupos da escola e quais acompanhar.
+- **Equipe**: **Atendimento** (tempo de resposta, prazo e follow-up), **Leads** (avaliações da IA), **CS** (tempo até o primeiro contato nas vendas) e **Conversas** (as conversas de cada número; o vendedor vê só as suas).
+- **Configurações**: **Números** (conectar, desconectar e cuidar dos números) e **Ajustes** (`/whatsapp/configuracoes`, só quem gerencia números). Em Ajustes ficam as regras de atendimento (horário, prazo de resposta e follow-up; só o admin altera, os outros só leem) e o uso de IA (gasto do mês e limite; só o admin altera). O uso de IA também continua em Saúde do WhatsApp. Na aba Atendimento, as regras aparecem só em texto, com um link para Ajustes.
+
 ## Telas
 - `/whatsapp` redireciona para a primeira aba que a pessoa pode ver. As abas no topo são **Grupos · Atendimento · Leads · CS · Conversas · Números**, cada uma só para quem pode. O item "WhatsApp" do menu aparece para quem tem qualquer uma das permissões do módulo.
 - `/whatsapp/grupos`: tabela com nome, números da empresa no grupo, mensagens nos últimos 7 dias, turma (seletor) e o interruptor "Acompanhar". Grupo provisório mostra "Histórico guardado até <data>". Ao desmarcar, confirma "As mensagens guardadas deste grupo serão apagadas."

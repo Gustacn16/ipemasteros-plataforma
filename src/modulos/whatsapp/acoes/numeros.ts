@@ -141,6 +141,7 @@ export async function salvarRegrasAtendimentoAcao(dados: unknown): Promise<Estad
     if (ator.papel !== "admin") throw new ErroPermissao("whatsapp:ver_equipe");
     await salvarRegrasAtendimento(dados, ator.id);
     revalidatePath("/whatsapp/atendimento");
+    revalidatePath("/whatsapp/configuracoes");
     return { ok: true, mensagem: "Regras salvas." };
   } catch (erro) {
     return tratarErroAcao(erro);
