@@ -2,12 +2,9 @@
 
 import { ChevronDownIcon, PlugIcon, SettingsIcon } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { ROTULO_PLATAFORMA, type FiltroConteudo } from "../esquemas/conteudo";
-import { useAplicarFiltro } from "./barra-filtros";
-import type { Conta } from "../servicos/contas";
-import { SeloPlataforma } from "./selo-plataforma";
+import type { PerfilInstagramMenu } from "../servicos/visao-instagram";
 import { BotaoNovoConteudo } from "./novo-conteudo";
 
 const VISOES = [
@@ -21,39 +18,48 @@ const VISOES = [
 const estiloItem =
   "hover:bg-muted focus-visible:ring-ring flex w-full min-w-0 items-center gap-2 truncate rounded-md px-2 py-1.5 text-left text-sm focus-visible:ring-2 focus-visible:outline-none";
 
-type Props = { contas: Conta[]; podeConfigurar: boolean; podeIntegrar?: boolean; filtro: FiltroConteudo };
+type Props = { perfis: PerfilInstagramMenu[]; podeConfigurar: boolean; podeIntegrar?: boolean };
 
-function Conteudo({ contas, podeConfigurar, podeIntegrar, filtro }: Props) {
+/** Ícone do Instagram (contorno da câmera), na cor do texto. */
+function IconeInstagram({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden className={className}>
+      <rect x="3" y="3" width="18" height="18" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17.5" cy="6.5" r="0.6" fill="currentColor" />
+    </svg>
+  );
+}
+
+function Conteudo({ perfis, podeConfigurar, podeIntegrar }: Props) {
   const caminho = usePathname();
-  const router = useRouter();
-  const { aplicar } = useAplicarFiltro();
-  const { marca, canal, formato } = filtro;
-  // Fora das visões (detalhe, configurações), escolher uma conta leva para os Relatórios.
-  const ehVisao = VISOES.some((v) => v.href === caminho);
-  const filtrar = (novo: Pick<FiltroConteudo, "marca" | "canal" | "formato">) => {
-    aplicar({ ...filtro, formato: undefined, ...novo });
-    if (!ehVisao) router.push("/conteudo/relatorios");
-  };
+  const busca = useSearchParams();
+  const naRelatorios = caminho === "/conteudo/relatorios";
+  const contaAberta = naRelatorios ? busca.get("conta") : null;
 
   return (
     <nav aria-label="Conteúdo" className="grid gap-4">
       <BotaoNovoConteudo className="w-full" />
       <div className="grid gap-0.5">
-        {VISOES.map((v) => (
-          <Link
-            key={v.href}
-            href={v.href}
-            aria-current={caminho === v.href ? "page" : undefined}
-            className={cn(estiloItem, caminho === v.href && "bg-muted font-medium")}
-          >
-            {v.rotulo}
-          </Link>
-        ))}
+        {VISOES.map((v) => {
+          // Relatórios fica marcado só na visão de todos os perfis; um perfil aberto marca o perfil.
+          const atual = caminho === v.href && !(v.href === "/conteudo/relatorios" && contaAberta);
+          return (
+            <Link
+              key={v.href}
+              href={v.href}
+              aria-current={atual ? "page" : undefined}
+              className={cn(estiloItem, atual && "bg-muted font-medium")}
+            >
+              {v.rotulo}
+            </Link>
+          );
+        })}
       </div>
 
       <div className="grid gap-0.5">
         <div className="flex items-center justify-between px-2">
-          <p className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">Contas</p>
+          <p className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">Instagram</p>
           {podeConfigurar && (
             <Link
               href="/conteudo/configuracoes"
@@ -64,60 +70,18 @@ function Conteudo({ contas, podeConfigurar, podeIntegrar, filtro }: Props) {
             </Link>
           )}
         </div>
-        <button
-          type="button"
-          onClick={() => filtrar({ marca: undefined, canal: undefined })}
-          className={cn(estiloItem, !marca && !canal && "font-medium")}
-        >
-          Todas as contas
-        </button>
-        {contas.length === 0 && (
-          <p className="text-muted-foreground px-2 py-1 text-sm">
-            {podeConfigurar ? "Cadastre as contas na engrenagem." : "Nenhuma conta cadastrada ainda."}
-          </p>
-        )}
-        {contas.map((c) => (
-          <div key={c.id} className="grid gap-0.5">
-            <button
-              type="button"
-              onClick={() => filtrar({ marca: c.id, canal: undefined })}
-              aria-pressed={marca === c.id && !canal}
-              className={cn(estiloItem, "font-medium", marca === c.id && !canal && "bg-muted")}
-            >
-              <span aria-hidden className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: c.cor }} />
-              <span className="truncate">{c.nome}</span>
-            </button>
-            {c.canais.map((k) => (
-              <div key={k.id} className="grid gap-0.5">
-                <button
-                  type="button"
-                  onClick={() => filtrar({ marca: c.id, canal: k.id })}
-                  aria-pressed={canal === k.id && !formato}
-                  className={cn(estiloItem, "pl-6", canal === k.id && !formato && "bg-muted font-medium")}
-                >
-                  <SeloPlataforma plataforma={k.plataforma} />
-                  <span className="truncate">{ROTULO_PLATAFORMA[k.plataforma]}</span>
-                </button>
-                {/* Formatos do canal: o jeito de organizar o trabalho (ex.: YouTube → Entrevista). */}
-                {canal === k.id &&
-                  k.formatos.map((f) => (
-                  <button
-                    type="button"
-                    key={f.id}
-                    onClick={() => filtrar({ marca: c.id, canal: k.id, formato: f.id })}
-                    aria-pressed={formato === f.id}
-                    className={cn(
-                      estiloItem,
-                      "text-muted-foreground pl-12 text-xs",
-                      formato === f.id && "bg-muted text-foreground font-medium",
-                    )}
-                  >
-                    <span className="truncate">{f.nome}</span>
-                  </button>
-                ))}
-              </div>
-            ))}
-          </div>
+        {perfis.length === 0 && <p className="text-muted-foreground px-2 py-1 text-sm">Nenhum perfil conectado ainda.</p>}
+        {/* Cada perfil conectado abre as métricas dele nos Relatórios. */}
+        {perfis.map((p) => (
+          <Link
+            key={p.id}
+            href={`/conteudo/relatorios?conta=${p.id}`}
+            aria-current={contaAberta === p.id ? "page" : undefined}
+            className={cn(estiloItem, contaAberta === p.id && "bg-muted font-medium")}
+          >
+            <IconeInstagram className="size-4 shrink-0" />
+            <span className="truncate">@{p.usuario}</span>
+          </Link>
         ))}
       </div>
 
@@ -148,7 +112,7 @@ export function MenuConteudo(props: Props) {
       </aside>
       <details className="group bg-card border-b md:hidden">
         <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-semibold">
-          Conteúdo: visões e contas
+          Conteúdo: visões e perfis
           <ChevronDownIcon className="size-4 transition-transform group-open:rotate-180" aria-hidden />
         </summary>
         <div className="px-2 pb-3">

@@ -28,6 +28,16 @@ const mesAnterior = (mes: string) => somarDias(`${mes}-01`, -1).slice(0, 7);
 /** Instantes de início e fim (exclusivo) do mês "AAAA-MM" em São Paulo. */
 const limitesDoMes = (mes: string) => ({ gte: inicioDoDiaSaoPaulo(`${mes}-01`), lt: inicioDoDiaSaoPaulo(`${proximoMes(mes)}-01`) });
 
+/** Perfis do Instagram conectados (canal ativo), para o menu do módulo. */
+export async function perfisInstagramDoMenu() {
+  return prisma.contaInstagram.findMany({
+    where: contasDoFiltroWhere({}),
+    orderBy: { usuario: "asc" },
+    select: { id: true, usuario: true },
+  });
+}
+export type PerfilInstagramMenu = Awaited<ReturnType<typeof perfisInstagramDoMenu>>[number];
+
 /** Contas do Instagram ligadas a um canal que entra no filtro de conta e canal. */
 const contasDoFiltroWhere = (f: FiltroConteudo): Prisma.ContaInstagramWhereInput => ({
   ativa: true,
@@ -104,7 +114,8 @@ async function contasDoRelatorio(f: FiltroConteudo, mes: string) {
  */
 export async function relatorioInstagram(ator: UsuarioAtual, f: FiltroConteudo, mes: string, contaEscolhida?: string) {
   exigirUso(ator);
-  const contas = await contasDoRelatorio(f, mes);
+  // Conta escolhida no menu: abre mesmo que o filtro de conta e canal das outras telas não a inclua.
+  const contas = await contasDoRelatorio(contaEscolhida ? {} : f, mes);
   if (contas.length === 0) return null;
   const conta = contas.find((c) => c.id === contaEscolhida) ?? null;
   const ids = conta ? [conta.id] : contas.map((c) => c.id);
