@@ -70,6 +70,13 @@ describe("GET /comandos", () => {
     const r = await getComandos(requisicao(undefined, undefined, "GET"));
     expect(r.status).toBe(200);
     expect(await r.json()).toEqual({ comandos });
+    expect(entregarComandos).toHaveBeenCalledWith(expect.any(Date), { recursos: [] });
+  });
+  it("repassa os recursos declarados pelo motor", async () => {
+    vi.mocked(entregarComandos).mockResolvedValue([]);
+    const req = new Request(`${url}/comandos?recursos=enviar_grupo, outro`, { headers: { authorization: `Bearer ${SEGREDO}` } });
+    await getComandos(req);
+    expect(entregarComandos).toHaveBeenCalledWith(expect.any(Date), { recursos: ["enviar_grupo", "outro"] });
   });
 });
 

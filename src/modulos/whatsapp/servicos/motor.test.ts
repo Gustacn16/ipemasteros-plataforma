@@ -4,6 +4,20 @@ type Linha = Record<string, any>; // eslint-disable-line @typescript-eslint/no-e
 
 // Banco em memória só com o que o serviço do motor usa.
 const banco = vi.hoisted(() => {
+  // Filtro mínimo do Prisma: igualdade, null, in, lt/lte, OR.
+  const bate = (linha: Record<string, any>, where: Record<string, any>): boolean => // eslint-disable-line @typescript-eslint/no-explicit-any
+    Object.entries(where).every(([k, cond]) => {
+      if (k === "OR") return (cond as Record<string, any>[]).some((w) => bate(linha, w)); // eslint-disable-line @typescript-eslint/no-explicit-any
+      const v = linha[k] ?? null;
+      if (cond === null) return v === null;
+      if (typeof cond === "object" && !(cond instanceof Date)) {
+        if ("in" in cond && !cond.in.includes(v)) return false;
+        if ("lt" in cond && !(v !== null && v < cond.lt)) return false;
+        if ("lte" in cond && !(v !== null && v <= cond.lte)) return false;
+        return true;
+      }
+      return v === cond;
+    });
   const estado = {
     numeros: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
     comandos: [] as Record<string, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -27,33 +41,33 @@ const banco = vi.hoisted(() => {
     },
     comandoWhatsapp: {
       findUnique: async ({ where }: { where: { id: string } }) => estado.comandos.find((c) => c.id === where.id) ?? null,
-      findMany: async ({ where, take }: { where: { OR: Linha[] }; take: number }) => {
-        const [pendente, preso] = where.OR as [{ situacao: string }, { situacao: string; iniciadoEm: { lt: Date } }];
+      findMany: async ({ where, take, orderBy }: { where: Linha; take: number; orderBy: Linha | Linha[] }) => {
+        const chaves = (Array.isArray(orderBy) ? orderBy : [orderBy]).map((o) => Object.keys(o)[0]!);
+        const valor = (c: Linha, k: string) => (c[k] instanceof Date ? c[k].getTime() : (c[k] ?? -Infinity));
         return estado.comandos
-          .filter(
-            (c) =>
-              c.situacao === pendente.situacao ||
-              (c.situacao === preso.situacao && c.iniciadoEm && c.iniciadoEm < preso.iniciadoEm.lt),
-          )
-          .sort((a, b) => a.criadoEm.getTime() - b.criadoEm.getTime())
+          .filter((c) => bate(c, where))
+          .sort((a, b) => {
+            for (const k of chaves) {
+              const va = valor(a, k);
+              const vb = valor(b, k);
+              if (va !== vb) return va < vb ? -1 : 1;
+            }
+            return 0;
+          })
           .slice(0, take)
           .map((c) => ({ ...c, numero: { excluidoEm: estado.numeros.find((n) => n.id === c.numeroId)!.excluidoEm } }));
       },
       update: async ({ where, data }: { where: { id: string }; data: Linha }) =>
         Object.assign(estado.comandos.find((c) => c.id === where.id)!, data),
-      // Update condicional: só atinge o comando se ele ainda está pendente ou preso.
-      updateMany: async ({ where, data }: { where: { id: string; OR: Linha[] }; data: Linha }) => {
-        const [pendente, preso] = where.OR as [{ situacao: string }, { situacao: string; iniciadoEm: { lt: Date } }];
-        const c = estado.comandos.find(
-          (x) =>
-            x.id === where.id &&
-            (x.situacao === pendente.situacao || (x.situacao === preso.situacao && x.iniciadoEm && x.iniciadoEm < preso.iniciadoEm.lt)),
-        );
-        if (!c) return { count: 0 };
-        const { tentativas, ...resto } = data;
-        Object.assign(c, resto);
-        if (tentativas) c.tentativas += tentativas.increment;
-        return { count: 1 };
+      // Update condicional: só atinge o comando se ele ainda bate com a condição.
+      updateMany: async ({ where, data }: { where: Linha; data: Linha }) => {
+        const alvo = estado.comandos.filter((c) => bate(c, where));
+        for (const c of alvo) {
+          const { tentativas, ...resto } = data;
+          Object.assign(c, resto);
+          if (tentativas) c.tentativas += tentativas.increment;
+        }
+        return { count: alvo.length };
       },
     },
     $transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma),
@@ -68,6 +82,8 @@ const captura = vi.hoisted(() => ({
   aplicarMensagens: vi.fn(async () => ({ salvas: 0, descartadas: 0 })),
 }));
 vi.mock("./captura", () => captura);
+const envio = vi.hoisted(() => ({ registrarResultadoEnvio: vi.fn(async () => {}) }));
+vi.mock("./avisos-envio", async (original) => ({ ...(await original<typeof import("./avisos-envio")>()), ...envio }));
 
 const { aplicarEventos, concluirComando, entregarComandos } = await import("./motor");
 
@@ -88,6 +104,7 @@ beforeEach(() => {
   banco.estado.comandos = [];
   captura.aplicarConversas.mockClear();
   captura.aplicarMensagens.mockClear();
+  envio.registrarResultadoEnvio.mockClear();
 });
 
 describe("aplicarEventos", () => {
@@ -291,7 +308,79 @@ describe("entregarComandos", () => {
   });
 });
 
+describe("entregarComandos: enviar_grupo", () => {
+  const dados = (envioId: string) => ({ jid: "1203@g.us", texto: "Oi", envioId });
+  const envioGrupo = (id: string, extra: Linha = {}) =>
+    comando(id, { tipo: "enviar_grupo", dados: dados(`e-${id}`), executarApos: minAtras(1), ...extra });
+
+  it("sem recursos não entrega enviar_grupo e o deixa pendente (o motor antigo o trataria como desconectar)", async () => {
+    banco.estado.comandos = [envioGrupo("g1"), comando("c1", { criadoEm: minAtras(5) })];
+    expect(await entregarComandos(AGORA)).toEqual([{ id: "c1", numeroId: "n1", tipo: "conectar" }]);
+    expect(await entregarComandos(AGORA, { recursos: ["outro"] })).toEqual([]);
+    expect(banco.estado.comandos[0]).toMatchObject({ situacao: "pendente", tentativas: 0 });
+  });
+
+  it("com recursos entrega no máximo 1 por número, com os dados", async () => {
+    banco.estado.comandos = [
+      envioGrupo("g1", { executarApos: minAtras(3) }),
+      envioGrupo("g2", { executarApos: minAtras(2) }),
+      envioGrupo("g3", { executarApos: minAtras(1) }),
+      envioGrupo("h1", { numeroId: "n2" }),
+    ];
+    const r = await entregarComandos(AGORA, { recursos: ["enviar_grupo"] });
+    expect(r).toEqual([
+      { id: "g1", numeroId: "n1", tipo: "enviar_grupo", dados: dados("e-g1") },
+      { id: "h1", numeroId: "n2", tipo: "enviar_grupo", dados: dados("e-h1") },
+    ]);
+    expect(banco.estado.comandos.map((c) => c.situacao)).toEqual(["em_andamento", "pendente", "pendente", "em_andamento"]);
+  });
+
+  it("executarApos no futuro não é entregue", async () => {
+    banco.estado.comandos = [envioGrupo("g1", { executarApos: new Date(AGORA.getTime() + 1000) })];
+    expect(await entregarComandos(AGORA, { recursos: ["enviar_grupo"] })).toEqual([]);
+    expect(banco.estado.comandos[0]!.situacao).toBe("pendente");
+  });
+
+  it("preso há 3 min vira falhou e nunca volta na lista (com ou sem recursos)", async () => {
+    banco.estado.comandos = [envioGrupo("g1", { situacao: "em_andamento", tentativas: 1, iniciadoEm: minAtras(3) })];
+    expect(await entregarComandos(AGORA, { recursos: ["enviar_grupo"] })).toEqual([]);
+    expect(banco.estado.comandos[0]).toMatchObject({ situacao: "falhou", erro: "O motor não confirmou o envio.", tentativas: 1 });
+    expect(envio.registrarResultadoEnvio).toHaveBeenCalledWith(
+      expect.anything(), "g1", { situacao: "falhou", erro: "O motor não confirmou o envio." }, AGORA,
+    );
+    expect(await entregarComandos(AGORA, { recursos: ["enviar_grupo"] })).toEqual([]);
+    expect(banco.estado.comandos[0]!.tentativas).toBe(1);
+  });
+
+  it("em andamento há 1 min não é reentregue", async () => {
+    banco.estado.comandos = [envioGrupo("g1", { situacao: "em_andamento", tentativas: 1, iniciadoEm: minAtras(1) })];
+    expect(await entregarComandos(AGORA, { recursos: ["enviar_grupo"] })).toEqual([]);
+    expect(banco.estado.comandos[0]!.situacao).toBe("em_andamento");
+  });
+
+  it("duas consultas ao mesmo tempo não entregam o mesmo envio duas vezes", async () => {
+    banco.estado.comandos = [envioGrupo("g1")];
+    const op = { recursos: ["enviar_grupo"] };
+    const [a, b] = await Promise.all([entregarComandos(AGORA, op), entregarComandos(AGORA, op)]);
+    expect(a.length + b.length).toBe(1);
+    expect(banco.estado.comandos[0]!.tentativas).toBe(1);
+  });
+
+  it("dados inválidos: falha sem entregar", async () => {
+    banco.estado.comandos = [envioGrupo("g1", { dados: { jid: "x" } })];
+    expect(await entregarComandos(AGORA, { recursos: ["enviar_grupo"] })).toEqual([]);
+    expect(banco.estado.comandos[0]).toMatchObject({ situacao: "falhou", erro: "Dados do envio inválidos." });
+  });
+});
+
 describe("concluirComando", () => {
+  it("enviar_grupo repassa o resultado ao envio", async () => {
+    banco.estado.comandos = [comando("g1", { tipo: "enviar_grupo", situacao: "em_andamento" })];
+    await concluirComando("g1", { situacao: "concluido" });
+    expect(envio.registrarResultadoEnvio).toHaveBeenCalledWith(expect.anything(), "g1", { situacao: "concluido", erro: null }, expect.any(Date));
+    expect(banco.estado.numeros[0]!.situacao).toBe("desconectado");
+  });
+
   it("conectar que falhou põe a vaga em erro", async () => {
     banco.estado.comandos = [comando("c1", { situacao: "em_andamento", tentativas: 1 })];
     expect(await concluirComando("c1", { situacao: "falhou", erro: "sem rede" })).toBe(true);

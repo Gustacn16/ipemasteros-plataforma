@@ -4,6 +4,8 @@ import { importarMetaAds } from "@/modulos/comercial/servicos/importacao-meta";
 import { atualizarInstagram } from "@/modulos/conteudo/servicos/atualizacao-instagram";
 import { recalcularMetricas } from "@/modulos/whatsapp/servicos/metricas";
 import { limparWhatsapp } from "@/modulos/whatsapp/servicos/limpeza";
+import { gerarRascunhosDaSemana } from "@/modulos/whatsapp/servicos/avisos-rascunho";
+import { conferirEventosMudados, dispararAvisosDaHora } from "@/modulos/whatsapp/servicos/avisos-envio";
 import { coletarLotes, criarLoteDoDia } from "@/modulos/whatsapp/servicos/lote-ia";
 import { criarLoteAvaliacoes } from "@/modulos/whatsapp/servicos/lote-avaliacao";
 import { descreverErro } from "@/modulos/nexu/servicos/descrever-erro";
@@ -81,6 +83,22 @@ const TAREFAS: Record<string, () => Promise<Record<string, unknown>>> = {
     return { ok: true, resumos, avaliacoes };
   },
   "coletar-ia-whatsapp": async () => ({ ok: true, ...(await coletarLotes()) }),
+  "envios-whatsapp": async () => {
+    // A cada 5 min, em sequência. Só contagens na resposta: nada de texto do aviso nem jid.
+    const agora = new Date();
+    // Falha nos rascunhos não segura os envios já aprovados.
+    let rascunhos: Record<string, unknown>;
+    try {
+      rascunhos = await gerarRascunhosDaSemana(agora);
+    } catch (e) {
+      console.error("[whatsapp] falha nos rascunhos de aviso:", descreverErro(e));
+      rascunhos = { criados: 0, motivo: "erro" };
+    }
+    // Conferir o evento vem antes de disparar: se falhar, nada é enviado nesta rodada.
+    const eventos = await conferirEventosMudados(agora);
+    const envios = await dispararAvisosDaHora(agora);
+    return { ok: true, rascunhos, eventos, envios };
+  },
   "importar-stories-instagram": async () => {
     const r = await atualizarInstagram({ tipo: "stories", origem: "agendada" });
     return { ok: r.status === "concluida", status: r.status, registros: r.registros };

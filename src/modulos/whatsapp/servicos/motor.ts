@@ -3,13 +3,17 @@ import type { TipoComandoWhatsapp } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { EventoMotor } from "../esquemas/motor";
 import { descreverErro } from "@/modulos/nexu/servicos/descrever-erro";
+import { lerDadosEnviarGrupo, registrarResultadoEnvio, type DadosEnviarGrupo } from "./avisos-envio";
 import { aplicarConversas, aplicarMensagens, type ContextoCaptura } from "./captura";
 
 const REENTREGA_MS = 2 * 60_000;
 const MAX_TENTATIVAS = 3;
 const MAX_POR_CHAMADA = 20;
+const MAX_ENVIOS_CANDIDATOS = 50;
 /** Vaga conectada há menos que isso não é conferida pelo sinal. */
 const CONEXAO_RECENTE_MS = 2 * 60_000;
+const ERRO_ENVIO_SEM_CONFIRMACAO = "O motor não confirmou o envio.";
+const ERRO_DADOS_ENVIO = "Dados do envio inválidos.";
 
 /** Códigos do Prisma de falha passageira (conexão, tempo esgotado, deadlock): não descartam o lote. */
 const ERROS_PASSAGEIROS = new Set(["P1001", "P1002", "P1008", "P1017", "P2024", "P2034"]);
@@ -100,28 +104,43 @@ async function aplicarEvento(ev: EventoMotor, agora: Date, contexto: ContextoCap
   return true;
 }
 
+export type ComandoEntregue =
+  | { id: string; numeroId: string; tipo: "conectar" | "desconectar" }
+  | { id: string; numeroId: string; tipo: "enviar_grupo"; dados: DadosEnviarGrupo };
+
 /**
- * Comandos para o motor executar: os pendentes e os que ficaram presos há mais de 2 min.
+ * Comandos para o motor executar: os pendentes (com `executarApos` vencido) e os que ficaram presos há mais de 2 min.
  * `conectar` de vaga excluída falha; `desconectar` segue, para o motor encerrar a sessão dela.
+ * `enviar_grupo`:
+ * - só sai para o motor que declarou `recursos` com "enviar_grupo" (o motor antigo trataria o tipo como desconectar);
+ * - no máximo 1 por número em cada chamada;
+ * - nunca é reentregue: preso em andamento há mais de 2 min vira `falhou` (repetir arriscaria mandar duas vezes).
  */
 export async function entregarComandos(
   agora: Date = new Date(),
-): Promise<{ id: string; numeroId: string; tipo: TipoComandoWhatsapp }[]> {
+  opcoes: { recursos?: string[] } = {},
+): Promise<ComandoEntregue[]> {
+  const enviaGrupo = opcoes.recursos?.includes("enviar_grupo") ?? false;
   const presoAntesDe = new Date(agora.getTime() - REENTREGA_MS);
+  const vencido = { OR: [{ executarApos: null }, { executarApos: { lte: agora } }] };
+  const pendente = { situacao: "pendente" as const, tipo: { in: ["conectar", "desconectar"] as TipoComandoWhatsapp[] }, ...vencido };
+  // Presos de qualquer tipo: conectar/desconectar são reentregues; enviar_grupo falha.
+  const preso = { situacao: "em_andamento" as const, iniciadoEm: { lt: presoAntesDe } };
   const candidatos = await prisma.comandoWhatsapp.findMany({
-    where: { OR: [{ situacao: "pendente" }, { situacao: "em_andamento", iniciadoEm: { lt: presoAntesDe } }] },
+    where: { OR: [pendente, preso] },
     include: { numero: { select: { excluidoEm: true } } },
     orderBy: { criadoEm: "asc" },
     take: MAX_POR_CHAMADA,
   });
-  const entregues: { id: string; numeroId: string; tipo: TipoComandoWhatsapp }[] = [];
+  const entregues: ComandoEntregue[] = [];
   // Cada comando é reivindicado com um update condicional: se outra consulta do motor
   // chegou primeiro, a condição não bate (count 0) e este comando não é entregue de novo.
-  const aindaDisponivel = (id: string) => ({
-    id,
-    OR: [{ situacao: "pendente" as const }, { situacao: "em_andamento" as const, iniciadoEm: { lt: presoAntesDe } }],
-  });
+  const aindaDisponivel = (id: string) => ({ id, OR: [pendente, preso] });
   for (const c of candidatos) {
+    if (c.tipo === "enviar_grupo") {
+      await falharEnvioPreso(c.id, presoAntesDe, agora);
+      continue;
+    }
     const conectarExcluido = c.tipo === "conectar" && c.numero.excluidoEm !== null;
     if (conectarExcluido || c.tentativas >= MAX_TENTATIVAS) {
       await prisma.comandoWhatsapp.updateMany({
@@ -140,10 +159,61 @@ export async function entregarComandos(
       if (count === 1) entregues.push({ id: c.id, numeroId: c.numeroId, tipo: c.tipo });
     }
   }
+  if (enviaGrupo) entregues.push(...(await entregarEnvios(agora)));
   return entregues;
 }
 
-/** Registra o resultado de um comando. Falha ao conectar leva a vaga para o estado de erro. */
+/** Os enviar_grupo pendentes que já venceram: no máximo 1 por número, só pendente → em andamento. */
+async function entregarEnvios(agora: Date): Promise<ComandoEntregue[]> {
+  const candidatos = await prisma.comandoWhatsapp.findMany({
+    where: { situacao: "pendente", tipo: "enviar_grupo", OR: [{ executarApos: null }, { executarApos: { lte: agora } }] },
+    select: { id: true, numeroId: true, dados: true },
+    orderBy: [{ executarApos: "asc" }, { criadoEm: "asc" }, { id: "asc" }],
+    take: MAX_ENVIOS_CANDIDATOS,
+  });
+  const entregues: ComandoEntregue[] = [];
+  const numerosComEnvio = new Set<string>();
+  for (const c of candidatos) {
+    if (numerosComEnvio.has(c.numeroId)) continue;
+    const dados = lerDadosEnviarGrupo(c.dados);
+    if (!dados) {
+      await prisma.$transaction(async (tx) => {
+        const { count } = await tx.comandoWhatsapp.updateMany({
+          where: { id: c.id, situacao: "pendente" },
+          data: { situacao: "falhou", concluidoEm: agora, erro: ERRO_DADOS_ENVIO },
+        });
+        if (count === 1) await registrarResultadoEnvio(tx, c.id, { situacao: "falhou", erro: ERRO_DADOS_ENVIO }, agora);
+      });
+      continue;
+    }
+    // Claim só do pendente: um enviar_grupo nunca volta de em andamento.
+    const { count } = await prisma.comandoWhatsapp.updateMany({
+      where: { id: c.id, situacao: "pendente" },
+      data: { situacao: "em_andamento", iniciadoEm: agora, tentativas: { increment: 1 } },
+    });
+    if (count === 1) {
+      numerosComEnvio.add(c.numeroId);
+      entregues.push({ id: c.id, numeroId: c.numeroId, tipo: "enviar_grupo", dados });
+    }
+  }
+  return entregues;
+}
+
+/** enviar_grupo preso: falha o comando e o envio (nunca reentrega). */
+async function falharEnvioPreso(id: string, presoAntesDe: Date, agora: Date): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    const { count } = await tx.comandoWhatsapp.updateMany({
+      where: { id, situacao: "em_andamento", iniciadoEm: { lt: presoAntesDe } },
+      data: { situacao: "falhou", concluidoEm: agora, erro: ERRO_ENVIO_SEM_CONFIRMACAO },
+    });
+    if (count === 1) await registrarResultadoEnvio(tx, id, { situacao: "falhou", erro: ERRO_ENVIO_SEM_CONFIRMACAO }, agora);
+  });
+}
+
+/**
+ * Registra o resultado de um comando. Falha ao conectar leva a vaga para o estado de erro.
+ * `enviar_grupo` atualiza o envio e fecha o aviso quando não sobra envio aguardando.
+ */
 export async function concluirComando(
   id: string,
   resultado: { situacao: "concluido" | "falhou"; erro?: string },
@@ -151,16 +221,20 @@ export async function concluirComando(
   const comando = await prisma.comandoWhatsapp.findUnique({ where: { id } });
   if (!comando) return false;
   const erro = resultado.erro?.slice(0, 255) ?? null;
+  const agora = new Date();
   await prisma.$transaction(async (tx) => {
     await tx.comandoWhatsapp.update({
       where: { id },
-      data: { situacao: resultado.situacao, concluidoEm: new Date(), erro },
+      data: { situacao: resultado.situacao, concluidoEm: agora, erro },
     });
     if (resultado.situacao === "falhou" && comando.tipo === "conectar") {
       await tx.numeroWhatsapp.update({
         where: { id: comando.numeroId },
         data: { situacao: "erro", qrAtual: null, qrEm: null, erro },
       });
+    }
+    if (comando.tipo === "enviar_grupo") {
+      await registrarResultadoEnvio(tx, id, { situacao: resultado.situacao, erro }, agora);
     }
   });
   return true;
