@@ -4,6 +4,13 @@ import { MAX_GRUPOS_POR_AVISO, MAX_TEXTO_AVISO } from "../regras/avisos";
 /** `agendadoPara` chega como horário local de São Paulo, `YYYY-MM-DDTHH:MM`. */
 const HORARIO_LOCAL = /^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d$/;
 
+/** Rejeita datas impossíveis (31/02): o instante, de volta em São Paulo, tem de ser igual à entrada. */
+function dataValida(s: string): boolean {
+  const d = new Date(`${s}:00-03:00`);
+  if (Number.isNaN(d.getTime())) return false;
+  return new Date(d.getTime() - 3 * 3600 * 1000).toISOString().slice(0, 16) === s;
+}
+
 export const esquemaAviso = z.object({
   id: z.string().min(1).max(40).optional(),
   texto: z
@@ -14,7 +21,7 @@ export const esquemaAviso = z.object({
   agendadoPara: z
     .string()
     .regex(HORARIO_LOCAL, "Informe a data e a hora do envio.")
-    .refine((s) => !Number.isNaN(new Date(`${s}:00-03:00`).getTime()), "Informe uma data válida."),
+    .refine((s) => dataValida(s), "Informe uma data válida."),
   grupos: z
     .array(z.string().min(1).max(40))
     .min(1, "Escolha ao menos um grupo.")

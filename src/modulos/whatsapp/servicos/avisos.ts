@@ -89,6 +89,8 @@ export async function salvarAviso(ator: UsuarioAtual, dados: unknown): Promise<{
           texto: v.texto,
           agendadoPara,
           situacao: "rascunho",
+          alerta: null,
+          textoPorIa: false,
           aprovadoPorId: null,
           aprovadoEm: null,
           retratoEvento: Prisma.DbNull,
@@ -142,7 +144,7 @@ export async function aprovarAviso(ator: UsuarioAtual, id: string): Promise<void
         }
       : undefined;
     const r = await tx.avisoGrupo.updateMany({
-      where: { id, situacao: "rascunho" },
+      where: { id, situacao: "rascunho", atualizadoEm: aviso.atualizadoEm },
       data: { situacao: "aprovado", aprovadoPorId: ator.id, aprovadoEm: new Date(), ...(retratoEvento ? { retratoEvento } : {}) },
     });
     if (r.count === 0) throw new ErroNegocio(MSG_MUDOU);

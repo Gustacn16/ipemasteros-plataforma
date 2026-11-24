@@ -43,6 +43,7 @@ const banco = vi.hoisted(() => {
         const a = estado.avisos.find((x) => x.id === where.id);
         const ok = typeof where.situacao === "string" ? a?.situacao === where.situacao : where.situacao.in.includes(a?.situacao);
         if (!a || !ok) return { count: 0 };
+        if ((where as Linha).atualizadoEm && a.atualizadoEm && (where as Linha).atualizadoEm.getTime() !== a.atualizadoEm.getTime()) return { count: 0 };
         Object.assign(a, data);
         return { count: 1 };
       },
@@ -143,6 +144,16 @@ describe("salvarAviso", () => {
     expect(banco.estado.auditorias[0]).toMatchObject({ acao: "whatsapp.aviso.editar" });
   });
 
+  it("editar limpa alerta e textoPorIa", async () => {
+    aviso("a1", { alerta: "Evento mudou", textoPorIa: true });
+    await salvarAviso(gestor, { id: "a1", texto: "Novo", agendadoPara: "2026-12-01T09:00", grupos: ["c1"] });
+    expect(banco.estado.avisos[0]).toMatchObject({ alerta: null, textoPorIa: false });
+  });
+
+  it("rejeita data impossível", async () => {
+    await expect(salvarAviso(gestor, { texto: "x", agendadoPara: "2026-02-31T10:00", grupos: ["c1"] })).rejects.toThrow();
+  });
+
   it("recusa editar aviso enviando e grupo fora da lista", async () => {
     aviso("a1", { situacao: "enviando" });
     await expect(salvarAviso(gestor, { id: "a1", texto: "x", agendadoPara: "2026-12-01T09:00", grupos: ["c1"] })).rejects.toBeInstanceOf(ErroNegocio);
@@ -168,6 +179,23 @@ describe("aprovarAviso", () => {
     aviso("a1", { agendadoPara: as7h });
     envio("a1", "c1");
     await expect(aprovarAviso(gestor, "a1")).rejects.toThrow(/8h/);
+  });
+
+  it("recusa se o aviso foi editado depois da leitura (atualizadoEm mudou)", async () => {
+    aviso("a1", { atualizadoEm: new Date("2026-11-30T10:00:00.000Z") });
+    envio("a1", "c1");
+    const original = banco.prisma.avisoGrupo.findUnique;
+    banco.prisma.avisoGrupo.findUnique = async (args) => {
+      const lido = await original(args);
+      banco.estado.avisos[0]!.atualizadoEm = new Date("2026-11-30T10:05:00.000Z"); // edição concorrente
+      return lido;
+    };
+    try {
+      await expect(aprovarAviso(gestor, "a1")).rejects.toThrow("Este aviso já mudou. Atualize a página.");
+      expect(banco.estado.avisos[0]!.situacao).toBe("rascunho");
+    } finally {
+      banco.prisma.avisoGrupo.findUnique = original;
+    }
   });
 
   it("recusa aviso que não é rascunho", async () => {
