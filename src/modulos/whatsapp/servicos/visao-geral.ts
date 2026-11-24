@@ -26,8 +26,11 @@ export type NumeroPanorama = {
 
 export type Panorama = {
   numeros: NumeroPanorama[];
-  oportunidades: { quentes: number; mornos: number; diaAvaliado: Date } | null;
-  atencao: { semRespostaAgora: number; csAguardando: number | null; desconectados: number };
+  /** `true` quando a lista de números não pôde ser carregada (a lista vazia não prova que não há números). */
+  numerosFalhou: boolean;
+  /** `null` = a consulta falhou; `{ semAvaliacoes: true }` = consultou e não havia avaliações do dia. */
+  oportunidades: { quentes: number; mornos: number; diaAvaliado: Date } | { semAvaliacoes: true } | null;
+  atencao: { semRespostaAgora: number; semRespostaFalhou: boolean; csAguardando: number | null; desconectados: number };
 };
 
 /** Primeiro dia do mês de São Paulo de `agora`, à meia-noite de lá (03:00 UTC). */
@@ -71,7 +74,9 @@ export async function panoramaWhatsapp(ator: UsuarioAtual, agora: Date = new Dat
   });
 
   let oportunidades: Panorama["oportunidades"] = null;
-  if (leadsR.status === "fulfilled") {
+  if (leadsR.status === "fulfilled" && leadsR.value.itens.length === 0) {
+    oportunidades = { semAvaliacoes: true };
+  } else if (leadsR.status === "fulfilled") {
     const abertos = leadsR.value.itens.filter((i) => i.situacaoLead !== "fechou" && i.situacaoLead !== "perdido");
     oportunidades = {
       quentes: abertos.filter((i) => i.temperatura === "quente").length,
@@ -84,9 +89,11 @@ export async function panoramaWhatsapp(ator: UsuarioAtual, agora: Date = new Dat
 
   return {
     numeros,
+    numerosFalhou: numerosR.status === "rejected",
     oportunidades,
     atencao: {
       semRespostaAgora: semResposta.length,
+      semRespostaFalhou: semRespostaR.status === "rejected",
       csAguardando,
       desconectados: numeros.filter((n) => n.estado !== "conectado").length,
     },

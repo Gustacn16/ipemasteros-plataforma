@@ -60,6 +60,8 @@ describe("panoramaWhatsapp", () => {
     });
     const p = await panoramaWhatsapp(gestor, AGORA);
     expect(p.oportunidades).toMatchObject({ quentes: 2, mornos: 2 });
+    expect(p.numerosFalhou).toBe(false);
+    expect(p.atencao.semRespostaFalhou).toBe(false);
   });
 
   it("falha em listarLeads zera só as oportunidades", async () => {
@@ -68,6 +70,27 @@ describe("panoramaWhatsapp", () => {
     expect(p.oportunidades).toBeNull();
     expect(p.numeros).toHaveLength(2);
     expect(p.atencao.csAguardando).toBe(3);
+  });
+
+  it("sem avaliações ontem: semAvaliacoes, não zero", async () => {
+    m.listarLeads.mockResolvedValue({ itens: [] });
+    expect((await panoramaWhatsapp(gestor, AGORA)).oportunidades).toEqual({ semAvaliacoes: true });
+  });
+
+  it("falha em semRespostaAgora marca semRespostaFalhou", async () => {
+    m.semRespostaAgora.mockRejectedValue(new Error("falhou"));
+    const p = await panoramaWhatsapp(gestor, AGORA);
+    expect(p.atencao.semRespostaFalhou).toBe(true);
+    expect(p.numerosFalhou).toBe(false);
+    expect(p.numeros).toHaveLength(2);
+  });
+
+  it("falha em listarNumeros marca numerosFalhou", async () => {
+    m.listarNumeros.mockRejectedValue(new Error("falhou"));
+    const p = await panoramaWhatsapp(gestor, AGORA);
+    expect(p.numerosFalhou).toBe(true);
+    expect(p.numeros).toEqual([]);
+    expect(p.atencao.semRespostaFalhou).toBe(false);
   });
 
   it("sem número de CS, csAguardando é null", async () => {

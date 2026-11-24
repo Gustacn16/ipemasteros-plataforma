@@ -16,12 +16,32 @@ function corDoEstado(estado: string): string {
 
 /** `diaAvaliado` é uma data de calendário (meia-noite UTC do dia de São Paulo): formatar em UTC, não em São Paulo. */
 function diaMes(d: Date): string {
-  return new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC", day: "2-digit", month: "2-digit" }).format(d);
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "UTC",
+    day: "2-digit",
+    month: "2-digit",
+  }).format(d);
 }
 
-export function VisaoGeral({ panorama }: { panorama: Panorama }) {
-  const { numeros, oportunidades, atencao } = panorama;
-  const nada = atencao.semRespostaAgora === 0 && !atencao.csAguardando && atencao.desconectados === 0;
+/** "(há N dias)", "(há N horas)" ou "(há poucos minutos)"; vazio se `desde` é nulo ou está no futuro. */
+export function haQuantoTempo(desde: Date | null, agora: Date): string {
+  if (!desde) return "";
+  const min = Math.floor((agora.getTime() - desde.getTime()) / 60000);
+  if (min < 0) return "";
+  if (min < 60) return "(há poucos minutos)";
+  const horas = Math.floor(min / 60);
+  if (horas < 24) return `(há ${plural(horas, "hora", "horas")})`;
+  return `(há ${plural(Math.floor(horas / 24), "dia", "dias")})`;
+}
+
+export function VisaoGeral({ panorama, agora = new Date() }: { panorama: Panorama; agora?: Date }) {
+  const { numeros, oportunidades, atencao, numerosFalhou } = panorama;
+  const nada =
+    !numerosFalhou &&
+    !atencao.semRespostaFalhou &&
+    atencao.semRespostaAgora === 0 &&
+    !atencao.csAguardando &&
+    atencao.desconectados === 0;
 
   return (
     <>
@@ -30,7 +50,9 @@ export function VisaoGeral({ panorama }: { panorama: Panorama }) {
           <CardTitle>Números</CardTitle>
         </CardHeader>
         <CardContent>
-          {numeros.length === 0 ? (
+          {numerosFalhou ? (
+            <p className="text-muted-foreground text-sm">Não foi possível carregar os números agora.</p>
+          ) : numeros.length === 0 ? (
             <p className="text-muted-foreground text-sm">
               Nenhum número cadastrado.{" "}
               <Link href="/whatsapp/numeros" className="underline underline-offset-4">
@@ -55,8 +77,13 @@ export function VisaoGeral({ panorama }: { panorama: Panorama }) {
                     <span className="flex items-center gap-2">
                       <span aria-hidden className={`size-2.5 rounded-full ${corDoEstado(n.estado)}`} />
                       {n.rotulo}
+                      {n.estado !== "conectado" && n.desde && (
+                        <span className="text-muted-foreground">{haQuantoTempo(n.desde, agora)}</span>
+                      )}
                     </span>
-                    <span className="text-muted-foreground">{plural(n.conversasSemana, "conversa", "conversas")} na semana</span>
+                    <span className="text-muted-foreground">
+                      {plural(n.conversasSemana, "conversa", "conversas")} na semana
+                    </span>
                     <span className={n.semRespostaAgora > 0 ? "font-medium text-red-600" : "text-muted-foreground"}>
                       {n.semRespostaAgora} sem resposta agora
                     </span>
@@ -72,24 +99,28 @@ export function VisaoGeral({ panorama }: { panorama: Panorama }) {
       <Card>
         <CardHeader>
           <CardTitle>Oportunidades</CardTitle>
-          {oportunidades && <CardDescription>Avaliados em {diaMes(oportunidades.diaAvaliado)}</CardDescription>}
+          {oportunidades && "diaAvaliado" in oportunidades && (
+            <CardDescription>Avaliados em {diaMes(oportunidades.diaAvaliado)}</CardDescription>
+          )}
         </CardHeader>
         <CardContent>
-          {oportunidades ? (
+          {oportunidades === null ? (
+            <p className="text-muted-foreground text-sm">Não foi possível carregar as avaliações</p>
+          ) : "semAvaliacoes" in oportunidades ? (
+            <p className="text-muted-foreground text-sm">Sem avaliações de ontem</p>
+          ) : (
             <ul className="grid gap-2 text-sm">
               <li>
                 <Link href="/whatsapp/leads?temperatura=quente" className={LINK}>
-                  {plural(oportunidades.quentes, "lead quente", "leads quentes")}
+                  {plural(oportunidades.quentes, "lead quente", "leads quentes")} em aberto
                 </Link>
               </li>
               <li>
                 <Link href="/whatsapp/leads?temperatura=morno" className={LINK}>
-                  {plural(oportunidades.mornos, "lead morno", "leads mornos")}
+                  {plural(oportunidades.mornos, "lead morno", "leads mornos")} em aberto
                 </Link>
               </li>
             </ul>
-          ) : (
-            <p className="text-muted-foreground text-sm">Sem avaliações de ontem</p>
           )}
         </CardContent>
       </Card>
@@ -105,13 +136,19 @@ export function VisaoGeral({ panorama }: { panorama: Panorama }) {
             <ul className="grid gap-2 text-sm">
               <li>
                 <Link href="/whatsapp/atendimento" className={LINK}>
-                  {plural(atencao.semRespostaAgora, "conversa sem resposta agora", "conversas sem resposta agora")}
+                  {atencao.semRespostaFalhou
+                    ? "Não foi possível conferir as conversas sem resposta"
+                    : plural(atencao.semRespostaAgora, "conversa sem resposta agora", "conversas sem resposta agora")}
                 </Link>
               </li>
               {atencao.csAguardando !== null && (
                 <li>
                   <Link href="/whatsapp/cs" className={LINK}>
-                    {plural(atencao.csAguardando, "aluno esperando o 1º contato da CS", "alunos esperando o 1º contato da CS")}
+                    {plural(
+                      atencao.csAguardando,
+                      "aluno esperando o 1º contato da CS",
+                      "alunos esperando o 1º contato da CS",
+                    )}
                   </Link>
                 </li>
               )}
