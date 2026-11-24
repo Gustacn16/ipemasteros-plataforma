@@ -119,7 +119,7 @@ export default async function PaginaAtendimento({ searchParams }: { searchParams
           {temPermissao(usuario.papel, "whatsapp:gerenciar_numeros") && (
             <CardDescription>
               <Link href="/whatsapp/configuracoes" className="underline-offset-4 hover:underline">
-                Alterar em Configurações → Ajustes
+                Ver ou alterar em Configurações → Ajustes
               </Link>
             </CardDescription>
           )}

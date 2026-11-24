@@ -128,6 +128,7 @@ export async function salvarLimiteIaWhatsappAcao(dados: unknown): Promise<Estado
     const { limiteUsd } = esquemaLimiteIa.parse(dados);
     await salvarConfiguracaoWhatsapp({ limiteMensalMicroUsd: Math.round(limiteUsd * 1_000_000) }, ator.id);
     revalidatePath("/admin/saude");
+    revalidatePath("/whatsapp/configuracoes");
     return { ok: true, mensagem: "Limite salvo." };
   } catch (erro) {
     return tratarErroAcao(erro);
