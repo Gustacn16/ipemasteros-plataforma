@@ -28,7 +28,7 @@ export function ArvoreProcessos({ categorias, aoNavegar }: { categorias: Categor
     : categorias;
 
   return (
-    <div className="grid gap-3">
+    <div className="grid min-w-0 grid-cols-1 gap-3">
       <Link
         href="/processos"
         onClick={aoNavegar}
@@ -60,21 +60,21 @@ export function ArvoreProcessos({ categorias, aoNavegar }: { categorias: Categor
       {categorias.length === 0 && <p className="text-muted-foreground px-2 text-sm">Nenhuma categoria ainda.</p>}
       {termo && visiveis.length === 0 && <p className="text-muted-foreground px-2 text-sm">Nenhum título com “{filtro}”.</p>}
 
-      <nav aria-label="Documentos de processos" className="grid gap-1 text-sm">
+      <nav aria-label="Documentos de processos" className="grid min-w-0 grid-cols-1 gap-1 text-sm">
         {visiveis.map((c) => {
           const Icone = ICONE_CATEGORIA[c.icone] ?? ICONE_CATEGORIA.pasta;
           const contem = c.areas.some((a) => a.documentos.some((d) => d.id === aberto));
           return (
-            <details key={`${c.id}-${termo ? "f" : "n"}`} open={Boolean(termo) || contem || !aberto} className="group/cat">
+            <details key={`${c.id}-${termo ? "f" : "n"}`} className="group/cat min-w-0" open={Boolean(termo) || contem || !aberto}>
               <summary className="hover:bg-muted flex cursor-pointer list-none items-center gap-2 rounded-md px-2 py-1.5 font-medium select-none [&::-webkit-details-marker]:hidden">
                 <ChevronRightIcon className="text-muted-foreground size-3.5 shrink-0 transition-transform group-open/cat:rotate-90" aria-hidden />
                 <Icone className="text-primary size-4 shrink-0" aria-hidden />
                 <span className="truncate">{c.nome}</span>
               </summary>
-              <div className="ml-[1.1rem] grid gap-0.5 border-l pl-2">
+              <div className="ml-[1.1rem] grid min-w-0 grid-cols-1 gap-0.5 border-l pl-2">
                 {c.areas.length === 0 && <p className="text-muted-foreground px-2 py-1 text-xs">Sem áreas</p>}
                 {c.areas.map((a) => (
-                  <div key={a.id} className="grid gap-0.5 py-0.5">
+                  <div key={a.id} className="grid min-w-0 grid-cols-1 gap-0.5 py-0.5">
                     <span className="text-muted-foreground px-2 pt-1 text-[0.7rem] font-semibold tracking-wider uppercase">{a.nome}</span>
                     {a.documentos.length === 0 && <span className="text-muted-foreground/70 px-2 text-xs italic">vazia</span>}
                     {a.documentos.map((d) => {
@@ -88,7 +88,7 @@ export function ArvoreProcessos({ categorias, aoNavegar }: { categorias: Categor
                           aria-current={ativo ? "page" : undefined}
                           title={!d.publicado ? `${d.titulo} (rascunho, o time ainda não vê)` : d.pendente ? `${d.titulo} (alterações não publicadas)` : d.titulo}
                           className={cn(
-                            "flex items-center gap-2 rounded-md px-2 py-1.5",
+                            "flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5",
                             ativo ? "bg-primary/10 text-primary font-medium" : "text-foreground/80 hover:bg-muted hover:text-foreground",
                           )}
                         >
