@@ -146,6 +146,8 @@ npm ci
 systemctl restart motor-whatsapp
 ```
 
+**Avisos nos grupos:** atualize o motor **antes** de aprovar o primeiro aviso. O motor antigo não sabe enviar texto para grupos. Depois do `restart`, confira com `systemctl is-active motor-whatsapp` e veja se o número volta conectado em `/admin/saude`.
+
 ## 16. Ver os logs
 ```bash
 journalctl -u motor-whatsapp -n 100 --no-pager
@@ -175,13 +177,14 @@ Use se a pasta de sessões se perder ou estragar.
 3. Confira na tela do WhatsApp. Se os números voltaram, apague a pasta `sessoes.velha`. Se uma sessão já tinha sido encerrada no celular, será preciso ler o QR de novo (passo 13).
 
 ## 18. Crons da IA e das métricas
-Os resumos diários dos grupos, as avaliações das conversas de leads e alunos e as métricas do atendimento usam quatro linhas de cron, criados no hPanel (**Avançado → Cron Jobs**). O servidor está em UTC: `30 7 * * *` é 4h30 em São Paulo. Troque `<CRON_SECRET>` pelo valor guardado nas variáveis de ambiente do site.
+Os resumos diários dos grupos, as avaliações das conversas de leads e alunos e as métricas do atendimento usam cinco linhas de cron, criados no hPanel (**Avançado → Cron Jobs**). O servidor está em UTC: `30 7 * * *` é 4h30 em São Paulo. Troque `<CRON_SECRET>` pelo valor guardado nas variáveis de ambiente do site.
 
 ```
 30 7 * * * curl -fsS --max-time 600 -H "Authorization: Bearer <CRON_SECRET>" https://teste.plataformaipemaster.com.br/api/cron/ia-whatsapp
 0 8 * * * curl -fsS --max-time 600 -H "Authorization: Bearer <CRON_SECRET>" https://teste.plataformaipemaster.com.br/api/cron/ia-whatsapp
 */15 * * * * curl -fsS --max-time 600 -H "Authorization: Bearer <CRON_SECRET>" https://teste.plataformaipemaster.com.br/api/cron/coletar-ia-whatsapp
 10 * * * * curl -fsS --max-time 600 -H "Authorization: Bearer <CRON_SECRET>" https://teste.plataformaipemaster.com.br/api/cron/metricas-whatsapp
+*/5 * * * * curl -fsS --max-time 300 -H "Authorization: Bearer <CRON_SECRET>" https://teste.plataformaipemaster.com.br/api/cron/envios-whatsapp
 ```
 
 A primeira linha (7h30 UTC) cria os lotes do dia: primeiro o dos resumos dos grupos e depois o das avaliações das conversas. A segunda (8h UTC) é uma execução de segurança, para o caso de a das 7h30 não rodar: é inofensiva, porque se o lote do dia já existe ela só responde `ja_existe`. A terceira recolhe as respostas dos dois tipos de lote a cada 15 minutos. A entrega 5 não criou cron novo: as mesmas linhas passaram a fazer resumos e avaliações. A quarta recalcula as métricas do atendimento. O `--max-time 600` dá até 10 minutos para o envio, que pode demorar com muitos grupos. Sem a variável `ANTHROPIC_API_KEY`, nada é enviado (a tela **Saúde** mostra "IA não configurada").
@@ -189,3 +192,7 @@ A primeira linha (7h30 UTC) cria os lotes do dia: primeiro o dos resumos dos gru
 A linha `metricas-whatsapp` roda a cada hora, no minuto 10, e recalcula as métricas de tempo de resposta e de follow-up do atendimento (hoje e os 4 dias anteriores; número sem histórico ainda recebe 35 dias). Ela alimenta só a aba Atendimento; a aba CS é calculada na hora e não depende do cron.
 
 Marque o time de cada número na tela Números **antes** de criar o cron de métricas, para o histórico já sair com o time certo.
+
+A linha `envios-whatsapp` roda a cada 5 minutos e faz duas coisas: cria os rascunhos de avisos das segundas-feiras (a partir das 7h de São Paulo) e manda os avisos aprovados que já chegaram na hora. Sem ela, nenhum aviso sai. O `--max-time 300` dá até 5 minutos para cada rodada.
+
+Aviso com mais de 30 minutos de atraso não é enviado: ele falha e a tela pede para reagendar. Comando de envio que fica pendente mais de 30 minutos depois do horário falha com "Passou do horário (o motor ficou parado).". Isso acontece quando o motor fica parado: veja o passo 16 e reinicie o serviço.

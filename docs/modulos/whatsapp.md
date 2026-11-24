@@ -27,6 +27,7 @@ A tela nunca fala com o motor: grava comandos no banco e o motor os busca. O mot
 - `whatsapp:ver_grupos` (admin e gestor): vê os grupos, liga turma e escolhe quais acompanhar. Só a gestão enxerga grupos.
 - `whatsapp:ver_equipe` (admin e gestor): vê todas as conversas individuais e muda a categoria delas.
 - `whatsapp:ver_proprio` (papel `comercial`): vê e categoriza só as conversas dos números dos quais é dono.
+- `whatsapp:avisos` (admin e gestor): vê, cria, edita, aprova e cancela avisos nos grupos e mexe em "Avisos da agenda".
 - Abas **Atendimento** e **CS**: só `whatsapp:ver_equipe`. Mudar o time de um número: `whatsapp:gerenciar_numeros`. Editar as regras do atendimento: só o papel `admin`.
 
 ## Organização da área
@@ -80,6 +81,34 @@ O menu do WhatsApp tem quatro seções. Cada pessoa só vê as que pode usar; ao
 23. **Cron `metricas-whatsapp` (de hora em hora):** refaz a `MetricaAtendimentoDia` de hoje e dos 4 dias anteriores (o follow-up se decide em até 3 dias). Número sem nenhuma linha recebe 35 dias, para carregar o histórico. Linhas de dias anteriores mantêm o `time` gravado; só a de hoje (ou uma nova) recebe o time atual. A resposta traz só contagens.
 24. **Retenção das métricas:** 365 dias. A limpeza diária apaga `MetricaAtendimentoDia` antigas e devolve `metricasAntigas`.
 25. **Auditoria da entrega 4:** `whatsapp.time_alterado` (de/para) e `whatsapp.regras_atendimento_alteradas`.
+
+## Avisos nos grupos
+Avisos de texto da escola para os grupos de WhatsApp. Menu: **Grupos → Avisos**. O card **Avisos da agenda** fica em **Configurações → Ajustes**.
+
+**Como funciona**
+- Toda segunda, a partir das 7h (São Paulo), o sistema cria um rascunho para cada evento da semana seguinte (segunda a domingo). Só entram os tipos de evento marcados para divulgar em "Avisos da agenda". É um aviso por evento.
+- O texto é feito pela IA. Sem verba, sem chave ou sem resposta válida, o sistema usa um texto padrão: título, dia, hora e local.
+- O horário sugerido é a véspera do evento, às 9h.
+- Os grupos sugeridos são os da turma do evento. Se não houver, os grupos padrão do tipo. Se não houver, nenhum.
+- Também dá para criar um aviso avulso, sem evento.
+- Quem aprova: admin e gestor (permissão `whatsapp:avisos`). **Nada é enviado sem aprovação.** Dá para cancelar só antes do envio começar.
+
+**Limites**
+- Só texto, até 1.500 caracteres.
+- No máximo 30 grupos por aviso e 60 envios por número por dia. O que passar vira "falhou" com "Limite de envios do dia atingido.".
+- Só entre 8h e 20h (São Paulo). Na aprovação, o horário precisa ser 8h ou mais, e o último envio precisa caber até 20h.
+- Entre um grupo e outro, o sistema espera de 8 a 20 segundos.
+- O número que envia precisa estar conectado, ser da escola e estar dentro do grupo. Sem número assim, o envio fica "sem número".
+
+**Quando algo dá errado**
+- Aviso com mais de 30 minutos de atraso não sai. Ele falha com um alerta pedindo para reagendar.
+- Comando pendente mais de 30 minutos depois do horário falha com "Passou do horário (o motor ficou parado).".
+- O envio nunca é repetido sozinho. Se o motor não confirmar em 2 minutos, falha com "O motor não confirmou o envio.". Repetir poderia mandar a mensagem duas vezes.
+- Se o evento mudar depois da aprovação (data, hora, título, local ou exclusão), o aviso volta a rascunho com o alerta "O evento mudou depois da aprovação. Confira e aprove de novo.". Se o aviso já estava sendo enviado, os envios que faltam são cancelados.
+
+**Antes do primeiro aviso:** atualize o motor na VPS (runbook, passo 15) e crie o cron `envios-whatsapp` (passo 18).
+
+**Auditoria:** criar aviso avulso, editar, aprovar, cancelar e mudar "Avisos da agenda". Só guarda ids e contagens, nunca o texto.
 
 ## Situação da implementação
 **Entrega 1:** motor, comandos, tela de números e conexão por QR. Verificação na tela com o motor ligado é feita no site `teste`.

@@ -37,3 +37,5 @@ Cole na descrição de cada grupo de WhatsApp que a equipe acompanha:
 > **Quem ajuda no tratamento:** usamos a Anthropic como operadora para gerar resumos e avaliações das conversas. Os dados enviados não são usados para treinar modelos de inteligência artificial.
 >
 > **Como pedir a exclusão:** envie o pedido para [e-mail do encarregado de dados]. Informe o telefone usado no WhatsApp. A equipe apaga o contato, as conversas, as mensagens e as avaliações ligadas a ele e responde ao pedido.
+>
+> **Avisos da escola nos grupos:** a escola pode enviar avisos de texto (por exemplo, sobre aulas e eventos) para grupos de WhatsApp de turmas. Cada aviso só sai depois de aprovado por uma pessoa da gestão. O aviso é só texto, e o texto não é guardado nos registros de auditoria.
