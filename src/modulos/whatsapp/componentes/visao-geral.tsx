@@ -14,6 +14,15 @@ function corDoEstado(estado: string): string {
   return "bg-amber-500";
 }
 
+const formatoEnvio = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: "America/Sao_Paulo",
+  weekday: "short",
+  day: "2-digit",
+  month: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
 /** `diaAvaliado` é uma data de calendário (meia-noite UTC do dia de São Paulo): formatar em UTC, não em São Paulo. */
 function diaMes(d: Date): string {
   return new Intl.DateTimeFormat("pt-BR", {
@@ -35,9 +44,11 @@ export function haQuantoTempo(desde: Date | null, agora: Date): string {
 }
 
 export function VisaoGeral({ panorama, agora = new Date() }: { panorama: Panorama; agora?: Date }) {
-  const { numeros, oportunidades, atencao, numerosFalhou } = panorama;
+  const { numeros, oportunidades, atencao, numerosFalhou, avisos } = panorama;
   const nada =
     !numerosFalhou &&
+    !avisos?.falhou &&
+    !avisos?.rascunhos &&
     !atencao.semRespostaFalhou &&
     atencao.semRespostaAgora === 0 &&
     !atencao.csAguardando &&
@@ -96,6 +107,32 @@ export function VisaoGeral({ panorama, agora = new Date() }: { panorama: Panoram
         </CardContent>
       </Card>
 
+      {avisos && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Próximos envios</CardTitle>
+            <CardDescription>Avisos aprovados para os grupos nos próximos 7 dias</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {avisos.falhou ? (
+              <p className="text-muted-foreground text-sm">Não foi possível carregar os avisos agora.</p>
+            ) : avisos.proximos.length === 0 ? (
+              <p className="text-muted-foreground text-sm">Nenhum envio aprovado para os próximos 7 dias.</p>
+            ) : (
+              <ul className="grid gap-2 text-sm">
+                {avisos.proximos.map((a) => (
+                  <li key={a.id}>
+                    <Link href="/whatsapp/avisos" className={LINK}>
+                      {formatoEnvio.format(a.agendadoPara)} · {a.titulo} → {plural(a.grupos, "grupo", "grupos")}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Oportunidades</CardTitle>
@@ -149,6 +186,15 @@ export function VisaoGeral({ panorama, agora = new Date() }: { panorama: Panoram
                       "aluno esperando o 1º contato da CS",
                       "alunos esperando o 1º contato da CS",
                     )}
+                  </Link>
+                </li>
+              )}
+              {avisos && (avisos.falhou || avisos.rascunhos > 0) && (
+                <li>
+                  <Link href="/whatsapp/avisos" className={LINK}>
+                    {avisos.falhou
+                      ? "Não foi possível conferir os avisos esperando aprovação"
+                      : plural(avisos.rascunhos, "aviso esperando aprovação", "avisos esperando aprovação")}
                   </Link>
                 </li>
               )}

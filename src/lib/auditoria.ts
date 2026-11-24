@@ -52,6 +52,7 @@ export type AcaoAuditoria =
   | "whatsapp.aviso.editar"
   | "whatsapp.aviso.aprovar"
   | "whatsapp.aviso.cancelar"
+  | "whatsapp.avisos.config"
   | "nexu.configuracao_alterada"
   | "nexu.proposta_confirmada"
   | "espiao.concorrente_criado"

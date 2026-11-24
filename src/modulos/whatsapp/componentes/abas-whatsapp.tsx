@@ -12,7 +12,10 @@ const SECOES = [
   {
     chave: "grupos",
     rotulo: "Grupos",
-    abas: [{ chave: "grupos", href: "/whatsapp/grupos", rotulo: "Grupos", permissoes: ["whatsapp:ver_grupos"] }],
+    abas: [
+      { chave: "grupos", href: "/whatsapp/grupos", rotulo: "Grupos", permissoes: ["whatsapp:ver_grupos"] },
+      { chave: "avisos", href: "/whatsapp/avisos", rotulo: "Avisos", permissoes: ["whatsapp:avisos"] },
+    ],
   },
   {
     chave: "equipe",
