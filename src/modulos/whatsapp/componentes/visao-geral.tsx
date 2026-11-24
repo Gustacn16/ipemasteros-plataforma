@@ -14,8 +14,9 @@ function corDoEstado(estado: string): string {
   return "bg-amber-500";
 }
 
+/** `diaAvaliado` é uma data de calendário (meia-noite UTC do dia de São Paulo): formatar em UTC, não em São Paulo. */
 function diaMes(d: Date): string {
-  return new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit" }).format(d);
+  return new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC", day: "2-digit", month: "2-digit" }).format(d);
 }
 
 export function VisaoGeral({ panorama }: { panorama: Panorama }) {
