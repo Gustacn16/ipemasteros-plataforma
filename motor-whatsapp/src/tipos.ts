@@ -46,7 +46,9 @@ export type EventoMotor =
   | EventoMensagens;
 
 /** Comando que o sistema deixa na fila para o motor executar. */
-export type ComandoMotor = { id: string; numeroId: string; tipo: "conectar" | "desconectar" };
+export type ComandoMotor =
+  | { id: string; numeroId: string; tipo: "conectar" | "desconectar" }
+  | { id: string; numeroId: string; tipo: "enviar_grupo"; dados: { jid: string; texto: string; envioId: string } };
 
 export type ResultadoComando = { situacao: "concluido" | "falhou"; erro?: string };
 

@@ -14,6 +14,7 @@ type SocketFalso = {
   logout: ReturnType<typeof vi.fn>;
   end: ReturnType<typeof vi.fn>;
   groupFetchAllParticipating: ReturnType<typeof vi.fn>;
+  sendMessage: ReturnType<typeof vi.fn>;
   emitir: (nome: string, dados: unknown) => void;
 };
 
@@ -31,6 +32,7 @@ const baileys = vi.hoisted(() => {
         logout: vi.fn(async () => {}),
         end: vi.fn(),
         groupFetchAllParticipating: vi.fn(async () => ({})),
+        sendMessage: vi.fn(async () => ({})),
         emitir: (nome, dados) => ouvintes[nome]?.forEach((fn) => fn(dados)),
       };
       sockets.push(sock);
@@ -304,6 +306,31 @@ describe("Conexoes", () => {
       conversas: [{ jid: "120363000000000001@g.us", tipo: "grupo", nome: "Turma A" }],
     });
     expect(console.info).toHaveBeenCalledWith("[conexoes] vaga1: 1 grupos");
+  });
+
+  it("enviarTexto com a vaga fechada rejeita", async () => {
+    await conexoes.conectar("vaga1");
+    await expect(conexoes.enviarTexto("vaga1", "1@g.us", "oi")).rejects.toThrow("Número não está conectado.");
+    await expect(conexoes.enviarTexto("outra", "1@g.us", "oi")).rejects.toThrow("Número não está conectado.");
+    expect(baileys.sockets[0].sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("enviarTexto recusa destino que não é grupo", async () => {
+    await conexoes.conectar("vaga1");
+    const sock = baileys.sockets[0];
+    sock.user = { id: "5511999990000:1@s.whatsapp.net" };
+    sock.emitir("connection.update", { connection: "open" });
+    await expect(conexoes.enviarTexto("vaga1", "123@s.whatsapp.net", "oi")).rejects.toThrow("Destino não é um grupo.");
+    expect(sock.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("enviarTexto manda o texto ao grupo", async () => {
+    await conexoes.conectar("vaga1");
+    const sock = baileys.sockets[0];
+    sock.user = { id: "5511999990000:1@s.whatsapp.net" };
+    sock.emitir("connection.update", { connection: "open" });
+    await conexoes.enviarTexto("vaga1", "120363000000000001@g.us", "Aviso");
+    expect(sock.sendMessage).toHaveBeenCalledWith("120363000000000001@g.us", { text: "Aviso" });
   });
 
   it("falha ao buscar grupos só registra e não derruba nada", async () => {

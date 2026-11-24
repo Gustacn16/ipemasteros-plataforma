@@ -105,6 +105,15 @@ export class Conexoes {
     console.info(`[conexoes] ${numeroId}: desconectado a pedido`);
   }
 
+  /** Envia texto a um grupo pelo número da vaga. Erros levam só mensagem fixa: nada de texto, jid ou telefone. */
+  async enviarTexto(numeroId: string, jid: string, texto: string): Promise<void> {
+    this.validar(numeroId);
+    const vaga = this.vagas.get(numeroId);
+    if (!vaga?.aberta || !vaga.sock) throw new Error("Número não está conectado.");
+    if (!jid.endsWith("@g.us")) throw new Error("Destino não é um grupo.");
+    await vaga.sock.sendMessage(jid, { text: texto });
+  }
+
   conectados(): string[] {
     return [...this.vagas].filter(([, v]) => v.aberta).map(([id]) => id);
   }

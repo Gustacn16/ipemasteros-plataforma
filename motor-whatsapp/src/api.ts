@@ -33,7 +33,7 @@ export async function enviarEventos(eventos: EventoMotor[]): Promise<void> {
 }
 
 export async function buscarComandos(): Promise<ComandoMotor[]> {
-  const resposta = await chamar("/api/whatsapp/motor/comandos", { method: "GET" });
+  const resposta = await chamar("/api/whatsapp/motor/comandos?recursos=enviar_grupo", { method: "GET" });
   const dados = (await resposta.json()) as { comandos?: ComandoMotor[] };
   return dados.comandos ?? [];
 }

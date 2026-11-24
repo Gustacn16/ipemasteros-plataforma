@@ -37,12 +37,25 @@ function enviarSinal(): void {
 async function executar(comando: ComandoMotor): Promise<void> {
   let resultado: { situacao: "concluido" } | { situacao: "falhou"; erro: string };
   try {
-    if (comando.tipo === "conectar") await conexoes.conectar(comando.numeroId);
-    else await conexoes.desconectar(comando.numeroId);
-    resultado = { situacao: "concluido" };
+    switch (comando.tipo) {
+      case "conectar":
+        await conexoes.conectar(comando.numeroId);
+        resultado = { situacao: "concluido" };
+        break;
+      case "desconectar":
+        await conexoes.desconectar(comando.numeroId);
+        resultado = { situacao: "concluido" };
+        break;
+      case "enviar_grupo":
+        await conexoes.enviarTexto(comando.numeroId, comando.dados.jid, comando.dados.texto);
+        resultado = { situacao: "concluido" };
+        break;
+      default:
+        resultado = { situacao: "falhou", erro: "Comando desconhecido." };
+    }
   } catch (erro) {
     const texto = erro instanceof Error ? erro.message : "erro desconhecido";
-    console.error(`[comandos] ${comando.tipo} ${comando.numeroId} falhou (${nomeDoErro(erro)})`);
+    console.error(`[comandos] ${String((comando as { tipo: unknown }).tipo)} ${comando.numeroId} falhou (${nomeDoErro(erro)})`);
     resultado = { situacao: "falhou", erro: texto.slice(0, 255) };
   }
   // Falha ao responder não muda o resultado: o sistema devolve o comando à fila em 2 min,

@@ -18,6 +18,13 @@ describe("api", () => {
     expect((erro as ErroHttp).status).toBe(400);
   });
 
+  it("buscarComandos pede os comandos de enviar_grupo", async () => {
+    const fetchFalso = vi.fn(async (_url: string) => Response.json({ comandos: [] }));
+    vi.stubGlobal("fetch", fetchFalso);
+    await buscarComandos();
+    expect(fetchFalso.mock.calls[0][0]).toBe("http://localhost:3000/api/whatsapp/motor/comandos?recursos=enviar_grupo");
+  });
+
   it("POST /eventos espera até 60 s; os comandos continuam com 15 s", async () => {
     const tempo = vi.spyOn(AbortSignal, "timeout");
     vi.stubGlobal("fetch", vi.fn(async () => Response.json({ comandos: [] })));
