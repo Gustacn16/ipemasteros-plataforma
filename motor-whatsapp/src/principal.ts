@@ -2,6 +2,7 @@ import { buscarComandos, enviarEventos, responderComando } from "./api.ts";
 import { config } from "./config.ts";
 import { Conexoes } from "./conexoes.ts";
 import { FilaEventos } from "./fila-eventos.ts";
+import { textoDaFalha } from "./erro-envio.ts";
 import { adquirirTrava } from "./trava.ts";
 import type { ComandoMotor } from "./tipos.ts";
 
@@ -55,11 +56,13 @@ async function executar(comando: ComandoMotor): Promise<void> {
     }
   } catch (erro) {
     const texto = erro instanceof Error ? erro.message : "erro desconhecido";
-    console.error(`[comandos] ${String((comando as { tipo: unknown }).tipo)} ${comando.numeroId} falhou (${nomeDoErro(erro)})`);
-    resultado = { situacao: "falhou", erro: texto.slice(0, 255) };
+    const tipo = String((comando as { tipo: unknown }).tipo);
+    console.error(`[comandos] ${tipo} ${comando.numeroId} falhou (${nomeDoErro(erro)})`);
+    resultado = { situacao: "falhou", erro: textoDaFalha(tipo, texto, nomeDoErro(erro)) };
   }
-  // Falha ao responder não muda o resultado: o sistema devolve o comando à fila em 2 min,
-  // e conectar/desconectar podem ser repetidos sem efeito colateral.
+  // Falha ao responder não muda o resultado. conectar/desconectar o sistema devolve à fila em 2 min
+  // (podem ser repetidos sem efeito colateral); enviar_grupo nunca é reenviado: o site o marca
+  // como falhou depois de 2 min sem resposta.
   try {
     await responderComando(comando.id, resultado);
   } catch (erro) {

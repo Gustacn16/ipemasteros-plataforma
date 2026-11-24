@@ -120,7 +120,7 @@ beforeEach(() => {
   banco.estado.envios = [];
   banco.estado.comandos = [];
   banco.estado.numeros = [numero("n1")];
-  banco.estado.conversas = ["g1", "g2", "g3"].map((id) => ({ id, jid: `${id}@g.us` }));
+  banco.estado.conversas = ["g1", "g2", "g3"].map((id) => ({ id, jid: `${id}@g.us`, tipo: "grupo", monitorada: true }));
   banco.estado.noGrupo = [];
   banco.estado.eventos = [];
 });
@@ -231,6 +231,38 @@ describe("dispararAvisosDaHora", () => {
     banco.estado.noGrupo = [{ numeroId: "n1", conversaId: "g1" }, { numeroId: "n1", conversaId: "g2" }, { numeroId: "n2", conversaId: "g3" }];
     await dispararAvisosDaHora(AGORA, () => 0);
     expect(banco.estado.comandos.map((c) => [c.numeroId, c.executarApos])).toEqual([["n1", AGORA], ["n1", seg(8)], ["n2", AGORA]]);
+  });
+
+  it("grupo que deixou de ser acompanhado (ou virou contato) falha sem comando", async () => {
+    banco.estado.conversas = [
+      { id: "g1", jid: "g1@g.us", tipo: "grupo", monitorada: false },
+      { id: "g2", jid: "g2@g.us", tipo: "individual", monitorada: true },
+      { id: "g3", jid: "g3@g.us", tipo: "grupo", monitorada: true },
+    ];
+    banco.estado.avisos = [aviso("a1")];
+    banco.estado.envios = [envio("e1", "a1", "g1"), envio("e2", "a1", "g2"), envio("e3", "a1", "g3")];
+    banco.estado.noGrupo = ["g1", "g2", "g3"].map((conversaId) => ({ numeroId: "n1", conversaId }));
+    expect((await dispararAvisosDaHora(AGORA)).comandos).toBe(1);
+    expect(banco.estado.envios.map((e) => [e.situacao, e.erro])).toEqual([
+      ["falhou", "O grupo não é mais acompanhado."],
+      ["falhou", "O grupo não é mais acompanhado."],
+      ["aguardando", null],
+    ]);
+    expect(banco.estado.comandos).toHaveLength(1);
+    expect(banco.estado.comandos[0]!.dados.jid).toBe("g3@g.us");
+  });
+
+  it("passando das 20h pelo deslocamento acumulado: o envio falha e o comando não é criado", async () => {
+    // 19h59m50s em SP (22:59:50Z): saem em +0 s e +8 s; o terceiro (+16 s) passaria das 20h.
+    const tarde = new Date("2026-11-25T22:59:50Z");
+    banco.estado.avisos = [aviso("a1", { agendadoPara: new Date(tarde.getTime() - 60_000) })];
+    banco.estado.envios = [envio("e1", "a1", "g1"), envio("e2", "a1", "g2"), envio("e3", "a1", "g3")];
+    banco.estado.noGrupo = ["g1", "g2", "g3"].map((conversaId) => ({ numeroId: "n1", conversaId }));
+    await dispararAvisosDaHora(tarde, () => 0);
+    expect(banco.estado.comandos.map((c) => c.executarApos)).toEqual([tarde, new Date(tarde.getTime() + 8000)]);
+    expect(banco.estado.envios.map((e) => [e.situacao, e.erro])).toEqual([
+      ["aguardando", null], ["aguardando", null], ["falhou", "Passaria das 20h; reagende."],
+    ]);
   });
 
   it("dois crons ao mesmo tempo não criam comandos duas vezes", async () => {

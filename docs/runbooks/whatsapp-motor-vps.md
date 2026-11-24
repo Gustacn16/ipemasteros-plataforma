@@ -195,4 +195,4 @@ Marque o time de cada número na tela Números **antes** de criar o cron de mét
 
 A linha `envios-whatsapp` roda a cada 5 minutos e faz duas coisas: cria os rascunhos de avisos das segundas-feiras (a partir das 7h de São Paulo) e manda os avisos aprovados que já chegaram na hora. Sem ela, nenhum aviso sai. O `--max-time 300` dá até 5 minutos para cada rodada.
 
-Aviso com mais de 30 minutos de atraso não é enviado: ele falha e a tela pede para reagendar. Comando de envio que fica pendente mais de 30 minutos depois do horário falha com "Passou do horário (o motor ficou parado).". Isso acontece quando o motor fica parado: veja o passo 16 e reinicie o serviço.
+Aviso com mais de 30 minutos de atraso não é enviado: ele falha e a tela pede para reagendar. Comando de envio que fica pendente mais de 30 minutos depois do horário falha com "Passou do horário (o motor ficou parado).", mesmo se o motor ainda for o antigo. Isso acontece quando o motor fica parado: veja o passo 16 e reinicie o serviço.

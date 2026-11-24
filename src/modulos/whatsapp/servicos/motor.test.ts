@@ -320,6 +320,15 @@ describe("entregarComandos: enviar_grupo", () => {
     expect(banco.estado.comandos[0]).toMatchObject({ situacao: "pendente", tentativas: 0 });
   });
 
+  it("motor antigo (sem recursos): pendente vencido há 31 min falha, fecha o envio e nada é entregue", async () => {
+    banco.estado.comandos = [envioGrupo("g1", { executarApos: minAtras(31) })];
+    expect(await entregarComandos(AGORA)).toEqual([]);
+    expect(banco.estado.comandos[0]).toMatchObject({ situacao: "falhou", erro: "Passou do horário (o motor ficou parado).", tentativas: 0 });
+    expect(envio.registrarResultadoEnvio).toHaveBeenCalledWith(
+      expect.anything(), "g1", { situacao: "falhou", erro: "Passou do horário (o motor ficou parado)." }, AGORA,
+    );
+  });
+
   it("com recursos entrega no máximo 1 por número, com os dados", async () => {
     banco.estado.comandos = [
       envioGrupo("g1", { executarApos: minAtras(3) }),

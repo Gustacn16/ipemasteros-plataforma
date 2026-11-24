@@ -114,6 +114,7 @@ export type ComandoEntregue =
  * `conectar` de vaga excluída falha; `desconectar` segue, para o motor encerrar a sessão dela.
  * `enviar_grupo`:
  * - só sai para o motor que declarou `recursos` com "enviar_grupo" (o motor antigo trataria o tipo como desconectar);
+ * - o pendente vencido há mais de 30 min falha para qualquer motor, antes dessa checagem;
  * - no máximo 1 por número em cada chamada;
  * - nunca é reentregue: preso em andamento há mais de 2 min vira `falhou` (repetir arriscaria mandar duas vezes).
  */
@@ -122,6 +123,8 @@ export async function entregarComandos(
   opcoes: { recursos?: string[] } = {},
 ): Promise<ComandoEntregue[]> {
   const enviaGrupo = opcoes.recursos?.includes("enviar_grupo") ?? false;
+  // Atrasados falham sempre, mesmo para o motor antigo: não ficam pendentes para sempre.
+  await falharEnviosAtrasados(agora);
   const presoAntesDe = new Date(agora.getTime() - REENTREGA_MS);
   const vencido = { OR: [{ executarApos: null }, { executarApos: { lte: agora } }] };
   const pendente = { situacao: "pendente" as const, tipo: { in: ["conectar", "desconectar"] as TipoComandoWhatsapp[] }, ...vencido };
@@ -162,6 +165,18 @@ export async function entregarComandos(
   }
   if (enviaGrupo) entregues.push(...(await entregarEnvios(agora)));
   return entregues;
+}
+
+/** enviar_grupo pendente há mais de 30 min do horário (motor parado): falha o comando e o envio, sem entregar. */
+async function falharEnviosAtrasados(agora: Date): Promise<void> {
+  const velhoAntesDe = new Date(agora.getTime() - ATRASO_MAX_MS);
+  const velhos = await prisma.comandoWhatsapp.findMany({
+    where: { situacao: "pendente", tipo: "enviar_grupo", executarApos: { lt: velhoAntesDe } },
+    select: { id: true },
+    orderBy: [{ executarApos: "asc" }, { id: "asc" }],
+    take: MAX_ENVIOS_CANDIDATOS,
+  });
+  for (const { id } of velhos) await falharEnvioPendente(id, ERRO_ENVIO_ATRASADO, agora);
 }
 
 /** Os enviar_grupo pendentes que já venceram: no máximo 1 por número, só pendente → em andamento. */

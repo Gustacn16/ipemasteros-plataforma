@@ -102,7 +102,7 @@ Avisos de texto da escola para os grupos de WhatsApp. Menu: **Grupos → Avisos*
 
 **Quando algo dá errado**
 - Aviso com mais de 30 minutos de atraso não sai. Ele falha com um alerta pedindo para reagendar.
-- Comando pendente mais de 30 minutos depois do horário falha com "Passou do horário (o motor ficou parado).".
+- Comando pendente mais de 30 minutos depois do horário falha com "Passou do horário (o motor ficou parado).", mesmo com o motor antigo, e o aviso fecha.
 - O envio nunca é repetido sozinho. Se o motor não confirmar em 2 minutos, falha com "O motor não confirmou o envio.". Repetir poderia mandar a mensagem duas vezes.
 - Se o evento mudar depois da aprovação (data, hora, título, local ou exclusão), o aviso volta a rascunho com o alerta "O evento mudou depois da aprovação. Confira e aprove de novo.". Se o aviso já estava sendo enviado, os envios que faltam são cancelados.
 

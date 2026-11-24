@@ -2,7 +2,7 @@ import "server-only";
 import { Prisma } from "@/generated/prisma/client";
 import { inicioDoDiaSaoPaulo } from "@/lib/ia/limites";
 import { prisma } from "@/lib/prisma";
-import { atrasosEnvio, escolherNumero, MAX_ENVIOS_NUMERO_DIA } from "../regras/avisos";
+import { atrasosEnvio, escolherNumero, HORA_FIM_ENVIO, MAX_ENVIOS_NUMERO_DIA } from "../regras/avisos";
 
 export const ALERTA_EVENTO_MUDOU = "O evento mudou depois da aprovação. Confira e aprove de novo.";
 export const ALERTA_EVENTO_EXCLUIDO = "O evento foi excluído.";
@@ -11,6 +11,8 @@ export const ALERTA_MUDOU_DURANTE_ENVIO = "O evento mudou durante o envio.";
 export const ERRO_LIMITE_DIA = "Limite de envios do dia atingido.";
 export const ALERTA_ATRASADO = "Não saiu no horário (o sistema ficou parado). Reagende o aviso.";
 export const ERRO_PASSOU_HORARIO = "Passou do horário.";
+export const ERRO_GRUPO_NAO_ACOMPANHADO = "O grupo não é mais acompanhado.";
+export const ERRO_PASSARIA_20H = "Passaria das 20h; reagende.";
 /** Aviso que chega à fila mais atrasado que isso não sai (o cron ficou parado). */
 export const ATRASO_MAX_MS = 30 * 60_000;
 
@@ -201,6 +203,7 @@ export async function dispararAvisosDaHora(
   const ultimoAtraso = new Map<string, number>();
   const inicioDia = inicioDoDiaSaoPaulo(agora);
   const fimDia = new Date(inicioDia.getTime() + MS_DIA);
+  const limite20h = new Date(inicioDia.getTime() + HORA_FIM_ENVIO * 3_600_000);
 
   for (const { id } of prontos) {
     const r = await prisma.$transaction(
@@ -211,11 +214,24 @@ export async function dispararAvisosDaHora(
         });
         if (count === 0) return null; // outro cron já pegou, ou o aviso mudou
         const aviso = await tx.avisoGrupo.findUnique({ where: { id }, select: { texto: true } });
-        const envios = await tx.envioAvisoGrupo.findMany({
+        const todosEnvios = await tx.envioAvisoGrupo.findMany({
           where: { avisoId: id, situacao: "aguardando", comandoId: null },
-          select: { id: true, conversaId: true, conversa: { select: { jid: true } } },
+          select: { id: true, conversaId: true, conversa: { select: { jid: true, tipo: true, monitorada: true } } },
           orderBy: { id: "asc" },
         });
+
+        // Só grupos ainda acompanhados: o resto falha aqui, sem comando.
+        const envios = [];
+        for (const e of todosEnvios) {
+          if (e.conversa.tipo === "grupo" && e.conversa.monitorada) {
+            envios.push(e);
+            continue;
+          }
+          await tx.envioAvisoGrupo.updateMany({
+            where: { id: e.id, situacao: "aguardando", comandoId: null },
+            data: { situacao: "falhou", erro: ERRO_GRUPO_NAO_ACOMPANHADO },
+          });
+        }
 
         // Números aptos por grupo: conectados, da escola, não excluídos e que estão no grupo.
         const vinculos = await tx.numeroNoGrupo.findMany({
@@ -275,13 +291,22 @@ export async function dispararAvisosDaHora(
                 .slice(1)
                 .map((a) => Math.max(...anteriores) + a);
         for (const [i, { envio, numeroId }] of aEnviar.entries()) {
+          const executarApos = new Date(agora.getTime() + atrasos[i]! * 1000);
+          // O deslocamento acumulado por número pode passar das 20h: não cria o comando.
+          if (executarApos.getTime() > limite20h.getTime()) {
+            await tx.envioAvisoGrupo.updateMany({
+              where: { id: envio.id, situacao: "aguardando", comandoId: null },
+              data: { situacao: "falhou", numeroId, erro: ERRO_PASSARIA_20H },
+            });
+            continue;
+          }
           const dados: DadosEnviarGrupo = { jid: envio.conversa.jid, texto: aviso!.texto, envioId: envio.id };
           const comando = await tx.comandoWhatsapp.create({
             data: {
               numeroId,
               tipo: "enviar_grupo",
               dados,
-              executarApos: new Date(agora.getTime() + atrasos[i]! * 1000),
+              executarApos,
             },
             select: { id: true },
           });
