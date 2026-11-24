@@ -8,6 +8,10 @@ export const ALERTA_EVENTO_MUDOU = "O evento mudou depois da aprovação. Confir
 export const ALERTA_EVENTO_EXCLUIDO = "O evento foi excluído.";
 export const ERRO_CANCELADO_EVENTO = "Cancelado: o evento mudou.";
 export const ERRO_LIMITE_DIA = "Limite de envios do dia atingido.";
+export const ALERTA_ATRASADO = "Não saiu no horário (o sistema ficou parado). Reagende o aviso.";
+export const ERRO_PASSOU_HORARIO = "Passou do horário.";
+/** Aviso que chega à fila mais atrasado que isso não sai (o cron ficou parado). */
+export const ATRASO_MAX_MS = 30 * 60_000;
 
 const MS_DIA = 86_400_000;
 
@@ -152,13 +156,31 @@ export async function conferirEventosMudados(agora: Date): Promise<{ voltaram: n
 export async function dispararAvisosDaHora(
   agora: Date,
   aleatorio: () => number = Math.random,
-): Promise<{ avisos: number; comandos: number; semNumero: number; acimaDoLimite: number }> {
+): Promise<{ avisos: number; comandos: number; semNumero: number; acimaDoLimite: number; atrasados: number }> {
   const prontos = await prisma.avisoGrupo.findMany({
     where: { situacao: "aprovado", agendadoPara: { lte: agora } },
     select: { id: true },
     orderBy: { agendadoPara: "asc" },
   });
-  const total = { avisos: 0, comandos: 0, semNumero: 0, acimaDoLimite: 0 };
+  const total = { avisos: 0, comandos: 0, semNumero: 0, acimaDoLimite: 0, atrasados: 0 };
+  const atrasadoAntesDe = new Date(agora.getTime() - ATRASO_MAX_MS);
+
+  // Muito atrasados: não saem fora de hora. Claim `aprovado` → `falhou`, e os envios aguardando falham.
+  for (const { id } of prontos) {
+    const atrasou = await prisma.$transaction(async (tx) => {
+      const { count } = await tx.avisoGrupo.updateMany({
+        where: { id, situacao: "aprovado", agendadoPara: { lt: atrasadoAntesDe } },
+        data: { situacao: "falhou", alerta: ALERTA_ATRASADO },
+      });
+      if (count === 0) return false;
+      await tx.envioAvisoGrupo.updateMany({
+        where: { avisoId: id, situacao: "aguardando" },
+        data: { situacao: "falhou", erro: ERRO_PASSOU_HORARIO },
+      });
+      return true;
+    });
+    if (atrasou) total.atrasados++;
+  }
   const inicioDia = inicioDoDiaSaoPaulo(agora);
   const fimDia = new Date(inicioDia.getTime() + MS_DIA);
 
@@ -166,7 +188,7 @@ export async function dispararAvisosDaHora(
     const r = await prisma.$transaction(
       async (tx) => {
         const { count } = await tx.avisoGrupo.updateMany({
-          where: { id, situacao: "aprovado", agendadoPara: { lte: agora } },
+          where: { id, situacao: "aprovado", agendadoPara: { gte: atrasadoAntesDe, lte: agora } },
           data: { situacao: "enviando" },
         });
         if (count === 0) return null; // outro cron já pegou, ou o aviso mudou

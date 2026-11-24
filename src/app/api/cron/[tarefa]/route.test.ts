@@ -73,13 +73,13 @@ describe("cron envios-whatsapp", () => {
     const ordem: string[] = [];
     mocks.gerarRascunhosDaSemana.mockImplementation(async () => (ordem.push("rascunhos"), { criados: 1, jaExistiam: 0 }));
     mocks.conferirEventosMudados.mockImplementation(async () => (ordem.push("conferir"), { voltaram: 0, interrompidos: 0 }));
-    mocks.dispararAvisosDaHora.mockImplementation(async () => (ordem.push("disparar"), { avisos: 1, comandos: 2, semNumero: 0, acimaDoLimite: 0 }));
+    mocks.dispararAvisosDaHora.mockImplementation(async () => (ordem.push("disparar"), { avisos: 1, comandos: 2, semNumero: 0, acimaDoLimite: 0, atrasados: 0 }));
     const r = await chamar("envios-whatsapp");
     expect(await r.json()).toEqual({
       ok: true,
       rascunhos: { criados: 1, jaExistiam: 0 },
       eventos: { voltaram: 0, interrompidos: 0 },
-      envios: { avisos: 1, comandos: 2, semNumero: 0, acimaDoLimite: 0 },
+      envios: { avisos: 1, comandos: 2, semNumero: 0, acimaDoLimite: 0, atrasados: 0 },
     });
     expect(ordem).toEqual(["rascunhos", "conferir", "disparar"]);
   });
@@ -87,7 +87,7 @@ describe("cron envios-whatsapp", () => {
   it("falha nos rascunhos não segura os envios", async () => {
     mocks.gerarRascunhosDaSemana.mockRejectedValue(new Error("texto secreto"));
     mocks.conferirEventosMudados.mockResolvedValue({ voltaram: 0, interrompidos: 0 });
-    mocks.dispararAvisosDaHora.mockResolvedValue({ avisos: 0, comandos: 0, semNumero: 0, acimaDoLimite: 0 });
+    mocks.dispararAvisosDaHora.mockResolvedValue({ avisos: 0, comandos: 0, semNumero: 0, acimaDoLimite: 0, atrasados: 0 });
     const corpo = await (await chamar("envios-whatsapp")).json();
     expect(corpo.rascunhos).toMatchObject({ motivo: "erro" });
     expect(mocks.dispararAvisosDaHora).toHaveBeenCalledTimes(1);

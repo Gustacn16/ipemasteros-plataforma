@@ -138,7 +138,7 @@ describe("dispararAvisosDaHora", () => {
     ];
     banco.estado.numeros.push(numero("n2", { situacao: "desconectado" }), numero("n3", { finalidade: "atendimento" }));
 
-    expect(await dispararAvisosDaHora(AGORA, () => 0)).toEqual({ avisos: 1, comandos: 2, semNumero: 1, acimaDoLimite: 0 });
+    expect(await dispararAvisosDaHora(AGORA, () => 0)).toEqual({ avisos: 1, comandos: 2, semNumero: 1, acimaDoLimite: 0, atrasados: 0 });
     expect(banco.estado.avisos[0]!.situacao).toBe("enviando");
     expect(banco.estado.comandos.map((c) => c.executarApos)).toEqual([AGORA, seg(8)]);
     expect(banco.estado.comandos[0]).toMatchObject({
@@ -159,7 +159,7 @@ describe("dispararAvisosDaHora", () => {
     banco.estado.envios = [envio("e1", "a1", "g1"), envio("e2", "a1", "g2"), envio("e3", "a1", "g3")];
     banco.estado.noGrupo = ["g1", "g2", "g3"].map((conversaId) => ({ numeroId: "n1", conversaId }));
 
-    expect(await dispararAvisosDaHora(AGORA, () => 0)).toEqual({ avisos: 1, comandos: 1, semNumero: 0, acimaDoLimite: 2 });
+    expect(await dispararAvisosDaHora(AGORA, () => 0)).toEqual({ avisos: 1, comandos: 1, semNumero: 0, acimaDoLimite: 2, atrasados: 0 });
     expect(banco.estado.envios.map((e) => [e.situacao, e.erro])).toEqual([
       ["aguardando", null],
       ["falhou", "Limite de envios do dia atingido."],
@@ -179,7 +179,7 @@ describe("dispararAvisosDaHora", () => {
   it("aviso sem nenhum comando criado vira falhou", async () => {
     banco.estado.avisos = [aviso("a1")];
     banco.estado.envios = [envio("e1", "a1", "g1")];
-    expect(await dispararAvisosDaHora(AGORA)).toEqual({ avisos: 1, comandos: 0, semNumero: 1, acimaDoLimite: 0 });
+    expect(await dispararAvisosDaHora(AGORA)).toEqual({ avisos: 1, comandos: 0, semNumero: 1, acimaDoLimite: 0, atrasados: 0 });
     expect(banco.estado.avisos[0]!.situacao).toBe("falhou");
   });
 
@@ -187,8 +187,30 @@ describe("dispararAvisosDaHora", () => {
     banco.estado.avisos = [aviso("a1", { agendadoPara: seg(60) }), aviso("a2", { situacao: "rascunho" }), aviso("a3", { situacao: "enviando" })];
     banco.estado.envios = [envio("e1", "a1", "g1"), envio("e2", "a2", "g1"), envio("e3", "a3", "g1")];
     banco.estado.noGrupo = [{ numeroId: "n1", conversaId: "g1" }];
-    expect(await dispararAvisosDaHora(AGORA)).toEqual({ avisos: 0, comandos: 0, semNumero: 0, acimaDoLimite: 0 });
+    expect(await dispararAvisosDaHora(AGORA)).toEqual({ avisos: 0, comandos: 0, semNumero: 0, acimaDoLimite: 0, atrasados: 0 });
     expect(banco.estado.comandos).toEqual([]);
+  });
+
+  it("31 min atrasado não sai: falhou com alerta, envios falham e nenhum comando", async () => {
+    banco.estado.avisos = [aviso("a1", { agendadoPara: seg(-31 * 60) })];
+    banco.estado.envios = [envio("e1", "a1", "g1"), envio("e2", "a1", "g2", { situacao: "sem_numero" })];
+    banco.estado.noGrupo = [{ numeroId: "n1", conversaId: "g1" }];
+    expect(await dispararAvisosDaHora(AGORA)).toEqual({ avisos: 0, comandos: 0, semNumero: 0, acimaDoLimite: 0, atrasados: 1 });
+    expect(banco.estado.avisos[0]).toMatchObject({
+      situacao: "falhou",
+      alerta: "Não saiu no horário (o sistema ficou parado). Reagende o aviso.",
+    });
+    expect(banco.estado.envios.map((e) => [e.situacao, e.erro])).toEqual([["falhou", "Passou do horário."], ["sem_numero", null]]);
+    expect(banco.estado.comandos).toEqual([]);
+  });
+
+  it("29 min atrasado sai normalmente", async () => {
+    banco.estado.avisos = [aviso("a1", { agendadoPara: seg(-29 * 60) })];
+    banco.estado.envios = [envio("e1", "a1", "g1")];
+    banco.estado.noGrupo = [{ numeroId: "n1", conversaId: "g1" }];
+    expect(await dispararAvisosDaHora(AGORA)).toEqual({ avisos: 1, comandos: 1, semNumero: 0, acimaDoLimite: 0, atrasados: 0 });
+    expect(banco.estado.avisos[0]!.situacao).toBe("enviando");
+    expect(banco.estado.comandos[0]).toMatchObject({ tipo: "enviar_grupo", executarApos: AGORA });
   });
 
   it("dois crons ao mesmo tempo não criam comandos duas vezes", async () => {
