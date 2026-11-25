@@ -61,6 +61,8 @@ export const INDICADORES_PADRAO: IndicadorPadrao[] = [
   comercial("Investimento em mídia (R$)", "investimento_midia", "meta_investimento", { unidade: "reais", sentido: "menor_melhor" }),
   comercial("CAC por aluno", "cac_por_aluno", "calc_cac", { unidade: "reais", sentido: "menor_melhor", tipo: "taxa" }),
   comercial("Conversão lead → venda", "conversao_lead_venda", "calc_conversao", { unidade: "percentual", tipo: "taxa" }),
+  // Meta por mês digitada e realizado lançado à mão (quantos pacientes modelo foram captados).
+  { frente: "comercial", grupo: "Pacientes modelo", nome: "Pacientes modelo", unidade: "numero", sentido: "maior_melhor", tipo: "fluxo", metaCalculada: null, fonte: "manual", metaMensalInicial: null },
   marketing("Conteúdo e audiência", "Posts no feed — IPEMaster", 20),
   marketing("Conteúdo e audiência", "Reels / vídeos curtos", 12),
   marketing("Conteúdo e audiência", "Vídeos no YouTube", 4),

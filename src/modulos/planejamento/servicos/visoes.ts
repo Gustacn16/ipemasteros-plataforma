@@ -9,12 +9,13 @@ import { acumular, desempenho, razaoAcumulada, statusDe, type Sentido, type Stat
 import type { RetratoMes } from "../regras/fechamento";
 import { fonteAutomatica, type ChaveMetaCalculada } from "../regras/fontes";
 import { mesComecou, mesDaData, mesDoDia, mesesDoAcumulado, mesesDoAno } from "../regras/meses";
+import { metaVsRealizadoPorProduto, somarPorProduto } from "../regras/por-produto";
 import { resumoDoInicio } from "../regras/resumo-mes";
 import { totalDoMes, type MetaProdutoMes } from "../regras/turmas";
 import { exigir, hojeSp, podeVer } from "./acesso";
 import { carregarPlanoCalculado, type PlanoCalculado } from "./fechamento";
 import { idDoPlano } from "./planos";
-import { realizadoAutomatico, type BaseMes } from "./realizado";
+import { realizadoAutomatico, vendasPorProdutoDoAno, type BaseMes } from "./realizado";
 
 export type LinhaMes = { mes: string; meta: number | null; realizado: number | null; pct: number | null; status: Status | null; parcial: boolean; comecou: boolean };
 export type Resumo = { meta: number | null; realizado: number | null; pct: number | null; status: Status | null };
@@ -51,8 +52,11 @@ function metaCalculadaDo(chave: ChaveMetaCalculada, r: RetratoMes): number | nul
         return f.reunioesRealizadas;
       case "investimento_midia":
         return f.verbaCentavos === null ? null : f.verbaCentavos / 100;
-      case "cac_por_aluno":
-        return f.cacPorAlunoCentavos === null ? null : f.cacPorAlunoCentavos / 100;
+      case "cac_por_aluno": {
+        // A meta é o teto de CAC; retratos antigos (sem o teto guardado) usam o CAC calculado.
+        const c = f.cacTetoPorAlunoCentavos !== undefined ? f.cacTetoPorAlunoCentavos : f.cacPorAlunoCentavos;
+        return c === null ? null : c / 100;
+      }
       case "conversao_lead_venda":
         return f.leads ? f.alunos / f.leads : null;
     }
@@ -71,7 +75,12 @@ function acumuladoComposto(chave: string, meses: string[], calc: PlanoCalculado,
   const reais = meses.map((m) => base[m]);
   if (chave === "cac_por_aluno") {
     return {
-      meta: razaoAcumulada(funis.map((f) => ({ num: (f.cacTotalCentavos ?? 0) / 100, den: f.alunos }))),
+      meta: razaoAcumulada(
+        funis.map((f) => {
+          const porAluno = f.cacTetoPorAlunoCentavos !== undefined ? f.cacTetoPorAlunoCentavos : f.cacPorAlunoCentavos;
+          return { num: ((porAluno ?? 0) * f.alunos) / 100, den: f.alunos };
+        }),
+      ),
       realizado: razaoAcumulada(reais.map((b) => ({ num: (b.investimentoCentavos + b.vendasCentavos * calc.premissasFunil.comissaoPct) / 100, den: b.alunos }))),
     };
   }
@@ -164,9 +173,19 @@ export async function obterPlanoComercial(ator: UsuarioAtual, ano: number, mes: 
   exigir(ator, "planejamento:ver");
   const planoId = await idDoPlano(ano);
   if (!planoId) return null;
-  const { linhas, calc, meses } = await montar(planoId, mes);
-  const produtos = await prisma.produto.findMany({ where: { id: { in: calc.produtosDoPlano } }, select: { id: true, nome: true } });
+  const { linhas, calc, meses, hoje } = await montar(planoId, mes);
+  const vendidos = await vendasPorProdutoDoAno(ano);
+  const acumulados = mesesDoAcumulado(meses, mes, hoje);
+  const doMes = metaVsRealizadoPorProduto(calc.porMes[mes].produtos, mesComecou(mes, hoje) ? vendidos[mes] : {});
+  const noAcumulado = metaVsRealizadoPorProduto(
+    somarPorProduto(acumulados.map((m) => calc.porMes[m].produtos)),
+    somarPorProduto(acumulados.map((m) => vendidos[m])),
+  );
+  const idsProdutos = [...new Set([...calc.produtosDoPlano, ...doMes.map((l) => l.produtoId), ...noAcumulado.map((l) => l.produtoId)])];
+  const produtos = await prisma.produto.findMany({ where: { id: { in: idsProdutos } }, select: { id: true, nome: true } });
+  const nomeDe = (id: string) => produtos.find((p) => p.id === id)?.nome ?? "—";
   const linhasProdutos = produtos
+    .filter((p) => calc.produtosDoPlano.includes(p.id))
     .map((p) => {
       const porMes = meses.map((m) => somarMetas(calc.porMes[m].produtos[p.id]));
       return {
@@ -186,6 +205,12 @@ export async function obterPlanoComercial(ator: UsuarioAtual, ano: number, mes: 
     congelados: calc.congelados,
     produtos: linhasProdutos,
     funil: meses.map((m) => ({ mes: m, ...calc.porMes[m].funil })),
+    porProduto: {
+      mes: doMes.map((l) => ({ ...l, produto: nomeDe(l.produtoId) })),
+      acumulado: noAcumulado.map((l) => ({ ...l, produto: nomeDe(l.produtoId) })),
+      mesesAcumulados: acumulados,
+      parcial: mes === mesDoDia(hoje),
+    },
     tetoCacPct: calc.premissasFunil.tetoCacPct,
     linhas: linhas.filter((l) => l.frente === "comercial"),
   };

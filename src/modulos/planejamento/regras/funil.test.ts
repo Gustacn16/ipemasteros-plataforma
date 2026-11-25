@@ -48,3 +48,18 @@ describe("conversaoGeral", () => {
     expect(conversaoGeral(p)).toBeCloseTo(0.0375, 6);
   });
 });
+
+describe("teto de CAC por aluno", () => {
+  it("é o teto (% do vendido) dividido pelos alunos", () => {
+    const f = calcularFunil({ alunos: 7, valorCentavos: 29_500_000 }, p);
+    expect(f.cacTetoPorAlunoCentavos).toBe(421_429); // 10% de 295.000 ÷ 7
+  });
+  it("muda quando o teto muda", () => {
+    const f = calcularFunil({ alunos: 7, valorCentavos: 29_500_000 }, { ...p, tetoCacPct: 0.2 });
+    expect(f.cacTetoPorAlunoCentavos).toBe(842_857);
+  });
+  it("sem teto ou sem alunos, fica vazio", () => {
+    expect(calcularFunil({ alunos: 7, valorCentavos: 29_500_000 }, { ...p, tetoCacPct: 0 }).cacTetoPorAlunoCentavos).toBeNull();
+    expect(calcularFunil({ alunos: 0, valorCentavos: 0 }, p).cacTetoPorAlunoCentavos).toBeNull();
+  });
+});

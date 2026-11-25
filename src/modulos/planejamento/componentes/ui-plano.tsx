@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useActionState, type ComponentProps, type ReactNode } from "react";
+import { useActionState, useState, type ComponentProps, type ReactNode } from "react";
 import { Label } from "@/componentes/ui/label";
+import { mascararReais } from "@/lib/dinheiro";
 import { cn } from "@/lib/utils";
 import { avisar } from "@/modulos/tarefas/componentes/avisar";
 import type { Estado } from "../acoes/planejamento";
@@ -35,6 +36,12 @@ export function CampoSimples({ rotulo, erros, ajuda, className, ...props }: Comp
       {erros?.length ? <p className="text-destructive text-xs">{erros.join(" ")}</p> : ajuda ? <p className="text-muted-foreground text-xs">{ajuda}</p> : null}
     </div>
   );
+}
+
+/** Campo de reais que formata enquanto digita: "R$ 1.234,56". */
+export function CampoReais({ defaultValue, ...props }: Omit<ComponentProps<typeof CampoSimples>, "value" | "onChange" | "defaultValue"> & { defaultValue?: string }) {
+  const [valor, setValor] = useState(() => mascararReais(defaultValue ?? ""));
+  return <CampoSimples inputMode="decimal" autoComplete="off" {...props} value={valor} onChange={(ev) => setValor(mascararReais(ev.target.value))} />;
 }
 
 export function Escolha({ rotulo, erros, children, className, ...props }: ComponentProps<"select"> & { rotulo: string; erros?: string[]; children: ReactNode }) {

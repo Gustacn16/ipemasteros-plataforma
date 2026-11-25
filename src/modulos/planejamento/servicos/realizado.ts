@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { totalLeads } from "@/modulos/comercial/regras/midia";
 import { diaEmSaoPaulo } from "@/modulos/tarefas/regras/prazo";
 import type { Fonte, ParametrosFonte } from "../regras/fontes";
+import type { MetasPorProduto } from "../regras/turmas";
 import { dataDoMes, mesComecou, mesDaData, mesesDoAno, somarMeses } from "../regras/meses";
 import { centavos } from "./acesso";
 
@@ -141,4 +142,20 @@ export async function realizadoAutomatico(
 export function cacReais(b: BaseMes, comissaoPct: number): number | null {
   if (b.alunos === 0) return null;
   return (b.investimentoCentavos + b.vendasCentavos * comissaoPct) / 100 / b.alunos;
+}
+
+/** Vendas de cada mês do ano por produto (todos os produtos, com ou sem meta). */
+export async function vendasPorProdutoDoAno(ano: number): Promise<Record<string, MetasPorProduto>> {
+  const vendas = await prisma.venda.findMany({
+    where: { excluidoEm: null, dataVenda: { gte: dataDoMes(`${ano}-01`), lt: dataDoMes(`${ano + 1}-01`) } },
+    select: { dataVenda: true, valorTotal: true, produtoId: true },
+  });
+  const r: Record<string, MetasPorProduto> = Object.fromEntries(mesesDoAno(ano).map((m) => [m, {}]));
+  for (const v of vendas) {
+    const mes = r[mesDaData(v.dataVenda)];
+    if (!mes) continue;
+    const a = mes[v.produtoId] ?? { alunos: 0, valorCentavos: 0 };
+    mes[v.produtoId] = { alunos: a.alunos + 1, valorCentavos: a.valorCentavos + centavos(v.valorTotal) };
+  }
+  return r;
 }

@@ -67,3 +67,16 @@ describe("metasDeVendas", () => {
     expect(r.porMes["2027-01"]).toEqual({});
   });
 });
+
+describe("turma de outro plano", () => {
+  it("usa a premissa do próprio plano dela e cai nos meses deste ano", () => {
+    const outra: Premissa = { ...premissa, alunosPorTurma: 8, janelaVendasMeses: 4 };
+    const r = metasDeVendas(2027, [], [{ ...turma({ mesAbertura: "2028-01" }), premissa: outra }], []);
+    expect(Object.entries(r.porMes).filter(([, v]) => v.p).map(([m, v]) => [m, v.p.alunos])).toEqual([
+      ["2027-10", 2],
+      ["2027-11", 2],
+      ["2027-12", 2],
+    ]);
+    expect(r.depois.p.alunos).toBe(2);
+  });
+});

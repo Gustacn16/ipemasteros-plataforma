@@ -22,6 +22,8 @@ export type FunilMes = {
   cacPorAlunoCentavos: number | null;
   cacPct: number | null;
   acimaDoTeto: boolean;
+  /** Teto de CAC por aluno: teto (% do vendido) × vendido ÷ alunos. É a meta do CAC por aluno. */
+  cacTetoPorAlunoCentavos?: number | null;
 };
 
 // Arredonda para cima, tolerando o erro de ponto flutuante (28.000000001 → 28).
@@ -50,6 +52,7 @@ export function calcularFunil(meta: MetaProdutoMes, p: PremissasFunil): FunilMes
     cacPorAlunoCentavos,
     cacPct,
     acimaDoTeto: cacPct !== null && p.tetoCacPct > 0 && cacPct > p.tetoCacPct,
+    cacTetoPorAlunoCentavos: p.tetoCacPct > 0 && meta.alunos > 0 ? Math.round((p.tetoCacPct * meta.valorCentavos) / meta.alunos) : null,
   };
 }
 

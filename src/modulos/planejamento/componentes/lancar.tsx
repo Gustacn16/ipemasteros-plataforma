@@ -1,10 +1,27 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/componentes/ui/button";
+import { mascararReais } from "@/lib/dinheiro";
 import { lancarResultadoAcao } from "../acoes/planejamento";
 import type { ItemLancamento } from "../servicos/lancamento";
 import { formatarValor, numeroParaCampo } from "./formatar";
 import { classeCampo, useAcao } from "./ui-plano";
+
+function CampoValorReais({ inicial, nome }: { inicial: string; nome: string }) {
+  const [valor, setValor] = useState(() => mascararReais(inicial));
+  return (
+    <input
+      name="valor"
+      inputMode="decimal"
+      autoComplete="off"
+      value={valor}
+      onChange={(ev) => setValor(mascararReais(ev.target.value))}
+      className={classeCampo}
+      aria-label={`Realizado de ${nome}`}
+    />
+  );
+}
 
 function Item({ item, mes }: { item: ItemLancamento; mes: string }) {
   const [estado, executar, salvando] = useAcao(lancarResultadoAcao);
@@ -24,7 +41,11 @@ function Item({ item, mes }: { item: ItemLancamento; mes: string }) {
       </div>
       <label className="grid gap-0.5 text-xs">
         <span className="text-muted-foreground">Realizado {sufixo && `(${sufixo})`}</span>
-        <input name="valor" inputMode="decimal" defaultValue={numeroParaCampo(item.valor)} className={classeCampo} aria-label={`Realizado de ${item.nome}`} />
+        {item.unidade === "reais" ? (
+          <CampoValorReais inicial={numeroParaCampo(item.valor)} nome={item.nome} />
+        ) : (
+          <input name="valor" inputMode="decimal" defaultValue={numeroParaCampo(item.valor)} className={classeCampo} aria-label={`Realizado de ${item.nome}`} />
+        )}
       </label>
       <label className="grid gap-0.5 text-xs">
         <span className="text-muted-foreground">Observação (opcional)</span>

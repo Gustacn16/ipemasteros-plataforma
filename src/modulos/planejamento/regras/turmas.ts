@@ -10,6 +10,8 @@ export type Turma = {
   contratoCentavos: number | null;
   janelaVendasMeses: number | null;
   duracaoMeses: number | null;
+  /** Turma de outro plano (outro ano): usa a premissa daquele plano. */
+  premissa?: Premissa;
 };
 export type MetaAvulsa = { produtoId: string; mes: string; alunos: number; valorCentavos: number };
 export type MetaProdutoMes = { alunos: number; valorCentavos: number };
@@ -52,7 +54,7 @@ export function metasDeVendas(ano: number, premissas: Premissa[], turmas: Turma[
     const alvo = porMes[mes] ?? (mes < `${ano}-01` ? antes : depois);
     somar(alvo, produtoId, alunos, valor);
   };
-  for (const t of turmas) for (const m of distribuirTurma(t, porProduto.get(t.produtoId))) lancar(t.produtoId, m.mes, m.alunos, m.valorCentavos);
+  for (const t of turmas) for (const m of distribuirTurma(t, t.premissa ?? porProduto.get(t.produtoId))) lancar(t.produtoId, m.mes, m.alunos, m.valorCentavos);
   for (const a of avulsas) lancar(a.produtoId, a.mes, a.alunos, a.valorCentavos);
   return { porMes, antes, depois };
 }

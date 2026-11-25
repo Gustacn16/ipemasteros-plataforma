@@ -4,6 +4,7 @@ import { ArrowDownIcon, ArrowUpIcon, TrashIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Button } from "@/componentes/ui/button";
+import { mascararReais } from "@/lib/dinheiro";
 import { avisar } from "@/modulos/tarefas/componentes/avisar";
 import { excluirIndicadorAcao, moverIndicadorAcao, salvarIndicadorAcao, salvarMetasIndicadorAcao } from "../acoes/planejamento";
 import { FONTES, ROTULO_FONTE, type Fonte, type ParametrosFonte } from "../regras/fontes";
@@ -128,7 +129,9 @@ function FormIndicador({ planoId, indicador, opcoes, frente, aoSalvar }: { plano
 function GradeMetas({ indicador, ano, hoje, mesCriacao }: { indicador: IndicadorCadastro; ano: number; hoje: string; mesCriacao: string }) {
   const travado = (m: string) => mesTravado(m, hoje, mesCriacao);
   const meses = mesesDoAno(ano);
-  const inicial = Object.fromEntries(meses.map((m) => [m, numeroParaCampo(indicador.metas[m])]));
+  const emReais = indicador.unidade === "reais";
+  const noCampo = (v: string) => (emReais ? mascararReais(v) : v);
+  const inicial = Object.fromEntries(meses.map((m) => [m, noCampo(numeroParaCampo(indicador.metas[m]))]));
   const [valores, setValores] = useState<Record<string, string>>(inicial);
   const [, executar, salvando] = useAcao(salvarMetasIndicadorAcao);
   const abertos = meses.filter((m) => !travado(m));
@@ -158,7 +161,7 @@ function GradeMetas({ indicador, ano, hoje, mesCriacao }: { indicador: Indicador
               value={valores[m]}
               disabled={travado(m)}
               title={travado(m) ? "Mês fechado: a meta não muda mais." : undefined}
-              onChange={(ev) => setValores((v) => ({ ...v, [m]: ev.target.value }))}
+              onChange={(ev) => setValores((v) => ({ ...v, [m]: noCampo(ev.target.value) }))}
               className={`${classeCampo} h-8 px-2`}
             />
           </label>

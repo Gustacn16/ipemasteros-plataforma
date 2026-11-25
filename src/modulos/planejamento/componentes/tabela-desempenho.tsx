@@ -93,7 +93,7 @@ export function GradeMensal({ linhas, meses, rodape }: { linhas: LinhaIndicador[
             <tr key={l.id} className="border-b align-top last:border-0">
               <td className="px-3 py-2 text-sm">
                 {l.nome}
-                <div className="text-muted-foreground">{l.automatico ? "automático" : "lançado"}</div>
+                <div className="text-muted-foreground">{l.automatico ? "automático" : "planejado"}</div>
               </td>
               {l.meses.map((c) => (
                 <td key={c.mes} className="px-1.5 py-2 text-right tabular-nums">

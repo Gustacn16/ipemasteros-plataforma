@@ -8,8 +8,8 @@ import { formatarReais } from "@/lib/dinheiro";
 import { avisar } from "@/modulos/tarefas/componentes/avisar";
 import { excluirTurmaAcao, salvarMetaAvulsaAcao, salvarTurmaAcao } from "../acoes/planejamento";
 import type { CadastroDoPlano } from "../servicos/planos";
-import { rotuloMesLongo } from "./formatar";
-import { CampoSimples, Escolha, paraCampo, useAcao } from "./ui-plano";
+import { rotuloMesCurto, rotuloMesLongo } from "./formatar";
+import { CampoReais, CampoSimples, Escolha, paraCampo, useAcao } from "./ui-plano";
 
 type Turma = CadastroDoPlano["turmas"][number];
 const herda = "text-muted-foreground italic";
@@ -93,6 +93,12 @@ export function CalendarioTurmas({ plano }: { plano: CadastroDoPlano }) {
           </table>
         </div>
       )}
+      {plano.turmasDeOutrosPlanos.length > 0 && (
+        <p className="text-muted-foreground text-sm">
+          Também vendem em {plano.ano} (cadastradas em outro plano):{" "}
+          {plano.turmasDeOutrosPlanos.map((t) => `${t.produto} ${t.codigo} (abre ${rotuloMesCurto(t.mesAbertura)}/${t.mesAbertura.slice(0, 4)}, plano ${t.anoDoPlano})`).join(" · ")}.
+        </p>
+      )}
       <form key={chave} action={executar} className="grid gap-3 rounded-lg border border-dashed p-3 sm:grid-cols-2 lg:grid-cols-4">
         <input type="hidden" name="planoId" value={plano.id} />
         {editando && <input type="hidden" name="id" value={editando.id} />}
@@ -107,7 +113,7 @@ export function CalendarioTurmas({ plano }: { plano: CadastroDoPlano }) {
         <CampoSimples rotulo="Código" name="codigo" placeholder="T5" defaultValue={editando?.codigo ?? ""} erros={e.codigo} />
         <CampoSimples rotulo="Mês de abertura" name="mesAbertura" type="month" defaultValue={editando?.mesAbertura ?? `${plano.ano}-01`} erros={e.mesAbertura} />
         <CampoSimples rotulo="Alunos" name="alunos" type="number" min={1} placeholder="da premissa" defaultValue={editando?.alunos ?? ""} erros={e.alunos} />
-        <CampoSimples rotulo="Contrato médio (R$)" name="contratoMedio" placeholder="da premissa" defaultValue={paraCampo(editando?.contratoMedio)} erros={e.contratoMedio} />
+        <CampoReais rotulo="Contrato médio (R$)" name="contratoMedio" placeholder="da premissa" defaultValue={paraCampo(editando?.contratoMedio)} erros={e.contratoMedio} />
         <CampoSimples rotulo="Janela (meses)" name="janelaVendasMeses" type="number" min={1} placeholder="da premissa" defaultValue={editando?.janelaVendasMeses ?? ""} erros={e.janelaVendasMeses} />
         <CampoSimples rotulo="Duração (meses)" name="duracaoMeses" type="number" min={1} placeholder="da premissa" defaultValue={editando?.duracaoMeses ?? ""} erros={e.duracaoMeses} />
         <CampoSimples rotulo="Observação" name="observacoes" defaultValue={editando?.observacoes ?? ""} erros={e.observacoes} className="sm:col-span-2 lg:col-span-3" />
@@ -173,7 +179,7 @@ export function MetasAvulsas({ plano }: { plano: CadastroDoPlano }) {
         </Escolha>
         <CampoSimples rotulo="Mês" name="mes" type="month" defaultValue={`${plano.ano}-01`} min={`${plano.ano}-01`} max={`${plano.ano}-12`} erros={e.mes} />
         <CampoSimples rotulo="Alunos" name="alunos" type="number" min={0} erros={e.alunos} />
-        <CampoSimples rotulo="Valor (R$)" name="valor" erros={e.valor} />
+        <CampoReais rotulo="Valor (R$)" name="valor" erros={e.valor} />
         <div className="flex justify-end sm:col-span-2 lg:col-span-5">
           <Button type="submit" disabled={salvando}>
             {salvando ? "Salvando…" : "Salvar meta avulsa"}

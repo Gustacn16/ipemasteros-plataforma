@@ -3,9 +3,9 @@ import { CHAVES_META_CALCULADA, FONTES } from "./fontes";
 import { INDICADORES_PADRAO, PREMISSAS_FUNIL_PADRAO } from "./indicadores-padrao";
 
 describe("indicadores padrão", () => {
-  it("tem os 8 do Comercial e os 13 do Marketing", () => {
-    expect(INDICADORES_PADRAO).toHaveLength(21);
-    expect(INDICADORES_PADRAO.filter((i) => i.frente === "comercial")).toHaveLength(8);
+  it("tem os 9 do Comercial e os 13 do Marketing", () => {
+    expect(INDICADORES_PADRAO).toHaveLength(22);
+    expect(INDICADORES_PADRAO.filter((i) => i.frente === "comercial")).toHaveLength(9);
   });
   it("usa só chaves e fontes conhecidas", () => {
     for (const i of INDICADORES_PADRAO) {
@@ -22,5 +22,11 @@ describe("indicadores padrão", () => {
       comissaoPct: 0.05,
       tetoCacPct: 0.1,
     });
+  });
+});
+
+describe("paciente modelo", () => {
+  it("tem indicador manual de pacientes modelo por mês no Comercial", () => {
+    expect(INDICADORES_PADRAO.find((i) => i.nome === "Pacientes modelo")).toMatchObject({ frente: "comercial", fonte: "manual", metaCalculada: null, tipo: "fluxo" });
   });
 });

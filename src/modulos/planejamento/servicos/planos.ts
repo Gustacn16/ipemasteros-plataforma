@@ -36,6 +36,12 @@ export async function obterCadastroDoPlano(ator: UsuarioAtual, ano: number) {
     },
   });
   if (!plano) return null;
+  // Turmas de outros planos que vendem neste ano (entram nas metas daqui também).
+  const deOutrosPlanos = await prisma.turmaPlano.findMany({
+    where: { excluidoEm: null, planoId: { not: plano.id }, mesAbertura: { gte: dataDoMes(`${ano}-01`), lte: dataDoMes(`${ano + 2}-12`) } },
+    orderBy: { mesAbertura: "asc" },
+    include: { produto: { select: { nome: true } }, plano: { select: { ano: true } } },
+  });
   const usados = new Set([...plano.premissas, ...plano.turmas, ...plano.metasAvulsas].map((x) => x.produtoId));
   const produtos = await prisma.produto.findMany({
     where: { excluidoEm: null, OR: [{ ativo: true }, { id: { in: [...usados] } }] },
@@ -75,6 +81,7 @@ export async function obterCadastroDoPlano(ator: UsuarioAtual, ano: number) {
       alunos: a.alunos,
       valor: a.valor.toFixed(2),
     })),
+    turmasDeOutrosPlanos: deOutrosPlanos.map((t) => ({ id: t.id, produto: t.produto.nome, codigo: t.codigo, mesAbertura: mesDaData(t.mesAbertura), anoDoPlano: t.plano.ano })),
     produtos,
   };
 }

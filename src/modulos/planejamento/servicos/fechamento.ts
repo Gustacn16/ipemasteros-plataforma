@@ -22,8 +22,47 @@ async function lerPlano(db: Cliente, planoId: string) {
     },
   });
   if (!plano) throw new ErroNegocio("Plano não encontrado.");
-  return plano;
+  // Turmas cadastradas em outros planos que vendem neste ano: a janela de vendas termina na
+  // abertura (até 24 meses antes), então só contam as que abrem deste ano até dois anos depois.
+  const turmasDeOutrosPlanos = await db.turmaPlano.findMany({
+    where: {
+      excluidoEm: null,
+      planoId: { not: plano.id },
+      mesAbertura: { gte: dataDoMes(`${plano.ano}-01`), lte: dataDoMes(`${plano.ano + 2}-12`) },
+    },
+    include: { plano: { select: { premissas: true } } },
+  });
+  return { ...plano, turmasDeOutrosPlanos };
 }
+
+type PremissaLida = { produtoId: string; contratoMedio: { toNumber(): number }; alunosPorTurma: number; janelaVendasMeses: number; duracaoMeses: number };
+const paraPremissa = (p: PremissaLida) => ({
+  produtoId: p.produtoId,
+  contratoCentavos: centavos(p.contratoMedio),
+  alunosPorTurma: p.alunosPorTurma,
+  janelaVendasMeses: p.janelaVendasMeses,
+  duracaoMeses: p.duracaoMeses,
+});
+type TurmaLida = {
+  id: string;
+  produtoId: string;
+  codigo: string;
+  mesAbertura: Date;
+  alunos: number | null;
+  contratoMedio: { toNumber(): number } | null;
+  janelaVendasMeses: number | null;
+  duracaoMeses: number | null;
+};
+const paraTurma = (t: TurmaLida) => ({
+  id: t.id,
+  produtoId: t.produtoId,
+  codigo: t.codigo,
+  mesAbertura: mesDaData(t.mesAbertura),
+  alunos: t.alunos,
+  contratoCentavos: t.contratoMedio === null ? null : centavos(t.contratoMedio),
+  janelaVendasMeses: t.janelaVendasMeses,
+  duracaoMeses: t.duracaoMeses,
+});
 type PlanoLido = Awaited<ReturnType<typeof lerPlano>>;
 
 /** Mês (São Paulo) em que o plano foi criado: meses fechados antes disso não congelam. */
@@ -50,23 +89,14 @@ function calcular(plano: PlanoLido) {
   const premissasFunil = premissasFunilDe(plano);
   const metas = metasDeVendas(
     plano.ano,
-    plano.premissas.map((p) => ({
-      produtoId: p.produtoId,
-      contratoCentavos: centavos(p.contratoMedio),
-      alunosPorTurma: p.alunosPorTurma,
-      janelaVendasMeses: p.janelaVendasMeses,
-      duracaoMeses: p.duracaoMeses,
-    })),
-    plano.turmas.map((t) => ({
-      id: t.id,
-      produtoId: t.produtoId,
-      codigo: t.codigo,
-      mesAbertura: mesDaData(t.mesAbertura),
-      alunos: t.alunos,
-      contratoCentavos: t.contratoMedio === null ? null : centavos(t.contratoMedio),
-      janelaVendasMeses: t.janelaVendasMeses,
-      duracaoMeses: t.duracaoMeses,
-    })),
+    plano.premissas.map(paraPremissa),
+    [
+      ...plano.turmas.map(paraTurma),
+      ...plano.turmasDeOutrosPlanos.map((t) => {
+        const premissa = t.plano.premissas.find((p) => p.produtoId === t.produtoId);
+        return { ...paraTurma(t), premissa: premissa ? paraPremissa(premissa) : undefined };
+      }),
+    ],
     plano.metasAvulsas.map((a) => ({ produtoId: a.produtoId, mes: mesDaData(a.mes), alunos: a.alunos, valorCentavos: centavos(a.valor) })),
   );
   return { premissasFunil, ...metas };
@@ -108,7 +138,7 @@ export async function carregarPlanoCalculado(planoId: string, hoje: string): Pro
     mesesDoAno(plano.ano).map((mes) => [mes, escolherMetaDoMes(mes, hoje, retratos, retratarMes(calc.porMes[mes], calc.premissasFunil))]),
   );
   const produtosDoPlano = [
-    ...new Set([...plano.premissas.map((p) => p.produtoId), ...plano.turmas.map((t) => t.produtoId), ...plano.metasAvulsas.map((a) => a.produtoId)]),
+    ...new Set([...plano.premissas.map((p) => p.produtoId), ...plano.turmas.map((t) => t.produtoId), ...plano.turmasDeOutrosPlanos.map((t) => t.produtoId), ...plano.metasAvulsas.map((a) => a.produtoId)]),
   ];
   return {
     plano: { id: plano.id, ano: plano.ano, observacoes: plano.observacoes },
