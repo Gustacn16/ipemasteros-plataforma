@@ -10,6 +10,7 @@ import {
   MousePointerClickIcon,
   PercentIcon,
   SendIcon,
+  CircleDashedIcon,
   Share2Icon,
   SparklesIcon,
   UsersIcon,
@@ -105,11 +106,17 @@ export function RelatorioInstagram({ dados, mes }: { dados: Dados; mes: string }
           >
             Só de posts comuns e stories: a Meta não informa as visitas vindas de Reels
           </CartaoNumero>
-          <CartaoNumero rotulo="Taxa de engajamento" icone={PercentIcon} valor={pct(dados.posts.engajamento)}>
+          <CartaoNumero rotulo="Taxa de engajamento" icone={PercentIcon} valor={pct(dados.engajamento)}>
             Interações sobre o alcance do mês
           </CartaoNumero>
-          <CartaoNumero rotulo="Posts e stories no mês" icone={SendIcon} valor={numero.format(dados.posts.quantidade)}>
-            {dados.posts.alcanceMedio !== null ? `Alcance médio de ${numero.format(dados.posts.alcanceMedio)} por publicação` : null}
+          <CartaoNumero rotulo="Posts no mês" icone={SendIcon} valor={numero.format(dados.publicacoes.posts.quantidade)}>
+            Feed, carrossel e Reels
+            {dados.publicacoes.posts.alcanceMedio !== null && ` · alcance médio de ${numero.format(dados.publicacoes.posts.alcanceMedio)}`}
+          </CartaoNumero>
+          <CartaoNumero rotulo="Stories no mês" icone={CircleDashedIcon} valor={numero.format(dados.publicacoes.stories.quantidade)}>
+            {dados.publicacoes.stories.alcanceMedio !== null
+              ? `Alcance médio de ${numero.format(dados.publicacoes.stories.alcanceMedio)} por story`
+              : null}
           </CartaoNumero>
         </div>
       </section>

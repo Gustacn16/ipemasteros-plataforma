@@ -17,7 +17,15 @@ import {
   porPeriodoDoDia,
   sugestoesDeConteudo,
 } from "../regras/desempenho-instagram";
-import { type NumerosConta, type OrdemMidia, alcanceAproximado, diasFechados, ordenarMidias, relatorioDoMes } from "../regras/instagram";
+import {
+  type NumerosConta,
+  type OrdemMidia,
+  alcanceAproximado,
+  diasFechados,
+  ordenarMidias,
+  publicacoesDoMes,
+  relatorioDoMes,
+} from "../regras/instagram";
 
 function exigirUso(ator: UsuarioAtual) {
   if (!temPermissao(ator.papel, "conteudo:usar")) throw new ErroPermissao("conteudo:usar");
@@ -168,15 +176,11 @@ export async function relatorioInstagram(ator: UsuarioAtual, f: FiltroConteudo, 
     : null;
 
   const numerosMes = somar(atual);
-  const comAlcance = midias.filter((m) => m.alcance !== null);
   return {
     contas,
     contaId: conta?.id ?? null,
-    posts: {
-      quantidade: midias.length,
-      alcanceMedio: comAlcance.length ? Math.round(comAlcance.reduce((t, m) => t + m.alcance!, 0) / comAlcance.length) : null,
-      engajamento: engajamento(numerosMes?.alcance ?? null, numerosMes?.interacoes ?? null),
-    },
+    publicacoes: publicacoesDoMes(midias),
+    engajamento: engajamento(numerosMes?.alcance ?? null, numerosMes?.interacoes ?? null),
     analise: {
       quantidade: analise.length,
       formatos: desempenhoPorFormato(analise),

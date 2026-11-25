@@ -51,7 +51,8 @@ export const ferramentaMetricasInstagram: FerramentaNexu<typeof entradaMes> = {
     return {
       mes,
       parcial: r.parcial,
-      posts: r.posts,
+      publicacoes: r.publicacoes,
+      engajamento: r.engajamento,
       cartoes: r.cartoes,
       maisAlcance: r.maisAlcance.map((m) => ({
         tipo: m.tipo,

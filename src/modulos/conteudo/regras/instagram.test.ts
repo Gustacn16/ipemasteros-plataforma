@@ -15,6 +15,7 @@ import {
   tipoDaMidia,
   atualizacaoRodando,
   relatorioDoMes,
+  publicacoesDoMes,
   diasFechados,
   variacao,
   validarLigacao,
@@ -423,5 +424,25 @@ describe("meses de 31 dias (a Meta aceita no máximo 30 dias por pedido)", () =>
     expect(alcanceAproximado("2026-11", "2026-12-09")).toBe(false);
     expect(alcanceAproximado("2026-12", "2026-12-15")).toBe(false);
     expect(alcanceAproximado("2026-12", "2027-01-01")).toBe(true);
+  });
+});
+
+describe("publicacoesDoMes", () => {
+  it("separa posts (feed, carrossel e Reels) de stories, com o alcance médio de cada", () => {
+    const r = publicacoesDoMes([
+      { tipo: "post", alcance: 100 },
+      { tipo: "reels", alcance: 301 },
+      { tipo: "carrossel", alcance: null },
+      { tipo: "story", alcance: 40 },
+      { tipo: "story", alcance: 61 },
+    ]);
+    expect(r).toEqual({ posts: { quantidade: 3, alcanceMedio: 201 }, stories: { quantidade: 2, alcanceMedio: 51 } });
+  });
+
+  it("sem alcance informado, o alcance médio fica nulo", () => {
+    expect(publicacoesDoMes([{ tipo: "story", alcance: null }])).toEqual({
+      posts: { quantidade: 0, alcanceMedio: null },
+      stories: { quantidade: 1, alcanceMedio: null },
+    });
   });
 });

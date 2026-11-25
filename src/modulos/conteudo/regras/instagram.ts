@@ -342,3 +342,19 @@ export function alcanceAproximado(mes: string, hoje: string): boolean {
   const dia31 = `${mes}-31`;
   return somarDias(`${mes}-01`, 30) === dia31 && hoje > dia31;
 }
+
+type Publicacao = { tipo: "post" | "carrossel" | "reels" | "story"; alcance: number | null };
+export type ResumoPublicacoes = { quantidade: number; alcanceMedio: number | null };
+
+function resumir(lista: Publicacao[]): ResumoPublicacoes {
+  const comAlcance = lista.filter((m) => m.alcance !== null);
+  return {
+    quantidade: lista.length,
+    alcanceMedio: comAlcance.length ? Math.round(comAlcance.reduce((t, m) => t + m.alcance!, 0) / comAlcance.length) : null,
+  };
+}
+
+/** Publicações do mês separadas em posts (feed, carrossel e Reels) e stories, com o alcance médio de cada. */
+export function publicacoesDoMes(midias: Publicacao[]): { posts: ResumoPublicacoes; stories: ResumoPublicacoes } {
+  return { posts: resumir(midias.filter((m) => m.tipo !== "story")), stories: resumir(midias.filter((m) => m.tipo === "story")) };
+}
