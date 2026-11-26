@@ -31,7 +31,10 @@ import {
 // Todas as visões do módulo (e o menu de contas) leem os mesmos dados.
 const revalidar = () => revalidatePath("/conteudo", "layout");
 
-async function executar<T>(permissao: Parameters<typeof exigirPermissao>[0], fn: (ator: Awaited<ReturnType<typeof exigirPermissao>>) => Promise<EstadoAcao<T>>) {
+async function executar<T>(
+  permissao: Parameters<typeof exigirPermissao>[0],
+  fn: (ator: Awaited<ReturnType<typeof exigirPermissao>>) => Promise<EstadoAcao<T>>,
+) {
   try {
     const ator = await exigirPermissao(permissao);
     const r = await fn(ator);
@@ -96,7 +99,7 @@ export async function editarFormatoAcao(dados: unknown): Promise<EstadoAcao> {
 
 /**
  * Salvamento automático das anotações. Não recarrega o módulo (o editor perderia o cursor);
- * só quando o conteúdo voltou para revisão a tela precisa atualizar a etapa.
+ * só quando o conteúdo voltou para edição a tela precisa atualizar a etapa.
  */
 export async function salvarRoteiroAcao(dados: unknown): Promise<EstadoAcao<{ voltouParaRevisao: boolean }>> {
   try {
@@ -123,7 +126,7 @@ export async function atualizarConteudoAcao(dados: unknown): Promise<EstadoAcao>
     const { voltouParaRevisao } = await atualizarConteudo(ator, conteudoId, campos);
     return {
       ok: true,
-      mensagem: voltouParaRevisao ? "Salvo. O texto mudou, então o conteúdo voltou para revisão." : "Conteúdo salvo.",
+      mensagem: voltouParaRevisao ? "Salvo. O texto mudou, então o conteúdo voltou para edição." : "Conteúdo salvo.",
     };
   });
 }

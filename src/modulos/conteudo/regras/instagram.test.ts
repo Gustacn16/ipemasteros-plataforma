@@ -205,7 +205,7 @@ describe("escolherPublicacao", () => {
         { id: "2", url: `${url("ABC")}?igsh=1`, etapa: "publicado" },
       ]),
     ).toBeNull();
-    expect(escolherPublicacao("ABC", [{ id: "1", url: url("ABC"), etapa: "revisao" }])).toBeNull();
+    expect(escolherPublicacao("ABC", [{ id: "1", url: url("ABC"), etapa: "edicao" }])).toBeNull();
     expect(escolherPublicacao("ABC", [])).toBeNull();
   });
   it("não confunde código que é prefixo de outro", () => {
@@ -352,7 +352,7 @@ describe("validarLigacao", () => {
     expect(validarLigacao({ ...midia, removidaEm: new Date() }, pub)).toBe("Este post foi removido do Instagram.");
     expect(validarLigacao(midia, { ...pub, canalId: "outro" })).toBe("A publicação precisa ser do mesmo canal do Instagram.");
     expect(validarLigacao(midia, { ...pub, temMidia: true })).toBe("Esta publicação já está ligada a outro post.");
-    expect(validarLigacao(midia, { ...pub, etapa: "revisao" })).toBe("O conteúdo precisa estar aprovado antes de ser ligado a um post.");
+    expect(validarLigacao(midia, { ...pub, etapa: "edicao" })).toBe("O conteúdo precisa estar aprovado antes de ser ligado a um post.");
     expect(validarLigacao(midia, { ...pub, excluido: true })).toBe("Não encontrado.");
   });
 });

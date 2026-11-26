@@ -457,13 +457,12 @@ enum FormatoConteudo {
   outro
 }
 
+/// "a_gravar" aparece como Gravação e "aprovado" como Finalizado (2026-11-26).
 enum EtapaConteudo {
   ideia
   planejado
   a_gravar
-  gravado
   edicao
-  revisao
   aprovado
   publicado
   cancelado

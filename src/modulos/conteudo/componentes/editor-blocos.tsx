@@ -6,18 +6,35 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "re
 import { cn } from "@/lib/utils";
 import { avisar } from "@/modulos/tarefas/componentes/avisar";
 import { salvarRoteiroAcao } from "../acoes/conteudo";
-import { type Bloco, ROTULO_BLOCO, TIPOS_BLOCO, type TipoBloco, atalhoDoBloco, escreverBlocos, lerBlocos, novoBloco } from "../regras/blocos";
+import {
+  type Bloco,
+  ROTULO_BLOCO,
+  TIPOS_BLOCO,
+  type TipoBloco,
+  atalhoDoBloco,
+  escreverBlocos,
+  lerBlocos,
+  novoBloco,
+} from "../regras/blocos";
 
 /** Espera depois da última tecla antes de salvar. */
 const ESPERA_SALVAR_MS = 1000;
 type Situacao = "salvo" | "pendente" | "salvando" | "erro";
 const TEXTO_SITUACAO: Record<Situacao, string> = { salvo: "Salvo", pendente: "Alterado", salvando: "Salvando…", erro: "Não salvou" };
-const ESTILO_TEXTO: Partial<Record<TipoBloco, string>> = { titulo: "text-lg font-semibold", texto: "text-sm", lista: "text-sm", tarefa: "text-sm" };
+const ESTILO_TEXTO: Partial<Record<TipoBloco, string>> = {
+  titulo: "text-lg font-semibold",
+  texto: "text-sm",
+  lista: "text-sm",
+  tarefa: "text-sm",
+};
 
 /** Menu de tipos: o "/" num bloco vazio e o botão ao lado de cada bloco. */
 function MenuTipos({ aoEscolher, aoExcluir, fechar }: { aoEscolher: (t: TipoBloco) => void; aoExcluir?: () => void; fechar: () => void }) {
   const [ativo, setAtivo] = useState(0);
-  const opcoes = [...TIPOS_BLOCO.map((t) => ({ rotulo: ROTULO_BLOCO[t], agir: () => aoEscolher(t) })), ...(aoExcluir ? [{ rotulo: "Excluir bloco", agir: aoExcluir }] : [])];
+  const opcoes = [
+    ...TIPOS_BLOCO.map((t) => ({ rotulo: ROTULO_BLOCO[t], agir: () => aoEscolher(t) })),
+    ...(aoExcluir ? [{ rotulo: "Excluir bloco", agir: aoExcluir }] : []),
+  ];
   const lista = useRef<HTMLUListElement>(null);
   useEffect(() => lista.current?.focus(), []);
   return (
@@ -46,7 +63,11 @@ function MenuTipos({ aoEscolher, aoExcluir, fechar }: { aoEscolher: (t: TipoBloc
             onMouseDown={(e) => e.preventDefault()}
             onClick={o.agir}
             onMouseEnter={() => setAtivo(i)}
-            className={cn("w-full rounded px-2 py-1 text-left text-sm", i === ativo && "bg-muted", o.rotulo === "Excluir bloco" && "text-destructive")}
+            className={cn(
+              "w-full rounded px-2 py-1 text-left text-sm",
+              i === ativo && "bg-muted",
+              o.rotulo === "Excluir bloco" && "text-destructive",
+            )}
           >
             {o.rotulo}
           </button>
@@ -86,7 +107,7 @@ export function EditorBlocos({ conteudoId, roteiro }: { conteudoId: string; rote
     salvoPor.current = texto;
     setSituacao(escreverBlocos(atual.current) === texto ? "salvo" : "pendente");
     if (r.dados?.voltouParaRevisao) {
-      avisar({ ok: true, mensagem: "O texto mudou, então o conteúdo voltou para revisão." });
+      avisar({ ok: true, mensagem: "O texto mudou, então o conteúdo voltou para edição." });
       router.refresh();
     }
   }, [conteudoId, router]);
@@ -174,7 +195,11 @@ export function EditorBlocos({ conteudoId, roteiro }: { conteudoId: string; rote
       const anterior = blocos[i - 1];
       if (!anterior) return;
       e.preventDefault();
-      if (anterior.tipo === "divisoria") return mudar(blocos.filter((b) => b.id !== anterior.id), { id: bloco.id, posicao: 0 });
+      if (anterior.tipo === "divisoria")
+        return mudar(
+          blocos.filter((b) => b.id !== anterior.id),
+          { id: bloco.id, posicao: 0 },
+        );
       // Junta com o bloco de cima, com o cursor no ponto da junção.
       const proximos = blocos
         .filter((b) => b.id !== bloco.id)
@@ -257,7 +282,11 @@ export function EditorBlocos({ conteudoId, roteiro }: { conteudoId: string; rote
               </div>
             ) : (
               <div className="relative flex min-w-0 flex-1 items-start gap-2">
-                {bloco.tipo === "lista" && <span className="text-muted-foreground mt-1.5 leading-5 select-none" aria-hidden>•</span>}
+                {bloco.tipo === "lista" && (
+                  <span className="text-muted-foreground mt-1.5 leading-5 select-none" aria-hidden>
+                    •
+                  </span>
+                )}
                 {bloco.tipo === "tarefa" && (
                   <input
                     type="checkbox"
@@ -275,7 +304,13 @@ export function EditorBlocos({ conteudoId, roteiro }: { conteudoId: string; rote
                   rows={1}
                   value={bloco.texto}
                   aria-label={ROTULO_BLOCO[bloco.tipo]}
-                  placeholder={i === 0 && blocos.length === 1 ? "Comece a escrever, ou digite / para escolher o tipo…" : bloco.tipo === "titulo" ? "Título" : ""}
+                  placeholder={
+                    i === 0 && blocos.length === 1
+                      ? "Comece a escrever, ou digite / para escolher o tipo…"
+                      : bloco.tipo === "titulo"
+                        ? "Título"
+                        : ""
+                  }
                   onChange={(e) => digitar(bloco, e.target.value)}
                   onKeyDown={(e) => teclas(e, bloco, i)}
                   className={cn(

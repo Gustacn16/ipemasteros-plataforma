@@ -310,7 +310,7 @@ describe("atualização do Instagram", () => {
     const contaId = await contaLigada();
     falso.estado.publicacoes.push(
       { id: "pub1", contaId, url: "https://www.instagram.com/p/COD1/?igsh=abc", etapa: "aprovado" },
-      { id: "pub2", contaId, url: "https://www.instagram.com/p/COD2/", etapa: "revisao" },
+      { id: "pub2", contaId, url: "https://www.instagram.com/p/COD2/", etapa: "edicao" },
     );
     await rodar(clienteFalso({ midias: [midia("1", "2026-11-03T12:00:00Z"), midia("2", "2026-11-02T12:00:00Z")] }).cliente);
     expect(falso.estado.ligacoes).toEqual([{ midiaId: falso.estado.midias.find((m) => m.idExterno === "1")!.id, publicacaoId: "pub1" }]);

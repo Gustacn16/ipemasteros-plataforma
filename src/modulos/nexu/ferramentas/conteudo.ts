@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ROTULO_ETAPA } from "@/modulos/conteudo/regras/etapas";
 import { listarCalendario } from "@/modulos/conteudo/servicos/conteudos";
 import { relatorioInstagram } from "@/modulos/conteudo/servicos/visao-instagram";
 import { limitarLista } from "./lista";
@@ -13,20 +14,20 @@ const entradaMes = z.object({ mes: z.string().describe(`mês, ${MES}`) });
 export const ferramentaCalendarioConteudo: FerramentaNexu<typeof entradaMes> = {
   nome: "calendario_conteudo",
   descricao:
-    "Posts do calendário de conteúdo do mês (publicações e gravações): título, formato, etapa (inclui aprovação), marca, responsável e datas. Máximo de 50 por resposta, com o total.",
+    "Posts do calendário de conteúdo do mês (publicações e gravações): título, formato, etapa (Ideia, Planejado, Gravação, Edição, Finalizado = aprovado, Publicado, Cancelado), marca, responsável e datas. Máximo de 50 por resposta, com o total.",
   entrada: entradaMes,
   permissao: "conteudo:usar",
   rotulo: "Consultando o calendário de conteúdo…",
   tipo: "consulta",
   async executar(ator, { mes }) {
     validarMes(mes);
-    const { itens } = await listarCalendario(ator, mes, {}, true);
+    const { itens } = await listarCalendario(ator, mes, {});
     return limitarLista(
       itens.map((c) => ({
         id: c.id,
         titulo: c.titulo,
         formato: c.formatoRef?.nome ?? null,
-        etapa: c.etapa,
+        etapa: ROTULO_ETAPA[c.etapa],
         marca: c.marca.nome,
         responsavel: c.responsavel?.nome ?? null,
         dataPublicacao: dia(c.dataPublicacao),

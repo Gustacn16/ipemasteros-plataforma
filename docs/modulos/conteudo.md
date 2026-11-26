@@ -26,14 +26,12 @@ Especificação da C1: `docs/superpowers/specs/2026-11-02-conteudo-c1-design.md`
 | `MetricaContaInstagram` (C2a) | contaId, periodo (`dia`/`mes`), data, alcance, visualizacoes, interacoes, curtidas, comentarios, salvamentos, compartilhamentos, cliquesLink, novosSeguidores, deixaramDeSeguir, seguidores | Números da conta por dia e por mês |
 | `AtualizacaoInstagram` (C2a) | tipo (`completa`/`stories`), origem, status, iniciadoEm, finalizadoEm, registros, erro | Histórico das atualizações |
 
-**Etapas do conteúdo:** `ideia` → `planejado` → `a_gravar` → `gravado` → `edicao` → `revisao` → `aprovado` → `publicado` (e `cancelado`). `publicado` é automático: acontece quando todas as publicações nos canais são marcadas.
+**Etapas do conteúdo (desde 2026-11-26):** `ideia` (Ideia) → `planejado` (Planejado) → `a_gravar` (Gravação) → `edicao` (Edição) → `aprovado` (Finalizado) → `publicado` (e `cancelado`). Os códigos do banco ficaram; só os nomes na tela mudaram. `gravado` e `revisao` saíram (migration `20261126100000_conteudo_etapas_producao` levou os conteúdos delas para `edicao`). `publicado` é automático: acontece quando todas as publicações nos canais são marcadas.
 
 ## Telas (C1)
 - Ajustes de uso (2026-11-17, spec `docs/superpowers/specs/2026-11-17-conteudo-ajustes-de-uso-design.md`): canal primeiro e depois o formato do canal (`Conteudo.formatoId`; o canal do formato é o principal, os outros são "também publicar em"); formatos no filtro; novo conteúdo de qualquer tela (botão, + nas colunas e nos dias, tecla N, "Criar e adicionar outro"); arrastar cartões no quadro; anotações e roteiro num editor de blocos (Markdown simples no campo `roteiro`, salvo sozinho).
-- `/conteudo`: abre direto em `/conteudo/relatorios` (a visão geral com atrasados, próximos e gravações saiu em 2026-11-19; esses itens continuam em Planejamento, Calendário e Gravações).
-- `/conteudo/planejamento`: quadro por etapa, de ideia a aprovado.
-- `/conteudo/calendario`: calendário mensal por data de publicação, com opção de mostrar gravações.
-- `/conteudo/gravacoes`: agenda de gravação e banco de gravados.
+- `/conteudo`: abre direto em `/conteudo/relatorios` (a visão geral saiu em 2026-11-19).
+- `/conteudo/producao` (2026-11-26, junta os antigos Planejamento, Calendário e Gravações, que agora redirecionam para cá): `?visao=quadro` (padrão, Kanban por etapa, de ideia a finalizado), `?visao=lista` (um bloco por etapa, uma linha por conteúdo com canal e formato, responsável, gravação, publicação e etapa) e `?visao=calendario&mes=` (cada conteúdo no dia da gravação, tracejado, e no da publicação, na cor da etapa).
 - `/conteudo/publicados`: publicações do mês com link, métricas e engajamento por canal.
 - `/conteudo/itens/[id]`: detalhe, edição e registro das publicações e métricas.
 - `/conteudo/configuracoes`: contas e canais (admin/gestor).
@@ -45,8 +43,8 @@ Especificação da C1: `docs/superpowers/specs/2026-11-02-conteudo-c1-design.md`
 Todas as visões têm uma barra de filtros (conta, canal, responsável, formato e etapa). O filtro fica salvo no cookie `conteudo_filtro` (só ids e códigos, por navegador, validade de 1 ano) e vale em todas as visões até a pessoa clicar em "Limpar filtros". O menu lateral não filtra mais: em vez da árvore conta → canal → formato (2026-11-24), lista os perfis do Instagram conectados (ícone + @), e cada um abre os Relatórios daquele perfil (`?conta=`), mesmo fora do filtro salvo. O mês continua na URL (`?mes=`).
 
 ## Regras de negócio
-1. Só gestor ou admin aprova. Uma publicação só pode ser marcada como publicada depois de `aprovado`.
-2. Quem não aprova e altera roteiro ou legenda de um conteúdo aprovado o devolve para `revisao`.
+1. Só gestor ou admin aprova, movendo para Finalizado (`aprovado`). Uma publicação só pode ser marcada como publicada depois de finalizado.
+2. Quem não aprova e altera roteiro ou legenda de um conteúdo finalizado o devolve para `edicao`.
 2a. A partir de `planejado`, o conteúdo precisa de pelo menos um canal, sempre da mesma conta.
 3. **Publicação automática** só existe para canais com API suportada e conectada (ver tabela abaixo). Nos demais, o status por canal é `manual`: a equipe publica por fora e marca como publicado informando a URL.
 4. O job `publicar-agendados` roda a cada 5 min e publica os `PublicacaoCanal` com `agendadoPara <= agora`. Em caso de falha, marca `erro` com a mensagem, tenta de novo 2 vezes e notifica o responsável.

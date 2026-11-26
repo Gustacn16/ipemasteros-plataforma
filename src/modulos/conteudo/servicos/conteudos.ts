@@ -71,7 +71,8 @@ export async function listarQuadro(ator: UsuarioAtual, f: FiltroConteudo) {
   >;
 }
 
-export async function listarCalendario(ator: UsuarioAtual, mes: string, f: FiltroConteudo, comGravacoes: boolean) {
+/** Calendário da produção: cada conteúdo aparece no dia da gravação e no dia da publicação. */
+export async function listarCalendario(ator: UsuarioAtual, mes: string, f: FiltroConteudo) {
   exigirUso(ator);
   const grade = gradeDoMes(mes);
   const intervalo = { gte: dataDoDia(grade[0][0].dia), lte: dataDoDia(grade.at(-1)!.at(-1)!.dia) };
@@ -79,29 +80,12 @@ export async function listarCalendario(ator: UsuarioAtual, mes: string, f: Filtr
     where: {
       ...whereFiltro(f),
       etapa: { not: "cancelado" },
-      OR: [{ dataPublicacao: intervalo }, ...(comGravacoes ? [{ dataGravacao: intervalo }] : [])],
+      OR: [{ dataPublicacao: intervalo }, { dataGravacao: intervalo }],
     },
     orderBy: { criadoEm: "asc" },
     select: selecaoCartao,
   });
   return { grade, itens };
-}
-
-export async function listarGravacoes(ator: UsuarioAtual, f: FiltroConteudo) {
-  exigirUso(ator);
-  const [aGravar, gravados] = await Promise.all([
-    prisma.conteudo.findMany({
-      where: { ...whereFiltro(f), etapa: "a_gravar" },
-      orderBy: [{ dataGravacao: { sort: "asc", nulls: "last" } }, { criadoEm: "asc" }],
-      select: selecaoCartao,
-    }),
-    prisma.conteudo.findMany({
-      where: { ...whereFiltro(f), etapa: { in: ["gravado", "edicao"] } },
-      orderBy: ordemPorData,
-      select: { ...selecaoCartao, linkMaterial: true },
-    }),
-  ]);
-  return { aGravar, gravados };
 }
 
 export async function listarPublicados(ator: UsuarioAtual, mes: string, f: FiltroConteudo) {
@@ -124,7 +108,9 @@ export async function listarPublicados(ator: UsuarioAtual, mes: string, f: Filtr
       comentarios: true,
       compartilhamentos: true,
       salvamentos: true,
-      conteudo: { select: { id: true, titulo: true, formatoRef: { select: { nome: true } }, marca: { select: { nome: true, cor: true } } } },
+      conteudo: {
+        select: { id: true, titulo: true, formatoRef: { select: { nome: true } }, marca: { select: { nome: true, cor: true } } },
+      },
       canal: { select: { id: true, plataforma: true, identificador: true } },
       // Ligada a um post do Instagram: aparece na seção Instagram de Publicados, não na lista de publicações.
       midia: { select: { id: true } },
@@ -277,7 +263,7 @@ export async function atualizarConteudo(ator: UsuarioAtual, conteudoId: string, 
     if (!ok) throw new ErroNegocio("Responsável inválido.");
   }
 
-  // Regra 5: quem não aprova e mexe no texto de um conteúdo aprovado devolve para revisão.
+  // Regra 5: quem não aprova e mexe no texto de um conteúdo finalizado devolve para edição.
   // (O roteiro tem salvamento próprio, em salvarRoteiro.)
   const voltaRevisao = voltaParaRevisao(ator, atual.etapa, dados.legenda !== atual.legenda);
 
@@ -288,7 +274,7 @@ export async function atualizarConteudo(ator: UsuarioAtual, conteudoId: string, 
     });
     const status = await tx.publicacao.findMany({ where: { conteudoId }, select: { status: true } });
     const etapa: Etapa = voltaRevisao
-      ? "revisao"
+      ? "edicao"
       : etapaAposPublicacoes(
           atual.etapa,
           status.map((s) => s.status),
@@ -306,8 +292,9 @@ export async function atualizarConteudo(ator: UsuarioAtual, conteudoId: string, 
   return { voltouParaRevisao: voltaRevisao };
 }
 
-/** Regra 5: quem não aprova e mexe no texto de um conteúdo aprovado devolve para revisão. */
-const voltaParaRevisao = (ator: UsuarioAtual, etapa: Etapa, mudouTexto: boolean) => etapa === "aprovado" && mudouTexto && !podeAprovar(ator);
+/** Regra 5: quem não aprova e mexe no texto de um conteúdo finalizado devolve para edição. */
+const voltaParaRevisao = (ator: UsuarioAtual, etapa: Etapa, mudouTexto: boolean) =>
+  etapa === "aprovado" && mudouTexto && !podeAprovar(ator);
 
 /** Anotações e roteiro (editor livre), salvos sozinhos enquanto a pessoa escreve. */
 export async function salvarRoteiro(ator: UsuarioAtual, conteudoId: string, roteiro: string | null) {
@@ -317,7 +304,7 @@ export async function salvarRoteiro(ator: UsuarioAtual, conteudoId: string, rote
   const voltaRevisao = voltaParaRevisao(ator, atual.etapa, true);
   await prisma.conteudo.update({
     where: { id: conteudoId },
-    data: { roteiro, ...(voltaRevisao ? { etapa: "revisao", aprovadoPorId: null, aprovadoEm: null } : {}) },
+    data: { roteiro, ...(voltaRevisao ? { etapa: "edicao", aprovadoPorId: null, aprovadoEm: null } : {}) },
   });
   return { voltouParaRevisao: voltaRevisao };
 }

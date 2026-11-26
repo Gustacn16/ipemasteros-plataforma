@@ -1,8 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { etapaAposPublicacoes, validarMudancaEtapa } from "./etapas";
+import { ETAPAS_DO_QUADRO, ROTULO_ETAPA, etapaAposPublicacoes, validarMudancaEtapa } from "./etapas";
 import { conteudoAtrasado, gradeDoMes, mesAnterior, proximoMes, taxaEngajamento } from "./calendario";
 
 const dia = (iso: string) => new Date(`${iso}T00:00:00Z`);
+
+describe("etapas da produção", () => {
+  it("o quadro tem cinco colunas: ideia, planejado, gravação, edição e finalizado", () => {
+    expect([...ETAPAS_DO_QUADRO]).toEqual(["ideia", "planejado", "a_gravar", "edicao", "aprovado"]);
+    expect(ETAPAS_DO_QUADRO.map((e) => ROTULO_ETAPA[e])).toEqual(["Ideia", "Planejado", "Gravação", "Edição", "Finalizado"]);
+  });
+});
 
 describe("validarMudancaEtapa", () => {
   const base = { podeAprovar: false, totalCanais: 1, todosPublicados: false };
@@ -17,8 +24,8 @@ describe("validarMudancaEtapa", () => {
     expect(validarMudancaEtapa({ ...base, totalCanais: 0, para: "planejado" })).toMatch(/canal/);
   });
 
-  it("só quem aprova move para aprovado", () => {
-    expect(validarMudancaEtapa({ ...base, para: "aprovado" })).toMatch(/aprova/);
+  it("só quem aprova move para finalizado", () => {
+    expect(validarMudancaEtapa({ ...base, para: "aprovado" })).toBe("Só admin ou gestor finaliza conteúdo.");
     expect(validarMudancaEtapa({ ...base, podeAprovar: true, para: "aprovado" })).toBeNull();
   });
 

@@ -9,9 +9,7 @@ import { BotaoNovoConteudo } from "./novo-conteudo";
 
 const VISOES = [
   { href: "/conteudo/relatorios", rotulo: "Relatórios" },
-  { href: "/conteudo/planejamento", rotulo: "Planejamento" },
-  { href: "/conteudo/calendario", rotulo: "Calendário" },
-  { href: "/conteudo/gravacoes", rotulo: "Gravações" },
+  { href: "/conteudo/producao", rotulo: "Produção" },
   { href: "/conteudo/publicados", rotulo: "Publicados" },
 ];
 

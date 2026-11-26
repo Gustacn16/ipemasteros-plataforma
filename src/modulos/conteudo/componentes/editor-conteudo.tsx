@@ -50,7 +50,9 @@ export function EditorConteudo({ conteudo, conta, canaisSelecionados, pessoas }:
         dataGravacao: campo("dataGravacao"),
         dataPublicacao: campo("dataPublicacao"),
         // O canal que deixou de ser o principal continua como extra, se já estava no conteúdo.
-        canalIds: [...new Set([...canalIds, ...canaisSelecionados.filter((id) => id !== escolha.canalId && id === conteudo.formatoRef?.canalId)])],
+        canalIds: [
+          ...new Set([...canalIds, ...canaisSelecionados.filter((id) => id !== escolha.canalId && id === conteudo.formatoRef?.canalId)]),
+        ],
       });
       setErros(r.erros ?? {});
       if (r.erros) return void avisar({ ok: false, mensagem: "Confira os campos destacados." });
@@ -61,7 +63,7 @@ export function EditorConteudo({ conteudo, conta, canaisSelecionados, pessoas }:
   function excluir() {
     if (!window.confirm("Excluir este conteúdo?")) return;
     iniciar(async () => {
-      if (avisar(await excluirConteudoAcao(conteudo.id))) router.push("/conteudo/planejamento");
+      if (avisar(await excluirConteudoAcao(conteudo.id))) router.push("/conteudo/producao");
     });
   }
 
@@ -100,11 +102,23 @@ export function EditorConteudo({ conteudo, conta, canaisSelecionados, pessoas }:
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="c-grav">Gravação</Label>
-            <input id="c-grav" type="date" name="dataGravacao" defaultValue={valorInputData(conteudo.dataGravacao)} className={estiloCampo} />
+            <input
+              id="c-grav"
+              type="date"
+              name="dataGravacao"
+              defaultValue={valorInputData(conteudo.dataGravacao)}
+              className={estiloCampo}
+            />
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="c-pub">Publicação prevista</Label>
-            <input id="c-pub" type="date" name="dataPublicacao" defaultValue={valorInputData(conteudo.dataPublicacao)} className={estiloCampo} />
+            <input
+              id="c-pub"
+              type="date"
+              name="dataPublicacao"
+              defaultValue={valorInputData(conteudo.dataPublicacao)}
+              className={estiloCampo}
+            />
           </div>
         </div>
 
@@ -113,7 +127,13 @@ export function EditorConteudo({ conteudo, conta, canaisSelecionados, pessoas }:
 
         <div className="grid gap-1.5">
           <Label htmlFor="c-link">Pasta do material (Google Drive)</Label>
-          <Input id="c-link" name="linkMaterial" type="url" defaultValue={conteudo.linkMaterial ?? ""} placeholder="https://drive.google.com/…" />
+          <Input
+            id="c-link"
+            name="linkMaterial"
+            type="url"
+            defaultValue={conteudo.linkMaterial ?? ""}
+            placeholder="https://drive.google.com/…"
+          />
           {erro("linkMaterial")}
         </div>
 

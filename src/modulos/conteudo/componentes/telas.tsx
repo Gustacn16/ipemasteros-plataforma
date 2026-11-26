@@ -1,18 +1,17 @@
 // Telas do módulo Conteúdo (só apresentação). As páginas em src/app/(app)/conteudo buscam os dados e
 // passam para cá; assim a prévia visual usa exatamente o mesmo desenho.
 import {
-  CheckIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   ClapperboardIcon,
   ExternalLinkIcon,
-  FolderOpenIcon,
   HeartIcon,
   KanbanIcon,
+  ListIcon,
+  CalendarDaysIcon,
   PercentIcon,
   SendIcon,
   UsersIcon,
-  VideoIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { CabecalhoPagina } from "@/componentes/cabecalho-pagina";
@@ -23,11 +22,11 @@ import { cn } from "@/lib/utils";
 import { CLASSE_TITULO_SECAO } from "@/modulos/tarefas/componentes/exibicao";
 import { diaDaDataEntrega } from "@/modulos/tarefas/regras/prazo";
 import { rotuloCanalFormato } from "../regras/formatos";
-import { mesAnterior, mesAtual, proximoMes, taxaEngajamento, type DiaGrade } from "../regras/calendario";
+import { conteudoAtrasado, mesAnterior, mesAtual, proximoMes, taxaEngajamento, type DiaGrade } from "../regras/calendario";
 import { COR_ETAPA, ETAPAS_DO_QUADRO, ROTULO_ETAPA } from "../regras/etapas";
 import type { CartaoConteudo, LinhaPublicado, obterConteudo } from "../servicos/conteudos";
 import { Separator } from "@/componentes/ui/separator";
-import { BadgeEtapa, Cartao, ChipPublicacao, NomeCanal, SeloPlataforma } from "./exibicao";
+import { BadgeEtapa, ChipPublicacao, NomeCanal, SeloPlataforma } from "./exibicao";
 import { EditorBlocos } from "./editor-blocos";
 import { EditorConteudo } from "./editor-conteudo";
 import { PublicacoesConteudo } from "./publicacoes-conteudo";
@@ -66,102 +65,180 @@ function NavegacaoMes({ mes, url, mostrarHoje }: { mes: string; url: (m: string)
   );
 }
 
-function TituloBloco({ id, titulo, total, perigo }: { id: string; titulo: string; total: number; perigo?: boolean }) {
+// ---------------------------------------------------------------- Produção
+
+export const VISOES_PRODUCAO = ["quadro", "lista", "calendario"] as const;
+export type VisaoProducao = (typeof VISOES_PRODUCAO)[number];
+const ROTULO_VISAO: Record<VisaoProducao, { rotulo: string; icone: typeof KanbanIcon }> = {
+  quadro: { rotulo: "Quadro", icone: KanbanIcon },
+  lista: { rotulo: "Lista", icone: ListIcon },
+  calendario: { rotulo: "Calendário", icone: CalendarDaysIcon },
+};
+type QuadroProducao = Record<(typeof ETAPAS_DO_QUADRO)[number], CartaoConteudo[]>;
+
+/** Quadro, Lista ou Calendário: botões que trocam a visão pela URL (`?visao=`). */
+function TrocaVisao({ atual }: { atual: VisaoProducao }) {
   return (
-    <h2 id={id} className={cn("font-semibold", perigo && total > 0 ? "text-perigo" : "text-foreground")}>
-      {titulo} <span className="text-muted-foreground font-normal tabular-nums">{total}</span>
-    </h2>
+    <div role="group" aria-label="Jeito de ver" className="bg-muted/50 inline-flex rounded-lg border p-0.5">
+      {VISOES_PRODUCAO.map((v) => {
+        const { rotulo, icone: Icone } = ROTULO_VISAO[v];
+        return (
+          <Link
+            key={v}
+            href={v === "quadro" ? "/conteudo/producao" : `/conteudo/producao?visao=${v}`}
+            aria-current={v === atual ? "page" : undefined}
+            className={cn(
+              "focus-visible:ring-ring inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm focus-visible:ring-2 focus-visible:outline-none",
+              v === atual ? "bg-background text-foreground font-medium shadow-sm" : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <Icone className="size-3.5" aria-hidden /> {rotulo}
+          </Link>
+        );
+      })}
+    </div>
   );
 }
 
-// ---------------------------------------------------------------- Planejamento
-
-export function TelaPlanejamento({
-  quadro,
-  agora = new Date(),
-}: {
-  quadro: Record<(typeof ETAPAS_DO_QUADRO)[number], CartaoConteudo[]>;
-  agora?: Date;
-}) {
-  const total = ETAPAS_DO_QUADRO.reduce((n, e) => n + quadro[e].length, 0);
+/**
+ * Produção do conteúdo numa tela só: Quadro (Kanban por etapa), Lista (agrupada por etapa) e
+ * Calendário (gravações e publicações do mês). Publicados ficam na aba Publicados.
+ */
+export function TelaProducao(
+  props:
+    | { visao: "quadro" | "lista"; quadro: QuadroProducao; agora?: Date }
+    | { visao: "calendario"; mes: string; grade: DiaGrade[][]; itens: CartaoConteudo[]; hoje: string },
+) {
+  const descricao =
+    props.visao === "calendario"
+      ? `${nomeMes(props.mes)}: gravações e publicações, na cor da etapa.`
+      : "Da ideia ao finalizado: gravação, edição e finalizado. Publicados ficam na aba Publicados.";
   return (
     <div className="grid grid-cols-1 gap-4">
       <CabecalhoPagina
-        titulo="Planejamento"
-        descricao="Da ideia à aprovação. Arraste os cartões entre as colunas. Publicados ficam na aba Publicados."
-        acoes={<BotaoNovoConteudo />}
+        titulo="Produção"
+        descricao={descricao}
+        acoes={
+          <>
+            {props.visao === "calendario" && (
+              <NavegacaoMes
+                mes={props.mes}
+                url={(m) => `/conteudo/producao?${new URLSearchParams({ visao: "calendario", mes: m })}`}
+                mostrarHoje
+              />
+            )}
+            <BotaoNovoConteudo />
+          </>
+        }
       />
-      {total === 0 ? (
+      <TrocaVisao atual={props.visao} />
+      {props.visao === "calendario" ? (
+        <CalendarioProducao mes={props.mes} grade={props.grade} itens={props.itens} hoje={props.hoje} />
+      ) : ETAPAS_DO_QUADRO.every((e) => props.quadro[e].length === 0) ? (
         <EstadoVazio
           icone={KanbanIcon}
           titulo="Nenhum conteúdo em produção"
           descricao="Crie o primeiro: ele começa como ideia. Atalho: tecla N."
           acao={<BotaoNovoConteudo />}
         />
+      ) : props.visao === "lista" ? (
+        <ListaProducao quadro={props.quadro} agora={props.agora ?? new Date()} />
       ) : (
-        <QuadroConteudo quadro={quadro} agora={agora} />
+        <QuadroConteudo quadro={props.quadro} agora={props.agora ?? new Date()} />
       )}
     </div>
   );
 }
 
-// ---------------------------------------------------------------- Calendário
+const diaCurto = (d: Date | null) => (d ? diaDaDataEntrega(d).slice(8, 10) + "/" + diaDaDataEntrega(d).slice(5, 7) : "—");
+
+/** Lista de produção: um bloco por etapa, uma linha por conteúdo. */
+function ListaProducao({ quadro, agora }: { quadro: QuadroProducao; agora: Date }) {
+  return (
+    <div className="grid gap-6">
+      {ETAPAS_DO_QUADRO.map((etapa) => (
+        <section key={etapa} aria-labelledby={`lista-${etapa}`} className="grid gap-2">
+          <div className="flex items-center gap-2">
+            <h2 id={`lista-${etapa}`} className="flex items-center gap-2 text-sm font-semibold">
+              <BadgeEtapa etapa={etapa} tamanho="md" />
+              <span className="text-muted-foreground font-normal tabular-nums">{quadro[etapa].length}</span>
+            </h2>
+            <BotaoNovoConteudo icone etapa={etapa} rotulo={`Novo conteúdo em ${ROTULO_ETAPA[etapa]}`} />
+          </div>
+          {quadro[etapa].length === 0 ? (
+            <p className="text-muted-foreground px-1 text-sm">Nada nesta etapa.</p>
+          ) : (
+            <div className="bg-card overflow-x-auto rounded-xl border">
+              <table className="w-full min-w-[46rem] text-sm">
+                <thead className="text-muted-foreground text-left text-xs">
+                  <tr className="border-b">
+                    <th className="px-3 py-2 font-normal">Conteúdo</th>
+                    <th className="px-3 py-2 font-normal">Canal e formato</th>
+                    <th className="px-3 py-2 font-normal">Responsável</th>
+                    <th className="px-3 py-2 font-normal">Gravação</th>
+                    <th className="px-3 py-2 font-normal">Publicação</th>
+                    <th className="w-36 px-3 py-2 font-normal">Etapa</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {quadro[etapa].map((i) => {
+                    const atrasado = conteudoAtrasado(i.dataPublicacao, i.etapa, agora);
+                    return (
+                      <tr key={i.id} className="border-b last:border-0">
+                        <td className="max-w-72 px-3 py-2">
+                          <Link href={`/conteudo/itens/${i.id}`} className="font-medium break-words hover:underline">
+                            {i.titulo}
+                          </Link>
+                          <p className="text-muted-foreground flex items-center gap-1 text-xs">
+                            <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: i.marca.cor }} />
+                            {i.marca.nome}
+                          </p>
+                        </td>
+                        <td className="px-3 py-2">
+                          {i.formatoRef ? (
+                            <span className="inline-flex items-center gap-1.5">
+                              <SeloPlataforma plataforma={i.formatoRef.canal.plataforma} /> {i.formatoRef.nome}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground italic">Sem formato</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2">{i.responsavel?.nome ?? <span className="text-muted-foreground">—</span>}</td>
+                        <td className="px-3 py-2 tabular-nums">{diaCurto(i.dataGravacao)}</td>
+                        <td className={cn("px-3 py-2 tabular-nums", atrasado && "text-perigo font-medium")}>
+                          {diaCurto(i.dataPublicacao)}
+                          {atrasado && <span className="sr-only"> (atrasado)</span>}
+                        </td>
+                        <td className="px-3 py-2">
+                          <SeletorEtapa conteudoId={i.id} etapa={i.etapa} compacto />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      ))}
+    </div>
+  );
+}
 
 const DIAS_SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
-export function TelaCalendario({
-  mes,
-  comGravacoes,
-  grade,
-  itens,
-  hoje,
-}: {
-  mes: string;
-  comGravacoes: boolean;
-  grade: DiaGrade[][];
-  itens: CartaoConteudo[];
-  hoje: string;
-}) {
+/** Calendário da produção: cada conteúdo no dia da gravação (claquete) e no dia da publicação, na cor da etapa. */
+function CalendarioProducao({ grade, itens, hoje }: { mes: string; grade: DiaGrade[][]; itens: CartaoConteudo[]; hoje: string }) {
   type Evento = { id: string; tipo: "publicacao" | "gravacao"; item: CartaoConteudo };
   const porDia = new Map<string, Evento[]>();
   const adicionar = (dia: string, e: Evento) => porDia.set(dia, [...(porDia.get(dia) ?? []), e]);
   for (const item of itens) {
+    if (item.dataGravacao) adicionar(diaDaDataEntrega(item.dataGravacao), { id: `${item.id}-g`, tipo: "gravacao", item });
     if (item.dataPublicacao) adicionar(diaDaDataEntrega(item.dataPublicacao), { id: `${item.id}-p`, tipo: "publicacao", item });
-    if (comGravacoes && item.dataGravacao) adicionar(diaDaDataEntrega(item.dataGravacao), { id: `${item.id}-g`, tipo: "gravacao", item });
   }
 
-  const url = (extra: Record<string, string>) =>
-    `/conteudo/calendario?${new URLSearchParams({ ...(comGravacoes ? { gravacoes: "1" } : {}), mes, ...extra })}`;
-
   return (
-    <div className="grid grid-cols-1 gap-4">
-      <CabecalhoPagina
-        titulo="Calendário"
-        descricao={nomeMes(mes)}
-        acoes={
-          <>
-            <NavegacaoMes mes={mes} url={(m) => url({ mes: m })} mostrarHoje />
-            <BotaoNovoConteudo />
-            <Link
-              href={`/conteudo/calendario?${new URLSearchParams({ mes, ...(comGravacoes ? {} : { gravacoes: "1" }) })}`}
-              className="hover:bg-muted flex items-center gap-2 rounded-md px-2 py-1 text-sm"
-              aria-pressed={comGravacoes}
-            >
-              <span
-                className={cn(
-                  "inline-flex size-4 items-center justify-center rounded border",
-                  comGravacoes && "border-primary bg-primary text-primary-foreground",
-                )}
-                aria-hidden
-              >
-                {comGravacoes && <CheckIcon className="size-3" />}
-              </span>
-              Mostrar gravações
-            </Link>
-          </>
-        }
-      />
-
+    <>
       {/* A grade rola dentro do próprio cartão quando não cabe; a página nunca rola de lado. */}
       <div className="bg-card relative min-w-0 overflow-x-auto rounded-xl border">
         <div className="grid min-w-[48rem] grid-cols-7">
@@ -203,29 +280,25 @@ export function TelaCalendario({
                     <li key={id} className="min-w-0">
                       <Link
                         href={`/conteudo/itens/${item.id}`}
-                        title={`${item.titulo} · ${tipo === "gravacao" ? "Gravação" : ROTULO_ETAPA[item.etapa]}`}
+                        title={`${tipo === "gravacao" ? "Gravação" : "Publicação"}: ${item.titulo} · ${ROTULO_ETAPA[item.etapa]}`}
                         className={cn(
                           "text-foreground hover:bg-muted flex min-w-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs",
-                          tipo === "gravacao" && "bg-informacao-suave border-informacao/40 border-dashed",
+                          tipo === "gravacao" && "border-dashed",
                         )}
-                        style={
-                          tipo === "publicacao"
-                            ? {
-                                backgroundColor: `color-mix(in oklab, ${COR_ETAPA[item.etapa]} 14%, transparent)`,
-                                borderColor: COR_ETAPA[item.etapa],
-                              }
-                            : undefined
-                        }
+                        style={{
+                          backgroundColor: `color-mix(in oklab, ${COR_ETAPA[item.etapa]} 14%, transparent)`,
+                          borderColor: COR_ETAPA[item.etapa],
+                        }}
                       >
                         {tipo === "gravacao" ? (
-                          <ClapperboardIcon className="text-informacao size-3 shrink-0" aria-label="Gravação" />
+                          <ClapperboardIcon className="size-3 shrink-0" aria-label="Gravação" />
                         ) : (
                           item.publicacoes
                             .slice(0, 2)
                             .map((p, i) => <SeloPlataforma key={i} plataforma={p.canal.plataforma} publicado={p.status === "publicado"} />)
                         )}
                         <span className="truncate">{item.titulo}</span>
-                        {tipo === "publicacao" && <span className="sr-only"> ({ROTULO_ETAPA[item.etapa]})</span>}
+                        <span className="sr-only"> ({ROTULO_ETAPA[item.etapa]})</span>
                       </Link>
                     </li>
                   ))}
@@ -235,93 +308,18 @@ export function TelaCalendario({
           })}
         </div>
       </div>
-      <p className="text-muted-foreground text-xs">
-        A cor do item indica a etapa; gravações aparecem tracejadas. Selos com contorno verde já foram publicados naquele canal.
-      </p>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------- Gravações
-
-export function TelaGravacoes({
-  aGravar,
-  gravados,
-  agora = new Date(),
-}: {
-  aGravar: CartaoConteudo[];
-  gravados: (CartaoConteudo & { linkMaterial: string | null })[];
-  agora?: Date;
-}) {
-  return (
-    <div className="grid grid-cols-1 gap-8">
-      <CabecalhoPagina
-        titulo="Gravações"
-        descricao="Agenda de gravação e o banco de material gravado que ainda não foi publicado."
-        acoes={<BotaoNovoConteudo etapa="a_gravar" rotulo="Novo para gravar" />}
-      />
-
-      <section aria-labelledby="sec-agravar" className="grid gap-3">
-        <TituloBloco id="sec-agravar" titulo="A gravar" total={aGravar.length} />
-        {aGravar.length === 0 ? (
-          <EstadoVazio
-            icone={VideoIcon}
-            titulo="Nada para gravar"
-            descricao="Mova um conteúdo para a etapa “A gravar” e marque a data no detalhe."
-            compacto
-          />
-        ) : (
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
-            {aGravar.map((i) => (
-              <Cartao
-                key={i.id}
-                item={i}
-                agora={agora}
-                mostrarGravacao
-                acoes={<SeletorEtapa conteudoId={i.id} etapa={i.etapa} compacto />}
-              />
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section aria-labelledby="sec-gravados" className="grid gap-3">
-        <div>
-          <TituloBloco id="sec-gravados" titulo="Banco de gravados" total={gravados.length} />
-          <p className="text-muted-foreground text-sm">Material gravado ou em edição, esperando para ser publicado.</p>
-        </div>
-        {gravados.length === 0 ? (
-          <EstadoVazio icone={ClapperboardIcon} titulo="Nenhum material gravado pendente." compacto />
-        ) : (
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
-            {gravados.map((i) => (
-              <Cartao
-                key={i.id}
-                item={i}
-                agora={agora}
-                acoes={
-                  <div className="flex min-w-0 items-center gap-2">
-                    <div className="min-w-0 flex-1">
-                      <SeletorEtapa conteudoId={i.id} etapa={i.etapa} compacto />
-                    </div>
-                    {i.linkMaterial && (
-                      <a
-                        href={i.linkMaterial}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="hover:bg-muted focus-visible:ring-ring inline-flex h-7 shrink-0 items-center gap-1 rounded-md border px-2 text-xs focus-visible:ring-2 focus-visible:outline-none"
-                      >
-                        <FolderOpenIcon className="size-3.5" aria-hidden /> Material
-                      </a>
-                    )}
-                  </div>
-                }
-              />
-            ))}
-          </div>
-        )}
-      </section>
-    </div>
+      <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+        {ETAPAS_DO_QUADRO.concat("publicado" as never).map((e) => (
+          <span key={e} className="inline-flex items-center gap-1.5">
+            <span aria-hidden className="size-2.5 rounded-sm" style={{ backgroundColor: COR_ETAPA[e] }} />
+            {ROTULO_ETAPA[e]}
+          </span>
+        ))}
+        <span className="inline-flex items-center gap-1.5">
+          <ClapperboardIcon className="size-3" aria-hidden /> tracejado = dia da gravação
+        </span>
+      </div>
+    </>
   );
 }
 
@@ -451,7 +449,7 @@ export function TelaPublicados({
         <EstadoVazio
           icone={SendIcon}
           titulo="Nada publicado neste mês"
-          descricao="Marque as publicações como feitas no detalhe de cada conteúdo aprovado."
+          descricao="Marque as publicações como feitas no detalhe de cada conteúdo finalizado."
         />
       ) : (
         <section aria-labelledby="sec-lista" className="@container grid min-w-0 gap-3">
@@ -563,7 +561,7 @@ export function TelaItemConteudo({ conteudo, pessoas, podeAprovar }: DadosItemCo
   const autoria =
     `Criado por ${conteudo.criadoPor.nome} em ${formatarDataHora(conteudo.criadoEm)}` +
     (conteudo.aprovadoPor && conteudo.aprovadoEm
-      ? ` · Aprovado por ${conteudo.aprovadoPor.nome} em ${formatarDataHora(conteudo.aprovadoEm)}`
+      ? ` · Finalizado por ${conteudo.aprovadoPor.nome} em ${formatarDataHora(conteudo.aprovadoEm)}`
       : "");
 
   return (
@@ -571,7 +569,7 @@ export function TelaItemConteudo({ conteudo, pessoas, podeAprovar }: DadosItemCo
     <div key={conteudo.atualizadoEm.toISOString()} className="grid max-w-4xl grid-cols-1 gap-6">
       <div className="grid gap-3">
         <Link
-          href="/conteudo/planejamento"
+          href="/conteudo/producao"
           className="text-muted-foreground flex min-w-0 items-center gap-1.5 justify-self-start text-sm hover:underline"
         >
           <span aria-hidden className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: conteudo.marca.cor }} />
@@ -588,8 +586,8 @@ export function TelaItemConteudo({ conteudo, pessoas, podeAprovar }: DadosItemCo
           <BadgeEtapa etapa={conteudo.etapa} tamanho="md" />
           <ChipPublicacao dataPublicacao={conteudo.dataPublicacao} etapa={conteudo.etapa} tamanho="md" />
           <SeletorEtapa conteudoId={conteudo.id} etapa={conteudo.etapa} />
-          {conteudo.etapa === "revisao" && !podeAprovar && (
-            <span className="text-muted-foreground text-sm">Aguardando aprovação de um gestor.</span>
+          {conteudo.etapa === "edicao" && !podeAprovar && (
+            <span className="text-muted-foreground text-sm">Um gestor move para Finalizado quando aprovar.</span>
           )}
         </div>
       </div>

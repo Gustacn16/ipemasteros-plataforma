@@ -70,7 +70,7 @@ function LinhaPublicacao({ p, liberada }: { p: Publicacao; liberada: boolean }) 
   }
 
   function desmarcar() {
-    if (!window.confirm("Desmarcar esta publicação? O conteúdo volta para aprovado.")) return;
+    if (!window.confirm("Desmarcar esta publicação? O conteúdo volta para finalizado.")) return;
     iniciar(async () => void avisar(await registrarPublicacaoAcao({ publicacaoId: p.id, publicado: false, url: p.url ?? "", data: "" })));
   }
 
